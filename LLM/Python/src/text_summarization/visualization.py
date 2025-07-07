@@ -175,10 +175,10 @@ class SummarizationVisualizer:
                 x=methods,
                 y=[self.normalized_exec_times[m] for m in methods],
                 mode='lines+markers',
-                name='Processing Speed',
+                name='Processing Speed Score',
                 line=dict(color='orange', width=2),
                 marker=dict(size=8),
-                hovertemplate='<b>%{x}</b><br>Processing Time: %{y:.3f}s<extra></extra>'
+                hovertemplate='<b>%{x}</b><br>Processing Speed Score: %{y:.2f}<extra></extra>'
             )
         )
 

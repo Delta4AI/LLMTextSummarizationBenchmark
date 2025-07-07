@@ -2,7 +2,7 @@ import logging
 import networkx as nx
 import numpy as np
 import re
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -62,7 +62,8 @@ class LocalClient(BaseClient):
         self.target_max_words = target_max_words
         self.preprocessor = TextPreprocessor()
 
-    def summarize(self, text: str, model_name: str, prompt: Optional[str] = None) -> str:
+    def summarize(self, text: str, model_name: str, prompt: Optional[str] = None,
+                  parameters: dict[str, Any] | None = None) -> str:
         """
         Local algorithm summarization.
 
@@ -70,6 +71,7 @@ class LocalClient(BaseClient):
             text: Input text to summarize
             model_name: Algorithm name ("textrank", "textrank-simple", "frequency", etc.)
             prompt: Not used for local algorithms
+            parameters: Additional parameters for Ollama API (e.g., {"temperature": 0.3})
 
         Returns:
             Generated summary
@@ -81,7 +83,7 @@ class LocalClient(BaseClient):
         elif model_name == "frequency":
             return self._frequency_summarize(text)
         else:
-            raise Exception(f"Unsupported local algorithm: {model_name}")
+            raise ValueError(f"Unsupported local algorithm: {model_name}")
 
     def _textrank_summarize_advanced(self, text: str) -> str:
         """Advanced TextRank using TF-IDF and cosine similarity."""

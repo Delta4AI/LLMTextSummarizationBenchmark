@@ -192,7 +192,13 @@ class SummarizationBenchmark:
 
     def __init__(self, output_dir: str = "benchmark_results", min_words: int = 15, max_words: int = 35,
                  llm_prompt: str = None):
-        self.output_dir = Path(output_dir)
+
+        script_dir = Path(__file__).parent
+        if not Path(output_dir).is_absolute():
+            self.output_dir = script_dir / output_dir
+        else:
+            self.output_dir = Path(output_dir)
+
         self.output_dir.mkdir(exist_ok=True)
 
         self.min_words = min_words
@@ -300,7 +306,7 @@ class SummarizationBenchmark:
 
         logger.info(f"Loaded {len(self.papers)} papers for benchmarking")
 
-    def run(self, platform: str, model_name: str):
+    def run(self, platform: str, model_name: str, parameters: dict[str, Any] | None = None):
         """Run external model evaluation."""
         method_name = f"{platform}_{model_name}"
 
@@ -310,9 +316,7 @@ class SummarizationBenchmark:
 
         if hasattr(self.api_clients[platform], 'warmup'):
             try:
-                logger.info(f"Warming up {method_name} API client...")
                 self.api_clients[platform].warmup(model_name=model_name)
-                logger.info("Warmup complete")
             except Exception as e:
                 logger.error(f"Warmup failed: {e}")
 
@@ -326,7 +330,9 @@ class SummarizationBenchmark:
                 summary = self.api_clients[platform].summarize(
                     text=full_text,
                     model_name=model_name,
-                    prompt=self.llm_prompt
+                    prompt=self.llm_prompt,
+                    parameters=parameters
+
                 )
                 summary = extract_response(summary)
 
@@ -474,8 +480,6 @@ def main():
     parser.add_argument("--output-dir", default="benchmark_results", help="Output directory")
     parser.add_argument("--min-words", type=int, default=15, help="Minimum target word count for summaries")
     parser.add_argument("--max-words", type=int, default=35, help="Maximum target word count for summaries")
-    parser.add_argument("--visualize", action="store_true", help="Only visualize the results without "
-                                                                 "running any benchmarks")
 
     args = parser.parse_args()
 
@@ -497,11 +501,6 @@ Summary ({args.min_words} - {args.max_words} words):
 
     benchmark.load_results_from_cache()
 
-    if args.visualize:
-        benchmark.visualizer.results = benchmark.results
-        benchmark.visualizer.create_all_visualizations()
-        return
-
     if not Path(args.data_file).exists():
         logger.error(f"Data file not found: {args.data_file}")
         return
@@ -521,7 +520,9 @@ Summary ({args.min_words} - {args.max_words} words):
     benchmark.run("huggingface", "bart-large-cnn")
     benchmark.run("huggingface", "t5-base")
 
-    benchmark.run("ollama", "deepseek-r1:1.5b")
+    benchmark.run("ollama", "deepseek-r1:1.5b", {
+        "num_predict": 20
+    })
     benchmark.run("ollama", "deepseek-r1:7b")
     # benchmark.run("ollama", "deepseek-r1:8b")
     # benchmark.run("ollama", "gemma3:1b")

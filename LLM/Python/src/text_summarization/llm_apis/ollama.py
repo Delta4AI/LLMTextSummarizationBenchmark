@@ -1,5 +1,6 @@
 import logging
 from doctest import UnexpectedException
+from typing import Any
 from xmlrpc.client import ResponseError
 
 import ollama
@@ -28,16 +29,18 @@ class OllamaClient(BaseClient):
 
     def warmup(self, model_name: str):
         try:
+            logger.info(f"Warming up Ollama {model_name} model")
             response = self.client.generate(
                 model=model_name,
                 prompt="What is 2+2?",
                 options={"temperature": 0.1, "num_predict": 10}
             )
-            logger.info(f"Warmup response: ${response['response']}")
+            logger.info(f"Warmup response: {response['response']}")
         except Exception as e:
             logger.error(f"Warmup failed: {e}")
 
-    def summarize(self, text: str, model_name: str, prompt: str | None = None) -> str:
+    def summarize(self, text: str, model_name: str, prompt: str | None = None,
+                  parameters: dict[str, Any] | None = None) -> str:
         """
         Ollama API summarization using official ollama Python library.
 
@@ -45,24 +48,27 @@ class OllamaClient(BaseClient):
             text: Input text to summarize
             model_name: Ollama model name (e.g., "granite3.1-dense:8b")
             prompt: Custom prompt template with placeholder for text
+            parameters: Additional parameters for Ollama API (e.g., {"temperature": 0.3})
 
         Returns:
             Generated summary or fallback_summary on error
         """
         try:
+
             formatted_prompt = prompt.format(text=text[:3000])
+
+            default_params = {
+                "temperature": 0.3,
+                "top_k": 40,
+                "top_p": 0.9,
+                # "num_predict": 200,  # TODO: might influence the returned length .. update dynamically from min_words and max_words, calculate in warum?
+            }
 
             logger.info(f"Making Ollama request with model {model_name}")
             response = self.client.generate(
                 model=model_name,
                 prompt=formatted_prompt,
-                options={
-                    'temperature': 0.3,
-                    'top_k': 40,
-                    'top_p': 0.9,
-                    # 'num_predict': 200,  # TODO: update dynamically from min_words and max_words (depends on model ..)
-                    # 'stop': ['\n\n', '---', 'References:', 'Bibliography:']
-                }
+                options={**default_params, **(parameters or {})}
             )
 
             if not response or 'response' not in response:

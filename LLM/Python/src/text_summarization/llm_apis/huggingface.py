@@ -1,5 +1,6 @@
 import logging
 import warnings
+from typing import Any
 
 from text_summarization.llm_apis.base_client import BaseClient
 
@@ -10,11 +11,16 @@ try:
     import torch
     TRANSFORMERS_AVAILABLE = True
 except ImportError:
-    logger.warning("Transformers not installed. HuggingFace models will be unavailable.")
+    logger.error("Transformers not installed. HuggingFace models will be unavailable.")
     TRANSFORMERS_AVAILABLE = False
 
 # Suppress transformers warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='transformers')
+
+LOOKUP = {
+    "huggingface_bart-large-cnn": (BartTokenizer, BartForConditionalGeneration),
+    "huggingface_t5-base": (T5Tokenizer, T5ForConditionalGeneration),
+}
 
 
 class HuggingFaceClient(BaseClient):
@@ -22,6 +28,9 @@ class HuggingFaceClient(BaseClient):
         self.models = {}
         if TRANSFORMERS_AVAILABLE:
             self._load_models()
+
+        self.tokenizer = None
+        self.model = None
 
     def _load_models(self):
         """Load pre-trained models on initialization."""
@@ -39,7 +48,8 @@ class HuggingFaceClient(BaseClient):
         except Exception as e:
             logger.warning(f"Failed to load T5 model: {e}")
 
-    def summarize(self, text: str, model_name: str, prompt: str | None = None) -> str:
+    def summarize(self, text: str, model_name: str, prompt: str | None = None,
+                  parameters: dict[str, Any] | None = None) -> str:
         """
         HuggingFace model summarization.
 
@@ -47,6 +57,7 @@ class HuggingFaceClient(BaseClient):
             text: Input text to summarize
             model_name: Model name ("bart-large-cnn" or "t5-base")
             prompt: Not used for HuggingFace models (they don't need prompts)
+            parameters: Additional parameters for Ollama API (e.g., {"temperature": 0.3})
 
         Returns:
             Generated summary
@@ -54,6 +65,7 @@ class HuggingFaceClient(BaseClient):
         Raises:
             Exception: If the model is not available or inference fails
         """
+        # TODO: harmonize class, use warmup for initializing tokenizer and model
         if not TRANSFORMERS_AVAILABLE:
             raise ImportError("Transformers library not available")
 
