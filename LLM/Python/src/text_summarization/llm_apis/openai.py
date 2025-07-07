@@ -9,6 +9,5 @@ class OpenAIClient(BaseClient):
     def __init__(self):
         pass
 
-    def summarize(self, text: str, model_name: str, prompt: str, fallback_summary: str = None) -> str:
-        logger.error(f"OpenAI API not yet implemented")
-        return fallback_summary
+    def summarize(self, text: str, model_name: str, prompt: str) -> str:
+        raise NotImplementedError("OpenAI API not yet implemented")

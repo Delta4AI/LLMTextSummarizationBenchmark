@@ -54,7 +54,7 @@ class SummarizationVisualizer:
         logger.info(f"Interactive visualizations saved to {self.output_dir}")
 
     def _get_average_metric_scores(self):
-        metrics = ["multi_ref_rouge1", "multi_ref_rouge2", "multi_ref_rougeL", "bert_score"]
+        metrics = ["rouge1", "rouge2", "rougeL", "bert_score"]
         for method in self.results:
             avg = 0
             for metric in metrics:
@@ -81,6 +81,8 @@ class SummarizationVisualizer:
     def _create_metric_comparison_plot(self):
         """Create ROUGE comparison plot with BERTScore (multi-ref scores only)."""
         methods = list(self.results.keys())
+        best_method = max(methods, key=lambda m: self.average_scores[m])
+        best_score = self.average_scores[best_method]
 
         fig = go.Figure()
 
@@ -88,11 +90,12 @@ class SummarizationVisualizer:
         fig.add_trace(
             go.Scatter(
                 x=methods,
-                y=[self.results[m].multi_ref_rouge1 for m in methods],
+                y=[self.results[m].rouge1 for m in methods],
                 mode='lines+markers',
                 name='ROUGE-1',
-                line=dict(color='blue', width=3),
+                line=dict(color='blue', width=2),
                 marker=dict(size=8),
+                opacity=0.8,
                 hovertemplate='<b>%{x}</b><br>ROUGE-1: %{y:.3f}<extra></extra>'
             )
         )
@@ -101,11 +104,12 @@ class SummarizationVisualizer:
         fig.add_trace(
             go.Scatter(
                 x=methods,
-                y=[self.results[m].multi_ref_rouge2 for m in methods],
+                y=[self.results[m].rouge2 for m in methods],
                 mode='lines+markers',
                 name='ROUGE-2',
                 line=dict(color='red', width=2),
                 marker=dict(size=8),
+                opacity=0.8,
                 hovertemplate='<b>%{x}</b><br>ROUGE-2: %{y:.3f}<extra></extra>'
             )
         )
@@ -114,11 +118,12 @@ class SummarizationVisualizer:
         fig.add_trace(
             go.Scatter(
                 x=methods,
-                y=[self.results[m].multi_ref_rougeL for m in methods],
+                y=[self.results[m].rougeL for m in methods],
                 mode='lines+markers',
                 name='ROUGE-L',
                 line=dict(color='green', width=2),
                 marker=dict(size=8),
+                opacity=0.8,
                 hovertemplate='<b>%{x}</b><br>ROUGE-L: %{y:.3f}<extra></extra>'
             )
         )
@@ -132,6 +137,7 @@ class SummarizationVisualizer:
                 name='BERTScore',
                 line=dict(color='purple', width=2),
                 marker=dict(size=8),
+                opacity=0.8,
                 hovertemplate='<b>%{x}</b><br>BERTScore: %{y:.3f}<extra></extra>'
             )
         )
@@ -147,6 +153,20 @@ class SummarizationVisualizer:
                 marker=dict(size=8),
                 hovertemplate='<b>%{x}</b><br>Average: %{y:.3f}<extra></extra>'
             )
+        )
+
+        fig.add_annotation(
+            x=best_method,
+            y=best_score,
+            text=f"{best_method}: {best_score:.3f}",
+            showarrow=True,
+            arrowhead=2,
+            arrowsize=1,
+            arrowwidth=2,
+            arrowcolor="gold",
+            bgcolor="yellow",
+            bordercolor="orange",
+            borderwidth=2
         )
 
         # Normalized execution times
@@ -172,7 +192,6 @@ class SummarizationVisualizer:
 
         output_path = self.output_dir / "metric_comparison.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
-
     def _create_length_analysis_plot(self):
         """Create length analysis plot with compliance breakdown and box plot only."""
         methods = list(self.results.keys())
@@ -270,23 +289,21 @@ class SummarizationVisualizer:
         """Create radar chart for top 8 performing methods with processing time."""
         methods = list(self.results.keys())
 
-        # Select top 8 methods by ROUGE-1 multi-ref
-        top_methods = sorted(methods, key=lambda m: self.results[m].multi_ref_rouge1, reverse=True)[:8]
+        # Select top 8 methods by ROUGE-1
+        top_methods = sorted(methods, key=lambda m: self.results[m].rouge1, reverse=True)[:8]
 
         fig = go.Figure()
 
-        # Metrics for radar chart (including processing time)
         metrics = ['ROUGE-1', 'ROUGE-2', 'ROUGE-L', 'BERTScore', 'Length Compliance', 'Processing Speed']
 
-        # Get max execution time for normalization
         max_exec_time = max(self.results[m].execution_time for m in methods)
 
         for i, method in enumerate(top_methods):
             result = self.results[method]
             values = [
-                result.multi_ref_rouge1,
-                result.multi_ref_rouge2,
-                result.multi_ref_rougeL,
+                result.rouge1,
+                result.rouge2,
+                result.rougeL,
                 result.bert_score,
                 result.length_stats['within_bounds_pct'] / 100,  # Normalize to 0-1
                 1 - (result.execution_time / max_exec_time)  # Invert and normalize (higher is better)
@@ -318,3 +335,4 @@ class SummarizationVisualizer:
 
         output_path = self.output_dir / "radar_chart.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
+

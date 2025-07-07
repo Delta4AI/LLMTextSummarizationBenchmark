@@ -1,5 +1,6 @@
 import logging
-import re
+from doctest import UnexpectedException
+from xmlrpc.client import ResponseError
 
 import ollama
 
@@ -25,7 +26,7 @@ class OllamaClient(BaseClient):
         self.host = host
         self.client = ollama.Client(host=self.host)
 
-    def summarize(self, text: str, model_name: str, prompt: str, fallback_summary: str = None) -> str:
+    def summarize(self, text: str, model_name: str, prompt: str | None = None) -> str:
         """
         Ollama API summarization using official ollama Python library.
 
@@ -33,7 +34,6 @@ class OllamaClient(BaseClient):
             text: Input text to summarize
             model_name: Ollama model name (e.g., "granite3.1-dense:8b")
             prompt: Custom prompt template with placeholder for text
-            fallback_summary: Fallback summary to return on error
 
         Returns:
             Generated summary or fallback_summary on error
@@ -55,13 +55,10 @@ class OllamaClient(BaseClient):
             )
 
             if not response or 'response' not in response:
-                logger.warning(f"Invalid or no response from Ollama {model_name}")
-                return fallback_summary
+                raise ResponseError("Invalid or no response from Ollama")
 
             logger.info(f"Successfully generated summary with Ollama {model_name}")
             return response["response"]
 
         except Exception as e:
-            logger.error(f"Unexpected error in Ollama summarization: {e}")
-            if fallback_summary:
-                return fallback_summary
+            raise UnexpectedException(f"Unexpected error in Ollama summarization: {e}")
