@@ -308,6 +308,14 @@ class SummarizationBenchmark:
             logger.info(f"Skipping interference for existing method: ${method_name}")
             return
 
+        if hasattr(self.api_clients[platform], 'warmup'):
+            try:
+                logger.info(f"Warming up {method_name} API client...")
+                self.api_clients[platform].warmup(model_name=model_name)
+                logger.info("Warmup complete")
+            except Exception as e:
+                logger.error(f"Warmup failed: {e}")
+
         results = []
         start_time = time.time()
 

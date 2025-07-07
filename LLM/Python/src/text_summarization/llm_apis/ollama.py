@@ -26,6 +26,17 @@ class OllamaClient(BaseClient):
         self.host = host
         self.client = ollama.Client(host=self.host)
 
+    def warmup(self, model_name: str):
+        try:
+            response = self.client.generate(
+                model=model_name,
+                prompt="What is 2+2?",
+                options={"temperature": 0.1, "num_predict": 10}
+            )
+            logger.info(f"Warmup response: ${response['response']}")
+        except Exception as e:
+            logger.error(f"Warmup failed: {e}")
+
     def summarize(self, text: str, model_name: str, prompt: str | None = None) -> str:
         """
         Ollama API summarization using official ollama Python library.
