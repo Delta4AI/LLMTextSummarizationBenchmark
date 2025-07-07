@@ -1,9 +1,23 @@
 import logging
+import re
+
 import ollama
 
 from text_summarization.llm_apis.base_client import BaseClient
 
 logger = logging.getLogger(__name__)
+
+
+def extract_final_answer(response_text: str) -> str:
+    """Extract the final answer from a response that may contain thinking tags."""
+
+    if '</think>' in response_text:
+        parts = response_text.split('</think>')
+        if len(parts) > 1:
+            final_answer = parts[-1].strip()
+            return final_answer
+
+    return response_text.strip()
 
 
 class OllamaClient(BaseClient):
@@ -36,38 +50,16 @@ class OllamaClient(BaseClient):
                     'top_k': 40,
                     'top_p': 0.9,
                     # 'num_predict': 200,  # TODO: update dynamically from min_words and max_words (depends on model ..)
-                    'stop': ['\n\n', '---', 'References:', 'Bibliography:']
+                    # 'stop': ['\n\n', '---', 'References:', 'Bibliography:']
                 }
             )
 
-            if response and 'response' in response:
-                summary = response['response'].strip()
-                summary = summary.replace("Summary:", "").strip()
-                summary = summary.split('\n')[0]
-
-                if len(summary) < 20:
-                    logger.warning(f"Ollama returned very short summary: {summary}")
-                    if fallback_summary:
-                        return fallback_summary
-                    raise ValueError("Summary too short and no fallback provided")
-
-                logger.info(f"Successfully generated summary with Ollama {model_name}")
-                return summary
-            else:
-                logger.error(f"Unexpected response format from Ollama: {response}")
-                if fallback_summary:
-                    return fallback_summary
-                raise ValueError("Invalid response format from Ollama")
-
-        except ollama.ResponseError as e:
-            logger.error(f"Ollama API error: {e}")
-            if fallback_summary:
+            if not response or 'response' not in response:
+                logger.warning(f"Invalid or no response from Ollama {model_name}")
                 return fallback_summary
 
-        except ConnectionError as e:
-            logger.error(f"Failed to connect to Ollama server: {e}")
-            if fallback_summary:
-                return fallback_summary
+            logger.info(f"Successfully generated summary with Ollama {model_name}")
+            return response["response"]
 
         except Exception as e:
             logger.error(f"Unexpected error in Ollama summarization: {e}")

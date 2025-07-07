@@ -69,17 +69,20 @@ Summary (15 - 35 words):
 ## Evaluation Metrics
 
 ### Quality Metrics
-- **ROUGE-1/2/L**: N-gram overlap with reference summaries
-  - Single-reference evaluation (first reference)
-  - Multi-reference evaluation (best score across all references)
+- **ROUGE-N**: Overlap of n-grams between the system and reference summaries. [source](https://en.wikipedia.org/wiki/ROUGE_(metric))
+  - **ROUGE-1**: refers to the overlap of unigrams (each word) between the system and reference summaries.
+  - **ROUGE-2**: refers to the overlap of bigrams between the system and reference summaries.
+- **ROUGE-L**: Longest Common Subsequence (LCS) based statistics. Longest common subsequence problem takes into account sentence-level structure similarity naturally and identifies longest co-occurring in sequence n-grams automatically.
+- **ROUGE-W**: Weighted LCS-based statistics that favors consecutive LCSes.
+- **ROUGE-S**: Skip-bigram based co-occurrence statistics. Skip-bigram is any pair of words in their sentence order.
+- **ROUGE-SU**: Skip-bigram plus unigram-based co-occurrence statistics.
 - **BERTScore**: Semantic similarity using BERT embeddings
-- **Execution Time**: Processing time for performance comparison
-
-### Length Compliance Metrics
-- **Within Bounds**: Percentage meeting length constraints
-- **Too Short/Long**: Violation statistics with percentages
-- **Average Length**: Mean word count with standard deviation
-- **Length Distribution**: Detailed statistical analysis
+- **Execution Time**: Processing time
+- **Length Compliance Metrics**
+  - **Within Bounds**: Percentage meeting length constraints
+  - **Too Short/Long**: Violation statistics with percentages
+  - **Average Length**: Mean word count with standard deviation
+  - **Length Distribution**: Detailed statistical analysis
 
 ## Output Files
 

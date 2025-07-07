@@ -16,15 +16,15 @@ Requirements:
 import json
 import logging
 import argparse
+import pickle
 import warnings
-from typing import List, Dict, Callable
+from typing import List, Dict, Callable, Optional, Any
 from dataclasses import dataclass
 from pathlib import Path
 import time
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 # NLP libraries
@@ -83,6 +83,7 @@ from llm_apis.ollama import OllamaClient
 from llm_apis.perplexity import PerplexityClient
 from llm_apis.anthropic import AnthropicClient
 from llm_apis.openai import OpenAIClient
+from visualization import SummarizationVisualizer
 
 
 @dataclass
@@ -367,15 +368,70 @@ class SummarizationMethods:
     def external_model_summarize(self, text: str, platform: str, model_name: str) -> str:
         """Generic external model summarization with length constraints passed as context."""
         try:
-            return self.api_clients[platform].summarize(
+            full_response = self.api_clients[platform].summarize(
                 text=text,
                 model_name=model_name,
                 prompt=self.llm_prompt,
                 fallback_summary=self.first_sentence_plus_title(text)
             )
+            return extract_response(full_response)
         except Exception as e:
             logger.error(f"External model summarization failed for {platform}/{model_name}: {e}")
             return self.first_sentence_plus_title(text)
+
+
+def extract_response(response_text: str) -> str:
+    if not response_text or not response_text.strip():
+        return ""
+
+    text = response_text.strip()
+
+    # Remove thinking blocks
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'</?think>', '', text, flags=re.IGNORECASE)
+
+    # Look for explicit markers
+    summary_patterns = [
+        r'(?:Summary|Answer|Result):\s*(.+?)(?:\n|$)',
+        r'(?:TL;DR|TLDR):\s*(.+?)(?:\n|$)',
+    ]
+
+    for pattern in summary_patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE | re.MULTILINE)
+        if match:
+            return _clean_text(match.group(1))
+
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    good_lines = []
+
+    for line in lines:
+        if re.match(r'^(?:let me|i will|i need to|okay|now|first|the user|based on)', line, re.IGNORECASE):
+            continue
+        if len(line.split()) < 5:
+            continue
+        good_lines.append(line)
+
+    # Pick best line
+    if good_lines:
+        complete_sentences = [line for line in good_lines if line.endswith(('.', '!', '?'))]
+        if complete_sentences:
+            return _clean_text(max(complete_sentences, key=len))
+        else:
+            return _clean_text(good_lines[0])
+
+    # Fallback
+    for line in lines:
+        if len(line) > 20:
+            return _clean_text(line)
+
+    return _clean_text(text)
+
+def _clean_text(text: str) -> str:
+    text = re.sub(r'^(?:Summary|Answer|Result):\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'^["\'](.+)["\']$', r'\1', text)
+    text = ' '.join(text.split())
+    return text.strip()
+
 
 class EvaluationMetrics:
     """Collection of evaluation metrics for multi-reference evaluation."""
@@ -517,8 +573,24 @@ class SummarizationBenchmark:
         self.evaluation_metrics = EvaluationMetrics()
         self.data_loader = DataLoader()
 
+        self.results_fn = self.output_dir / "results.pkl"
         self.results = {}
         self.papers = []
+        self.visualizer = SummarizationVisualizer(
+            output_dir=self.output_dir,
+            min_words=self.min_words,
+            max_words=self.max_words,
+        )
+
+    def save_results(self):
+        with open(self.results_fn, "wb") as f:
+            pickle.dump(self.results, f)
+        logger.info(f"Saved benchmark results to {self.results_fn}")
+
+    def load_results_from_cache(self):
+        with open(self.results_fn, "rb") as f:
+            self.results = pickle.load(f)
+        logger.info(f"Loaded benchmark results from {self.results_fn}")
 
     def calculate_length_stats(self, summaries: List[str]) -> Dict:
         """Calculate length compliance statistics for a set of summaries."""
@@ -627,11 +699,19 @@ class SummarizationBenchmark:
         }
 
         for method_name, method_function in base_methods.items():
+            if method_name in self.results:
+                logger.info(f"Skipping interference for existing method: ${method_name}")
+                continue
             self.evaluate_method(method_name, method_function)
 
     def run_external_model(self, platform: str, model_name: str):
         """Run external model evaluation."""
         display_name = f"{platform}_{model_name}"
+
+        if display_name in self.results:
+            logger.info(f"Skipping interference for existing method: ${display_name}")
+            return
+
         method_function = lambda text: self.summarization_methods.external_model_summarize(
             text, platform, model_name
         )
@@ -713,287 +793,13 @@ class SummarizationBenchmark:
         return df
 
     def create_visualizations(self):
-        """Create comprehensive visualization plots."""
-        if not self.results:
-            logger.warning("No results to visualize")
-            return
-
-        # Create main quality comparison plot
-        self._create_quality_comparison_plot()
-
-        # Create separate length analysis plot
-        self._create_length_analysis_plot()
-
-        logger.info(f"Visualizations saved to {self.output_dir}")
-
-    def _create_quality_comparison_plot(self):
-        """Create comprehensive quality metrics comparison plot."""
-        methods = list(self.results.keys())
-        colors = plt.cm.Set3(np.linspace(0, 1, len(methods)))
-
-        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-        fig.suptitle('Summarization Quality Comparison', fontsize=16)
-
-        x = np.arange(len(methods))
-        width = 0.35
-
-        # 1. ROUGE-1 comparison (single vs multi-reference)
-        single_rouge1 = [self.results[m].rouge1 for m in methods]
-        multi_rouge1 = [self.results[m].multi_ref_rouge1 for m in methods]
-
-        axes[0, 0].bar(x - width / 2, single_rouge1, width, label='Single Reference', color='skyblue', alpha=0.8)
-        axes[0, 0].bar(x + width / 2, multi_rouge1, width, label='Multi Reference', color='darkblue', alpha=0.8)
-        axes[0, 0].set_title('ROUGE-1 Scores')
-        axes[0, 0].set_ylabel('Score')
-        axes[0, 0].set_xticks(x)
-        axes[0, 0].set_xticklabels(methods, rotation=45, ha='right')
-        axes[0, 0].legend()
-        axes[0, 0].set_ylim(0, 1)
-
-        # 2. ROUGE-2 comparison (single vs multi-reference)
-        single_rouge2 = [self.results[m].rouge2 for m in methods]
-        multi_rouge2 = [self.results[m].multi_ref_rouge2 for m in methods]
-
-        axes[0, 1].bar(x - width / 2, single_rouge2, width, label='Single Reference', color='lightcoral', alpha=0.8)
-        axes[0, 1].bar(x + width / 2, multi_rouge2, width, label='Multi Reference', color='darkred', alpha=0.8)
-        axes[0, 1].set_title('ROUGE-2 Scores')
-        axes[0, 1].set_ylabel('Score')
-        axes[0, 1].set_xticks(x)
-        axes[0, 1].set_xticklabels(methods, rotation=45, ha='right')
-        axes[0, 1].legend()
-        axes[0, 1].set_ylim(0, 1)
-
-        # 3. ROUGE-L comparison (single vs multi-reference)
-        single_rougeL = [self.results[m].rougeL for m in methods]
-        multi_rougeL = [self.results[m].multi_ref_rougeL for m in methods]
-
-        axes[1, 0].bar(x - width / 2, single_rougeL, width, label='Single Reference', color='lightgreen', alpha=0.8)
-        axes[1, 0].bar(x + width / 2, multi_rougeL, width, label='Multi Reference', color='darkgreen', alpha=0.8)
-        axes[1, 0].set_title('ROUGE-L Scores')
-        axes[1, 0].set_ylabel('Score')
-        axes[1, 0].set_xticks(x)
-        axes[1, 0].set_xticklabels(methods, rotation=45, ha='right')
-        axes[1, 0].legend()
-        axes[1, 0].set_ylim(0, 1)
-
-        # 4. BERTScore and Execution Time
-        bert_scores = [self.results[m].bert_score for m in methods]
-        exec_times = [self.results[m].execution_time for m in methods]
-
-        # Create secondary y-axis for execution time
-        ax4 = axes[1, 1]
-        ax4_twin = ax4.twinx()
-
-        # BERTScore bars
-        bars1 = ax4.bar(x - width / 2, bert_scores, width, label='BERTScore', color='mediumpurple', alpha=0.8)
-        ax4.set_ylabel('BERTScore', color='mediumpurple')
-        ax4.tick_params(axis='y', labelcolor='mediumpurple')
-        ax4.set_ylim(0, 1)
-
-        # Execution time bars
-        bars2 = ax4_twin.bar(x + width / 2, exec_times, width, label='Execution Time', color='orange', alpha=0.8)
-        ax4_twin.set_ylabel('Execution Time (s)', color='orange')
-        ax4_twin.tick_params(axis='y', labelcolor='orange')
-
-        ax4.set_title('BERTScore & Execution Time')
-        ax4.set_xticks(x)
-        ax4.set_xticklabels(methods, rotation=45, ha='right')
-
-        # Combined legend
-        lines1, labels1 = ax4.get_legend_handles_labels()
-        lines2, labels2 = ax4_twin.get_legend_handles_labels()
-        ax4.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
-
-        plt.tight_layout()
-
-        # Save quality comparison plot
-        quality_plot_path = self.output_dir / "quality_comparison.png"
-        plt.savefig(quality_plot_path, dpi=300, bbox_inches='tight')
-        plt.close()
-
-    def _create_length_analysis_plot(self):
-        """Create dedicated length analysis visualization."""
-        methods = list(self.results.keys())
-        colors = plt.cm.Set3(np.linspace(0, 1, len(methods)))
-
-        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-        fig.suptitle(f'Length Analysis (Target: {self.min_words}-{self.max_words} words)', fontsize=16)
-
-        # 1. Length distribution histogram
-        ax1 = axes[0, 0]
-        for i, method in enumerate(methods):
-            lengths = self.results[method].length_stats['all_lengths']
-            ax1.hist(lengths, alpha=0.7, label=method, color=colors[i], bins=20, edgecolor='black', linewidth=0.5)
-
-        ax1.axvline(self.min_words, color='red', linestyle='--', linewidth=2, label=f'Min ({self.min_words})')
-        ax1.axvline(self.max_words, color='red', linestyle='--', linewidth=2, label=f'Max ({self.max_words})')
-        ax1.fill_between([self.min_words, self.max_words], 0, ax1.get_ylim()[1], alpha=0.2, color='green',
-                         label='Target Range')
-        ax1.set_xlabel('Word Count')
-        ax1.set_ylabel('Frequency')
-        ax1.set_title('Summary Length Distribution')
-        ax1.legend()
-        ax1.grid(True, alpha=0.3)
-
-        # 2. Box plot comparison
-        ax2 = axes[0, 1]
-        length_data = [self.results[method].length_stats['all_lengths'] for method in methods]
-        box_plot = ax2.boxplot(length_data, labels=methods, patch_artist=True,
-                               showmeans=True, meanline=True)
-
-        # Color the boxes
-        for patch, color in zip(box_plot['boxes'], colors):
-            patch.set_facecolor(color)
-            patch.set_alpha(0.7)
-
-        ax2.axhline(self.min_words, color='red', linestyle='--', alpha=0.8, linewidth=2)
-        ax2.axhline(self.max_words, color='red', linestyle='--', alpha=0.8, linewidth=2)
-        ax2.fill_between(ax2.get_xlim(), self.min_words, self.max_words, alpha=0.2, color='green')
-        ax2.set_ylabel('Word Count')
-        ax2.set_title('Length Distribution by Method')
-        ax2.tick_params(axis='x', rotation=45)
-        ax2.grid(True, alpha=0.3)
-
-        # 3. Compliance breakdown (stacked bar chart)
-        ax3 = axes[1, 0]
-        x = np.arange(len(methods))
-        within_bounds_pct = [self.results[m].length_stats['within_bounds_pct'] for m in methods]
-        too_short_pct = [self.results[m].length_stats['too_short_pct'] for m in methods]
-        too_long_pct = [self.results[m].length_stats['too_long_pct'] for m in methods]
-
-        bars1 = ax3.bar(x, within_bounds_pct, label='Within Bounds', color='lightgreen', alpha=0.8)
-        bars2 = ax3.bar(x, too_short_pct, bottom=within_bounds_pct, label='Too Short', color='lightcoral', alpha=0.8)
-        bottom_combined = [w + s for w, s in zip(within_bounds_pct, too_short_pct)]
-        bars3 = ax3.bar(x, too_long_pct, bottom=bottom_combined, label='Too Long', color='lightyellow', alpha=0.8)
-
-        # Add percentage labels on bars
-        for i, (within, short, long) in enumerate(zip(within_bounds_pct, too_short_pct, too_long_pct)):
-            if within > 5:  # Only show label if segment is large enough
-                ax3.text(i, within / 2, f'{within:.1f}%', ha='center', va='center', fontweight='bold')
-            if short > 5:
-                ax3.text(i, within + short / 2, f'{short:.1f}%', ha='center', va='center', fontweight='bold')
-            if long > 5:
-                ax3.text(i, within + short + long / 2, f'{long:.1f}%', ha='center', va='center', fontweight='bold')
-
-        ax3.set_xlabel('Method')
-        ax3.set_ylabel('Percentage')
-        ax3.set_title('Length Compliance (%)')
-        ax3.set_xticks(x)
-        ax3.set_xticklabels(methods, rotation=45, ha='right')
-        ax3.legend()
-        ax3.set_ylim(0, 100)
-        ax3.grid(True, alpha=0.3)
-
-        # 4. Average length with error bars
-        ax4 = axes[1, 1]
-        avg_lengths = [self.results[m].length_stats['avg_length'] for m in methods]
-        std_lengths = [self.results[m].length_stats['std_length'] for m in methods]
-
-        bars = ax4.bar(methods, avg_lengths, color=colors, alpha=0.8,
-                       yerr=std_lengths, capsize=5, error_kw={'linewidth': 2})
-
-        # Add value labels on bars
-        for i, (avg, std) in enumerate(zip(avg_lengths, std_lengths)):
-            ax4.text(i, avg + std + 0.5, f'{avg:.1f}±{std:.1f}', ha='center', va='bottom', fontweight='bold')
-
-        ax4.axhline(self.min_words, color='red', linestyle='--', alpha=0.8, linewidth=2,
-                    label=f'Min ({self.min_words})')
-        ax4.axhline(self.max_words, color='red', linestyle='--', alpha=0.8, linewidth=2,
-                    label=f'Max ({self.max_words})')
-        ax4.fill_between(ax4.get_xlim(), self.min_words, self.max_words, alpha=0.2, color='green', label='Target Range')
-        ax4.set_ylabel('Average Word Count')
-        ax4.set_title('Average Length ± Standard Deviation')
-        ax4.tick_params(axis='x', rotation=45)
-        ax4.legend()
-        ax4.grid(True, alpha=0.3)
-
-        plt.tight_layout()
-
-        # Save length analysis plot
-        length_plot_path = self.output_dir / "length_analysis.png"
-        plt.savefig(length_plot_path, dpi=300, bbox_inches='tight')
-        plt.close()
-
-    def _create_combined_performance_plot(self):
-        """Create a combined plot showing quality vs length compliance."""
-        methods = list(self.results.keys())
-        colors = plt.cm.Set3(np.linspace(0, 1, len(methods)))
-
-        fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-        fig.suptitle('Performance vs Length Compliance', fontsize=16)
-
-        # 1. Quality vs Length Compliance Scatter
-        ax1 = axes[0]
-        multi_rouge1 = [self.results[m].multi_ref_rouge1 for m in methods]
-        within_bounds_pct = [self.results[m].length_stats['within_bounds_pct'] for m in methods]
-
-        for i, method in enumerate(methods):
-            ax1.scatter(within_bounds_pct[i], multi_rouge1[i],
-                        color=colors[i], s=100, alpha=0.8, label=method)
-            ax1.annotate(method, (within_bounds_pct[i], multi_rouge1[i]),
-                         xytext=(5, 5), textcoords='offset points', fontsize=8)
-
-        ax1.set_xlabel('Length Compliance (%)')
-        ax1.set_ylabel('ROUGE-1 Multi-Reference')
-        ax1.set_title('Quality vs Length Compliance')
-        ax1.grid(True, alpha=0.3)
-        ax1.set_xlim(0, 100)
-        ax1.set_ylim(0, 1)
-
-        # 2. Radar chart for top methods
-        ax2 = axes[1]
-
-        # Select top 3 methods by ROUGE-1 multi-ref
-        top_methods = sorted(methods, key=lambda m: self.results[m].multi_ref_rouge1, reverse=True)[:3]
-
-        # Metrics to include in radar chart
-        metrics = ['ROUGE-1', 'ROUGE-2', 'ROUGE-L', 'BERTScore', 'Length\nCompliance']
-        angles = np.linspace(0, 2 * np.pi, len(metrics), endpoint=False).tolist()
-        angles += angles[:1]  # Complete the circle
-
-        for i, method in enumerate(top_methods):
-            result = self.results[method]
-            values = [
-                result.multi_ref_rouge1,
-                result.multi_ref_rouge2,
-                result.multi_ref_rougeL,
-                result.bert_score,
-                result.length_stats['within_bounds_pct'] / 100  # Normalize to 0-1
-            ]
-            values += values[:1]  # Complete the circle
-
-            ax2.plot(angles, values, 'o-', linewidth=2, label=method, color=colors[i])
-            ax2.fill(angles, values, alpha=0.25, color=colors[i])
-
-        ax2.set_xticks(angles[:-1])
-        ax2.set_xticklabels(metrics)
-        ax2.set_ylim(0, 1)
-        ax2.set_title('Top 3 Methods Performance Profile')
-        ax2.legend(loc='upper right', bbox_to_anchor=(1.3, 1.0))
-        ax2.grid(True)
-
-        plt.tight_layout()
-
-        # Save combined performance plot
-        combined_plot_path = self.output_dir / "performance_analysis.png"
-        plt.savefig(combined_plot_path, dpi=300, bbox_inches='tight')
-        plt.close()
-
-    def create_visualizations(self):
         """Create all visualization plots."""
         if not self.results:
             logger.warning("No results to visualize")
             return
 
-        self._create_quality_comparison_plot()
-        self._create_length_analysis_plot()
-        self._create_combined_performance_plot()
-
-        logger.info(f"Visualizations saved to {self.output_dir}")
-        logger.info("Generated plots:")
-        logger.info("  - quality_comparison.png: ROUGE-1, ROUGE-2, ROUGE-L, BERTScore comparison")
-        logger.info("  - length_analysis.png: Detailed length distribution and compliance analysis")
-        logger.info("  - performance_analysis.png: Combined quality vs length compliance analysis")
+        self.visualizer.set_results(self.results)
+        self.visualizer.create_all_visualizations()
 
     def save_detailed_results(self):
         """Save detailed results to JSON including length statistics."""
@@ -1023,11 +829,12 @@ class SummarizationBenchmark:
 def main():
     """Main execution function with length constraints."""
     parser = argparse.ArgumentParser(description="Scientific Paper Summarization Benchmark")
-    parser.add_argument("--data-file", required=True,
-                        help="Path to JSON file containing papers with reference summaries")
+    parser.add_argument("--data-file", help="Path to JSON file containing papers with reference summaries")
     parser.add_argument("--output-dir", default="benchmark_results", help="Output directory")
     parser.add_argument("--min-words", type=int, default=15, help="Minimum target word count for summaries")
     parser.add_argument("--max-words", type=int, default=35, help="Maximum target word count for summaries")
+    parser.add_argument("--visualize", action="store_true", help="Only visualize the results without "
+                                                                 "running any benchmarks")
 
     args = parser.parse_args()
 
@@ -1040,17 +847,23 @@ Focus on the key findings, methodology, and conclusions.
 Summary ({args.min_words} - {args.max_words} words):
 """
 
-    if not Path(args.data_file).exists():
-        logger.error(f"Data file not found: {args.data_file}")
-        return
-
-    # Initialize benchmark with length constraints
     benchmark = SummarizationBenchmark(
         output_dir=args.output_dir,
         min_words=args.min_words,
         max_words=args.max_words,
         llm_prompt=llm_prompt
     )
+
+    benchmark.load_results_from_cache()
+
+    if args.visualize:
+        benchmark.visualizer.results = benchmark.results
+        benchmark.visualizer.create_all_visualizations()
+        return
+
+    if not Path(args.data_file).exists():
+        logger.error(f"Data file not found: {args.data_file}")
+        return
 
     try:
         benchmark.load_papers(args.data_file)
@@ -1064,11 +877,36 @@ Summary ({args.min_words} - {args.max_words} words):
     benchmark.run_base_methods()
 
     # Run external models
+    benchmark.run_external_model("ollama", "deepseek-r1:1.5b")
+    benchmark.run_external_model("ollama", "deepseek-r1:7b")
+    benchmark.run_external_model("ollama", "deepseek-r1:8b")
+    benchmark.run_external_model("ollama", "deepseek-r1:14b")
+    benchmark.run_external_model("ollama", "deepseek-r1:32b")
+    benchmark.run_external_model("ollama", "gemma3:12b")
+    benchmark.run_external_model("ollama", "gemma3:1b")
+    benchmark.run_external_model("ollama", "gemma3:27b")
+    benchmark.run_external_model("ollama", "gemma3:4b")
     benchmark.run_external_model("ollama", "granite3.3:2b")
     benchmark.run_external_model("ollama", "granite3.3:8b")
-    benchmark.run_external_model("ollama", "gemma3:12b")
+    # benchmark.run_external_model("ollama", "kronos483/MedEmbed-large-v0.1:latest")
     benchmark.run_external_model("ollama", "llama3.1:8b")
-    benchmark.run_external_model("ollama", "deepseek-r1:7b")
+    benchmark.run_external_model("ollama", "llama3.2:1b")
+    benchmark.run_external_model("ollama", "llama3.2:3b")
+    benchmark.run_external_model("ollama", "llama3.3:latest")
+    # benchmark.run_external_model("ollama", "llama3-gradient:latest")
+    benchmark.run_external_model("ollama", "meditron:7b")
+    benchmark.run_external_model("ollama", "medllama2:7b")
+    benchmark.run_external_model("ollama", "mistral:7b")
+    benchmark.run_external_model("ollama", "mistral-nemo:latest")
+    benchmark.run_external_model("ollama", "oscardp96/medcpt-query:latest")
+    benchmark.run_external_model("ollama", "PetrosStav/gemma3-tools:27b")
+    benchmark.run_external_model("ollama", "PetrosStav/gemma3-tools:4b")
+    benchmark.run_external_model("ollama", "phi3:3.8b")
+    benchmark.run_external_model("ollama", "phi4:14b")
+    benchmark.run_external_model("ollama", "phi4:latest")
+    benchmark.run_external_model("ollama", "qwen3:4b")
+    benchmark.run_external_model("ollama", "qwen3:8b")
+    benchmark.run_external_model("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")
 
     # Generate reports
     comparison_df = benchmark.generate_comparison_report()
@@ -1083,6 +921,8 @@ Summary ({args.min_words} - {args.max_words} words):
     print("LENGTH COMPLIANCE REPORT")
     print("=" * 80)
     print(compliance_df.to_string(index=False))
+
+    benchmark.save_results()
 
     benchmark.create_visualizations()
     benchmark.save_detailed_results()
