@@ -15,7 +15,6 @@ Requirements:
 
 import json
 import logging
-import argparse
 import pickle
 from typing import List, Dict, Any
 from dataclasses import dataclass
@@ -26,15 +25,9 @@ import numpy as np
 import pandas as pd
 from numpy import floating
 from tqdm import tqdm
-import re
-
 from rouge_score import rouge_scorer
+from bert_score import score as bert_score
 
-try:
-    from bert_score import score as bert_score
-except ImportError:
-    print("Warning: bert_score not installed. BERTScore evaluation will be skipped.")
-    bert_score = None
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,7 +44,7 @@ from text_summarization.llm_apis.ollama_client import OllamaClient
 from text_summarization.llm_apis.mistral_client import MistralClient
 from text_summarization.llm_apis.anthropic_client import AnthropicClient
 from text_summarization.llm_apis.openai_client import OpenAIClient
-from text_summarization.llm_apis.huggingface_client import HuggingFaceClient
+from text_summarization.llm_apis.huggingface_client_v2 import HuggingFaceClient
 from text_summarization.llm_apis.local_client import LocalClient
 from text_summarization.config import MIN_WORDS, MAX_WORDS, OUTPUT_DIR, PAPERS_DATA_FILE
 from text_summarization.utilities import extract_response
@@ -112,10 +105,6 @@ class EvaluationMetrics:
     @staticmethod
     def calculate_bert_score(generated: List[str], references: List[List[str]]) -> float:
         """Calculate BERTScore using best reference for each generated summary."""
-        if bert_score is None:
-            logger.warning("BERTScore not available")
-            return 0.0
-
         try:
             best_scores = []
 
@@ -450,32 +439,40 @@ def main():
     benchmark.run("local", "textrank-simple")
     benchmark.run("local", "frequency")
 
-    # https://huggingface.co/models?pipeline_tag=summarization
-    benchmark.run("huggingface", "bart-large-cnn")
-    benchmark.run("huggingface", "t5-base")
+    # https://huggingface.co/models?pipeline_tag=summarization&language=en&sort=trending
+    benchmark.run("huggingface", "facebook/bart-large-cnn")
+    benchmark.run("huggingface", "facebook/bart-base")
+    benchmark.run("huggingface", "google-t5/t5-base")
+    benchmark.run("huggingface", "google-t5/t5-large")
+    benchmark.run("huggingface", "csebuetnlp/mT5_multilingual_XLSum")
+    benchmark.run("huggingface", "google/pegasus-xsum")
+    benchmark.run("huggingface", "google/pegasus-large")
+    benchmark.run("huggingface", "google/pegasus-cnn_dailymail")
+    benchmark.run("huggingface", "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization")
 
-    benchmark.run("ollama", "deepseek-r1:1.5b", {})
-    benchmark.run("ollama", "deepseek-r1:7b", {})
-    benchmark.run("ollama", "deepseek-r1:8b", {})
-    benchmark.run("ollama", "gemma3:1b", {})
-    benchmark.run("ollama", "gemma3:4b", {})
-    benchmark.run("ollama", "gemma3:12b", {})
-    benchmark.run("ollama", "granite3.3:2b", {})
-    benchmark.run("ollama", "granite3.3:8b", {})
-    benchmark.run("ollama", "llama3.1:8b", {})
-    benchmark.run("ollama", "llama3.2:1b", {})
-    benchmark.run("ollama", "llama3.2:3b", {})
-    benchmark.run("ollama", "meditron:7b", {})
-    benchmark.run("ollama", "medllama2:7b", {})
-    benchmark.run("ollama", "mistral:7b", {})
-    benchmark.run("ollama", "mistral-nemo:latest", {})
-    benchmark.run("ollama", "PetrosStav/gemma3-tools:4b", {})
-    benchmark.run("ollama", "phi3:3.8b", {})
-    benchmark.run("ollama", "phi4:14b", {})
-    benchmark.run("ollama", "phi4:latest", {})
-    benchmark.run("ollama", "qwen3:4b", {})
-    benchmark.run("ollama", "qwen3:8b", {})
-    benchmark.run("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0", {})
+    benchmark.run("ollama", "deepseek-r1:1.5b")
+    benchmark.run("ollama", "deepseek-r1:7b")
+    benchmark.run("ollama", "deepseek-r1:8b")
+    benchmark.run("ollama", "deepseek-r1:14b")
+    benchmark.run("ollama", "gemma3:1b")
+    benchmark.run("ollama", "gemma3:4b")
+    benchmark.run("ollama", "gemma3:12b")
+    benchmark.run("ollama", "granite3.3:2b")
+    benchmark.run("ollama", "granite3.3:8b")
+    benchmark.run("ollama", "llama3.1:8b")
+    benchmark.run("ollama", "llama3.2:1b")
+    benchmark.run("ollama", "llama3.2:3b")
+    benchmark.run("ollama", "meditron:7b")
+    benchmark.run("ollama", "medllama2:7b")
+    benchmark.run("ollama", "mistral:7b")
+    benchmark.run("ollama", "mistral-nemo:latest")
+    benchmark.run("ollama", "PetrosStav/gemma3-tools:4b")
+    benchmark.run("ollama", "phi3:3.8b")
+    benchmark.run("ollama", "phi4:14b")
+    benchmark.run("ollama", "phi4:latest")
+    benchmark.run("ollama", "qwen3:4b")
+    benchmark.run("ollama", "qwen3:8b")
+    benchmark.run("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")
 
     # https://platform.openai.com/docs/models
     benchmark.run("openai", "gpt-3.5-turbo")
@@ -494,7 +491,6 @@ def main():
 
 
     # expensive
-    # benchmark.run("ollama", "deepseek-r1:14b")
     # benchmark.run("ollama", "deepseek-r1:32b")
     # benchmark.run("ollama", "gemma3:27b")
     # benchmark.run("ollama", "llama3.3:latest")

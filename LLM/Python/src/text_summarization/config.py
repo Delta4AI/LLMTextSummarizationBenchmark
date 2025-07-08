@@ -1,5 +1,5 @@
 MIN_WORDS: int = 15
-MAX_WORDS: int = 35
+MAX_WORDS: int = 50
 OUTPUT_DIR: str = "benchmark_results"
 PAPERS_DATA_FILE: str = "Resources/text_summarization_goldstandard_data_AKI_CKD.json"
 
@@ -11,6 +11,17 @@ SYSTEM_PROMPT = f"""Summarize the provided publication (consisting of a title an
 - The summary must be within {MIN_WORDS}-{MAX_WORDS} words. Do not exceed or go under this limit.
 - Exclude unnecessary background, introductory explanations, or restatements of methods unless directly related to the main conclusion.
 - Write concisely and objectively, focusing on substance rather than style."""
+
+HUGGINGFACE_DEFAULT_PARAMS = {
+    "max_length": MAX_WORDS,
+    "min_length": MIN_WORDS,
+    "do_sample": False,
+    "num_beams": 4,
+    "early_stopping": True,
+    "length_penalty": 2.0,
+    "top_p": 1,
+    "temperature": 1,
+}
 
 OPENAI_DEFAULT_PARAMS = {
     "temperature": 1,

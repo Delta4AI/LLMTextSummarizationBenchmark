@@ -84,6 +84,11 @@ class SummarizationVisualizer:
         best_method = max(methods, key=lambda m: self.average_scores[m])
         best_score = self.average_scores[best_method]
 
+        # Calculate percentiles
+        scores = [self.average_scores[m] for m in methods]
+        percentile_75 = np.percentile(scores, 75)
+        percentile_90 = np.percentile(scores, 90)
+
         fig = go.Figure()
 
         # ROUGE-1 Multi-ref
@@ -155,19 +160,35 @@ class SummarizationVisualizer:
             )
         )
 
-        fig.add_annotation(
-            x=best_method,
-            y=best_score,
-            text=f"{best_method}: {best_score:.3f}",
-            showarrow=True,
-            arrowhead=2,
-            arrowsize=1,
-            arrowwidth=2,
-            arrowcolor="gold",
-            bgcolor="yellow",
-            bordercolor="orange",
-            borderwidth=2
-        )
+        annotation_styles = {
+            'best method': {'arrowcolor': 'darkred', 'bgcolor': 'lightcoral', 'bordercolor': 'red'},
+            'top 90%': {'arrowcolor': 'gold', 'bgcolor': 'yellow', 'bordercolor': 'orange'},
+            'top 75%': {'arrowcolor': 'steelblue', 'bgcolor': 'lightblue', 'bordercolor': 'blue'}
+        }
+
+        for method in methods:
+            score = self.average_scores[method]
+
+            if method == best_method:
+                style_key = "best method"
+            elif score >= percentile_90:
+                style_key = "top 90%"
+            elif score >= percentile_75:
+                style_key = "top 75%"
+            else:
+                continue  # No annotation for methods below 75th percentile
+
+            fig.add_annotation(
+                x=method,
+                y=score,
+                text=f"{style_key}<br>{method}: {score:.3f}",
+                showarrow=True,
+                arrowhead=2,
+                arrowsize=1,
+                arrowwidth=2,
+                **annotation_styles[style_key],
+                borderwidth=2
+            )
 
         # Normalized execution times
         fig.add_trace(
@@ -192,6 +213,7 @@ class SummarizationVisualizer:
 
         output_path = self.output_dir / "metric_comparison.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
+
     def _create_length_analysis_plot(self):
         """Create length analysis plot with compliance breakdown and box plot only."""
         methods = list(self.results.keys())
