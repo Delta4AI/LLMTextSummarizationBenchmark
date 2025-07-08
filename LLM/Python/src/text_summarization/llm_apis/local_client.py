@@ -62,16 +62,16 @@ class LocalClient(BaseClient):
         self.target_max_words = target_max_words
         self.preprocessor = TextPreprocessor()
 
-    def summarize(self, text: str, model_name: str, prompt: Optional[str] = None,
-                  parameters: dict[str, Any] | None = None) -> str:
+    def summarize(self, text: str, model_name: str, system_prompt_override: Optional[str] = None,
+                  parameter_overrides: dict[str, Any] | None = None) -> str:
         """
         Local algorithm summarization.
 
         Args:
             text: Input text to summarize
             model_name: Algorithm name ("textrank", "textrank-simple", "frequency", etc.)
-            prompt: Not used for local algorithms
-            parameters: Additional parameters for Ollama API (e.g., {"temperature": 0.3})
+            system_prompt_override: Not used for local algorithms
+            parameter_overrides: Additional parameters for Ollama API (e.g., {"temperature": 0.3})
 
         Returns:
             Generated summary

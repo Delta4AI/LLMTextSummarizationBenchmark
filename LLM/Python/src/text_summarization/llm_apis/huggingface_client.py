@@ -48,16 +48,16 @@ class HuggingFaceClient(BaseClient):
         except Exception as e:
             logger.warning(f"Failed to load T5 model: {e}")
 
-    def summarize(self, text: str, model_name: str, prompt: str | None = None,
-                  parameters: dict[str, Any] | None = None) -> str:
+    def summarize(self, text: str, model_name: str, system_prompt_override: str | None = None,
+                  parameter_overrides: dict[str, Any] | None = None) -> str:
         """
         HuggingFace model summarization.
 
         Args:
             text: Input text to summarize
             model_name: Model name ("bart-large-cnn" or "t5-base")
-            prompt: Not used for HuggingFace models (they don't need prompts)
-            parameters: Additional parameters for Ollama API (e.g., {"temperature": 0.3})
+            system_prompt_override: Not used for HuggingFace models (they don't need prompts)
+            parameter_overrides: Additional parameters for Ollama API (e.g., {"temperature": 0.3})
 
         Returns:
             Generated summary

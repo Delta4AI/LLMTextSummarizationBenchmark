@@ -47,13 +47,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from llm_apis.ollama import OllamaClient
-from llm_apis.perplexity import PerplexityClient
-from llm_apis.anthropic import AnthropicClient
-from llm_apis.openai import OpenAIClient
-from llm_apis.huggingface import HuggingFaceClient
-from llm_apis.local import LocalClient
-from visualization import SummarizationVisualizer
+from text_summarization.llm_apis.ollama_client import OllamaClient
+from text_summarization.llm_apis.mistral_client import MistralClient
+from text_summarization.llm_apis.anthropic_client import AnthropicClient
+from text_summarization.llm_apis.openai_client import OpenAIClient
+from text_summarization.llm_apis.huggingface_client import HuggingFaceClient
+from text_summarization.llm_apis.local_client import LocalClient
+from text_summarization.config import MIN_WORDS, MAX_WORDS, OUTPUT_DIR, PAPERS_DATA_FILE
+from text_summarization.utilities import extract_response
+from text_summarization.visualization import SummarizationVisualizer
 
 
 @dataclass
@@ -76,59 +78,6 @@ class EvaluationResult:
     execution_time: float
     summaries: List[str]
     length_stats: Dict
-
-
-def extract_response(response_text: str) -> str:
-    if not response_text or not response_text.strip():
-        return ""
-
-    text = response_text.strip()
-
-    # Remove thinking blocks
-    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r'</?think>', '', text, flags=re.IGNORECASE)
-
-    # Look for explicit markers
-    summary_patterns = [
-        r'(?:Summary|Answer|Result):\s*(.+?)(?:\n|$)',
-        r'(?:TL;DR|TLDR):\s*(.+?)(?:\n|$)',
-    ]
-
-    for pattern in summary_patterns:
-        match = re.search(pattern, text, flags=re.IGNORECASE | re.MULTILINE)
-        if match:
-            return _clean_text(match.group(1))
-
-    lines = [line.strip() for line in text.split('\n') if line.strip()]
-    good_lines = []
-
-    for line in lines:
-        if re.match(r'^(?:let me|i will|i need to|okay|now|first|the user|based on)', line, re.IGNORECASE):
-            continue
-        if len(line.split()) < 5:
-            continue
-        good_lines.append(line)
-
-    # Pick best line
-    if good_lines:
-        complete_sentences = [line for line in good_lines if line.endswith(('.', '!', '?'))]
-        if complete_sentences:
-            return _clean_text(max(complete_sentences, key=len))
-        else:
-            return _clean_text(good_lines[0])
-
-    # Fallback
-    for line in lines:
-        if len(line) > 20:
-            return _clean_text(line)
-
-    return _clean_text(text)
-
-def _clean_text(text: str) -> str:
-    text = re.sub(r'^(?:Summary|Answer|Result):\s*', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'^["\'](.+)["\']$', r'\1', text)
-    text = ' '.join(text.split())
-    return text.strip()
 
 
 class EvaluationMetrics:
@@ -190,20 +139,18 @@ class EvaluationMetrics:
 class SummarizationBenchmark:
     """Main benchmarking framework with length constraint tracking."""
 
-    def __init__(self, output_dir: str = "benchmark_results", min_words: int = 15, max_words: int = 35,
-                 llm_prompt: str = None):
+    def __init__(self):
 
         script_dir = Path(__file__).parent
-        if not Path(output_dir).is_absolute():
-            self.output_dir = script_dir / output_dir
+        if not Path(OUTPUT_DIR).is_absolute():
+            self.output_dir = script_dir / OUTPUT_DIR
         else:
-            self.output_dir = Path(output_dir)
+            self.output_dir = Path(OUTPUT_DIR)
 
         self.output_dir.mkdir(exist_ok=True)
 
-        self.min_words = min_words
-        self.max_words = max_words
-        self.llm_prompt = llm_prompt
+        self.min_words = MIN_WORDS
+        self.max_words = MAX_WORDS
 
         self.evaluation_metrics = EvaluationMetrics()
 
@@ -225,7 +172,7 @@ class SummarizationBenchmark:
             ("ollama", OllamaClient),
             ("openai", OpenAIClient),
             ("anthropic", AnthropicClient),
-            ("perplexity", PerplexityClient),
+            ("mistral", MistralClient),
             ("huggingface", HuggingFaceClient),
             ("local", LocalClient),
         ]:
@@ -272,7 +219,7 @@ class SummarizationBenchmark:
             'all_lengths': lengths
         }
 
-    def load_papers(self, json_file_path: str):
+    def load_papers(self, json_file_path: str | Path):
         """Load papers from JSON file."""
         try:
             with open(json_file_path, mode='r', encoding='utf-8') as f:
@@ -306,12 +253,12 @@ class SummarizationBenchmark:
 
         logger.info(f"Loaded {len(self.papers)} papers for benchmarking")
 
-    def run(self, platform: str, model_name: str, parameters: dict[str, Any] | None = None):
+    def run(self, platform: str, model_name: str, parameter_overrides: dict[str, Any] | None = None):
         """Run external model evaluation."""
         method_name = f"{platform}_{model_name}"
 
         if method_name in self.results:
-            logger.info(f"Skipping interference for existing method: ${method_name}")
+            logger.info(f"Skipping interference for existing method: {method_name}")
             return
 
         if hasattr(self.api_clients[platform], 'warmup'):
@@ -322,17 +269,17 @@ class SummarizationBenchmark:
 
         results = []
         start_time = time.time()
+        failed_papers = []
 
         for paper in tqdm(self.papers, desc=f"Processing {method_name}"):
             try:
-                full_text = f"{paper.title}. {paper.abstract}"
+                formatted_publication_text = f"Title: {paper.title}\n\nAbstract: \n{paper.abstract}"
 
                 summary = self.api_clients[platform].summarize(
-                    text=full_text,
+                    text=formatted_publication_text,
                     model_name=model_name,
-                    prompt=self.llm_prompt,
-                    parameters=parameters
-
+                    system_prompt_override=None,
+                    parameter_overrides=parameter_overrides
                 )
                 summary = extract_response(summary)
 
@@ -340,10 +287,17 @@ class SummarizationBenchmark:
                     results.append((paper, summary))
                 else:
                     logger.warning(f"Empty summary for paper {paper.id} with {method_name}")
+                    failed_papers.append(paper.id)
 
             except Exception as e:
                 logger.error(f"Error processing paper {paper.id} with {method_name}: {e}")
+                failed_papers.append(paper.id)
                 continue
+
+        if failed_papers:
+            logger.error(
+                f"Method {method_name} failed on {len(failed_papers)} papers: {failed_papers} - skipping evaluation")
+            return
 
         if not results:
             logger.error(f"Method {method_name} failed on all papers - skipping evaluation")
@@ -382,6 +336,7 @@ class SummarizationBenchmark:
 
         self.results[method_name] = result
         logger.info(f"Completed evaluation of {method_name}")
+        self.save_results()
 
     def generate_comparison_report(self):
         """Generate comparison report with length compliance statistics."""
@@ -475,75 +430,68 @@ class SummarizationBenchmark:
 
 def main():
     """Main execution function with length constraints."""
-    parser = argparse.ArgumentParser(description="Scientific Paper Summarization Benchmark")
-    parser.add_argument("--data-file", help="Path to JSON file containing papers with reference summaries")
-    parser.add_argument("--output-dir", default="benchmark_results", help="Output directory")
-    parser.add_argument("--min-words", type=int, default=15, help="Minimum target word count for summaries")
-    parser.add_argument("--max-words", type=int, default=35, help="Maximum target word count for summaries")
-
-    args = parser.parse_args()
-
-    llm_prompt = f"""Please provide a concise summary of the following scientific paper. 
-The summary MUST be between {args.min_words} and {args.max_words} words long.
-Focus on the key findings, methodology, and conclusions.
-
-{{text}}
-
-Summary ({args.min_words} - {args.max_words} words):
-"""
-
-    benchmark = SummarizationBenchmark(
-        output_dir=args.output_dir,
-        min_words=args.min_words,
-        max_words=args.max_words,
-        llm_prompt=llm_prompt
-    )
-
+    benchmark = SummarizationBenchmark()
     benchmark.load_results_from_cache()
 
-    if not Path(args.data_file).exists():
-        logger.error(f"Data file not found: {args.data_file}")
+    papers_data_file = Path(__file__).parents[3] / PAPERS_DATA_FILE
+    if not Path(papers_data_file).exists():
+        logger.error(f"Data file not found: {papers_data_file}")
         return
 
     try:
-        benchmark.load_papers(args.data_file)
+        benchmark.load_papers(papers_data_file)
     except ValueError as e:
         logger.error(f"Failed to load papers: {e}")
         return
 
-    logger.info(f"Target length constraints: {args.min_words}-{args.max_words} words")
+    logger.info(f"Target length constraints: {MIN_WORDS}-{MAX_WORDS} words")
 
     benchmark.run("local", "textrank")
     benchmark.run("local", "textrank-simple")
     benchmark.run("local", "frequency")
 
+    # https://huggingface.co/models?pipeline_tag=summarization
     benchmark.run("huggingface", "bart-large-cnn")
     benchmark.run("huggingface", "t5-base")
 
-    benchmark.run("ollama", "deepseek-r1:1.5b", {
-        "num_predict": 20
-    })
-    benchmark.run("ollama", "deepseek-r1:7b")
-    # benchmark.run("ollama", "deepseek-r1:8b")
-    # benchmark.run("ollama", "gemma3:1b")
-    # benchmark.run("ollama", "gemma3:4b")
-    # benchmark.run("ollama", "gemma3:12b")
-    # benchmark.run("ollama", "granite3.3:2b")
-    # benchmark.run("ollama", "granite3.3:8b")
-    # benchmark.run("ollama", "llama3.1:8b")
-    # benchmark.run("ollama", "llama3.2:1b")
-    # benchmark.run("ollama", "llama3.2:3b")
-    # benchmark.run("ollama", "meditron:7b")
-    # benchmark.run("ollama", "medllama2:7b")
-    # benchmark.run("ollama", "mistral:7b")
-    # benchmark.run("ollama", "mistral-nemo:latest")
-    # benchmark.run("ollama", "PetrosStav/gemma3-tools:4b")
-    # benchmark.run("ollama", "phi3:3.8b")
-    # benchmark.run("ollama", "phi4:14b")
-    # benchmark.run("ollama", "phi4:latest")
-    # benchmark.run("ollama", "qwen3:4b")
-    # benchmark.run("ollama", "qwen3:8b")
-    # benchmark.run("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")
+    benchmark.run("ollama", "deepseek-r1:1.5b", {})
+    benchmark.run("ollama", "deepseek-r1:7b", {})
+    benchmark.run("ollama", "deepseek-r1:8b", {})
+    benchmark.run("ollama", "gemma3:1b", {})
+    benchmark.run("ollama", "gemma3:4b", {})
+    benchmark.run("ollama", "gemma3:12b", {})
+    benchmark.run("ollama", "granite3.3:2b", {})
+    benchmark.run("ollama", "granite3.3:8b", {})
+    benchmark.run("ollama", "llama3.1:8b", {})
+    benchmark.run("ollama", "llama3.2:1b", {})
+    benchmark.run("ollama", "llama3.2:3b", {})
+    benchmark.run("ollama", "meditron:7b", {})
+    benchmark.run("ollama", "medllama2:7b", {})
+    benchmark.run("ollama", "mistral:7b", {})
+    benchmark.run("ollama", "mistral-nemo:latest", {})
+    benchmark.run("ollama", "PetrosStav/gemma3-tools:4b", {})
+    benchmark.run("ollama", "phi3:3.8b", {})
+    benchmark.run("ollama", "phi4:14b", {})
+    benchmark.run("ollama", "phi4:latest", {})
+    benchmark.run("ollama", "qwen3:4b", {})
+    benchmark.run("ollama", "qwen3:8b", {})
+    benchmark.run("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0", {})
+
+    # https://platform.openai.com/docs/models
+    benchmark.run("openai", "gpt-3.5-turbo")
+    benchmark.run("openai", "gpt-4.1")
+
+    # https://docs.anthropic.com/en/docs/about-claude/models/overview
+    benchmark.run("anthropic", "claude-3-5-haiku-20241022")  # fastest
+    benchmark.run("anthropic", "claude-sonnet-4-20250514")  # high intelligence, balanced performance
+    benchmark.run("anthropic", "claude-opus-4-20250514")  # most capable
+
+    # https://docs.mistral.ai/getting-started/models/models_overview/
+    benchmark.run("mistral", "mistral-medium-latest")  # frontier-class multimodal model
+    benchmark.run("mistral", "magistral-medium-latest")  # frontier-class reasoning
+    benchmark.run("mistral", "mistral-large-latest")  # top-tier large model, high complexity tasks
+    benchmark.run("mistral", "mistral-small-latest")
+
 
     # expensive
     # benchmark.run("ollama", "deepseek-r1:14b")
@@ -560,8 +508,6 @@ Summary ({args.min_words} - {args.max_words} words):
     # Generate reports
     benchmark.generate_comparison_report()
     benchmark.generate_length_compliance_report()
-
-    benchmark.save_results()
 
     benchmark.create_visualizations()
     benchmark.save_detailed_results_as_json()
