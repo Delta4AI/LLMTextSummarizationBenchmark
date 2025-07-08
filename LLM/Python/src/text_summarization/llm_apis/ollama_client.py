@@ -11,8 +11,7 @@ logger = logging.getLogger(__name__)
 
 class OllamaClient(BaseClient):
     def __init__(self, host: str = None):
-        self.host = host if host is None else self.get_dotenv_param("OLLAMA_BASE_URL")
-        self.client = ollama.Client(host=self.host)
+        self.client = ollama.Client(host=host or self.get_dotenv_param("OLLAMA_BASE_URL"))
 
     def warmup(self, model_name: str):
         try:

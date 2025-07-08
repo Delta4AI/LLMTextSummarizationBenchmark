@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 class OpenAIClient(BaseClient):
     def __init__(self, api_key: str = None):
-        if api_key is None:
-            api_key = self.get_dotenv_param("OPENAI_API_KEY")
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=api_key or self.get_dotenv_param("OPENAI_API_KEY"))
 
     def summarize(self, text: str, model_name: str, system_prompt_override: str | None = None,
                   parameter_overrides: dict[str, Any] | None = None) -> str:

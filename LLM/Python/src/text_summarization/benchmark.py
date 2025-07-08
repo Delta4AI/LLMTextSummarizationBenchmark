@@ -44,7 +44,7 @@ from text_summarization.llm_apis.ollama_client import OllamaClient
 from text_summarization.llm_apis.mistral_client import MistralClient
 from text_summarization.llm_apis.anthropic_client import AnthropicClient
 from text_summarization.llm_apis.openai_client import OpenAIClient
-from text_summarization.llm_apis.huggingface_client_v2 import HuggingFaceClient
+from text_summarization.llm_apis.huggingface_client import HuggingFaceClient
 from text_summarization.llm_apis.local_client import LocalClient
 from text_summarization.config import MIN_WORDS, MAX_WORDS, OUTPUT_DIR, PAPERS_DATA_FILE
 from text_summarization.utilities import extract_response
