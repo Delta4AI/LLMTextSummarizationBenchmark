@@ -15,28 +15,32 @@ from text_summarization.llm_apis.base_client import BaseClient
 
 logger = logging.getLogger(__name__)
 
-# Download required NLTK data
 try:
     nltk.download('punkt', quiet=True)
     nltk.download('punkt_tab', quiet=True)
     nltk.download('stopwords', quiet=True)
     nltk.download('averaged_perceptron_tagger', quiet=True)
-except:
-    pass
+except Exception as e:
+    logger.error(f"Import error in local_client.py: {e}")
 
 
 class TextPreprocessor:
     """Text preprocessing utilities."""
 
-    def __init__(self):
+    def __init__(self, min_words: int, max_words: int):
         self.stemmer = PorterStemmer()
+        self.min_words = min_words
+        self.max_words = max_words
         try:
             self.stop_words = set(stopwords.words('english'))
-        except:
+        except Exception as e:
+            logger.error(f"Exception in stemmer, using empty stop words list instead: {e}")
             self.stop_words = set()
 
-    def clean_text(self, text: str) -> str:
+    @staticmethod
+    def clean_text(text: str) -> str:
         """Clean and normalize text."""
+
         # Remove special characters and extra whitespace
         text = re.sub(r'[^\w\s\.]', ' ', text)
         text = re.sub(r'\s+', ' ', text)
@@ -48,78 +52,78 @@ class TextPreprocessor:
 
         return ' '.join(sentences)
 
-    def extract_sentences(self, text: str, max_sentences: int = None) -> List[str]:
+    @staticmethod
+    def extract_sentences(text: str, max_sentences: int = None) -> list[str]:
         """Extract sentences from text."""
         sentences = sent_tokenize(text)
         if max_sentences:
             sentences = sentences[:max_sentences]
         return sentences
 
+    def select_sentences(self, scored_sentences: list[tuple[str, float]]) -> list[str]:
+        result_sentences = []
+        total_words = 0
 
-class LocalClient(BaseClient):
-    def __init__(self, target_min_words: int = 15, target_max_words: int = 35):
-        self.target_min_words = target_min_words
-        self.target_max_words = target_max_words
-        self.preprocessor = TextPreprocessor()
+        for sentence, score in scored_sentences:
+            sentence_words = len(sentence.split())
+            if total_words + sentence_words <= self.max_words:
+                result_sentences.append(sentence)
+                total_words += sentence_words
+                if total_words >= self.min_words:
+                    break
+
+        return result_sentences
+
+
+class TextRankSummarizer(BaseClient):
+    def __init__(self):
+        self.preprocessor = TextPreprocessor(
+            min_words=self.min_words,
+            max_words=self.max_words
+        )
+
+        self.vectorizer = TfidfVectorizer(
+            stop_words='english',
+            lowercase=True,
+            max_features=1000,
+            ngram_range=(1, 2)  # Include bigrams
+        )
+
+    def warmup(self, model_name: str, train_corpus: list[str] | None = None):
+        if not train_corpus or len(train_corpus) == 0:
+            logger.warning("No training corpus provided for TextRankSummarizer")
+            return
+
+        # Extract sentences from all documents in the corpus
+        all_sentences = []
+        for document in train_corpus:
+            sentences = self.preprocessor.extract_sentences(document)
+            all_sentences.extend(sentences)
+
+        # Train the vectorizer on all sentences
+        logger.info(
+            f"Training TextRank vectorizer on {len(all_sentences)} sentences from {len(train_corpus)} documents")
+        self.vectorizer.fit(all_sentences)
+        logger.info(f"TextRank vectorizer vocabulary size: {len(self.vectorizer.vocabulary_)}")
 
     def summarize(self, text: str, model_name: str, system_prompt_override: Optional[str] = None,
                   parameter_overrides: dict[str, Any] | None = None) -> str:
-        """
-        Local algorithm summarization.
 
-        Args:
-            text: Input text to summarize
-            model_name: Algorithm name ("textrank", "textrank-simple", "frequency", etc.)
-            system_prompt_override: Not used for local algorithms
-            parameter_overrides: Additional parameters for Ollama API (e.g., {"temperature": 0.3})
-
-        Returns:
-            Generated summary
-        """
-        if model_name == "textrank":
-            return self._textrank_summarize_advanced(text)
-        elif model_name == "textrank-simple":
-            return self._textrank_summarize_simple(text)
-        elif model_name == "frequency":
-            return self._frequency_summarize(text)
-        else:
-            raise ValueError(f"Unsupported local algorithm: {model_name}")
-
-    def _textrank_summarize_advanced(self, text: str) -> str:
-        """Advanced TextRank using TF-IDF and cosine similarity."""
         sentences = self.preprocessor.extract_sentences(text)
 
         if len(sentences) <= 2:
             return ' '.join(sentences)
 
-        # Create TF-IDF vectors for sentences
-        try:
-            vectorizer = TfidfVectorizer(
-                stop_words='english',
-                lowercase=True,
-                max_features=1000,
-                ngram_range=(1, 2)  # Include bigrams
-            )
+        # Apply TF-IDF to the current document's sentences
+        tfidf_matrix = self.vectorizer.transform(sentences)
 
-            tfidf_matrix = vectorizer.fit_transform(sentences)
+        # Calculate similarity matrix for this document
+        similarity_matrix = cosine_similarity(tfidf_matrix)
+        np.fill_diagonal(similarity_matrix, 0)
 
-            # Calculate cosine similarity matrix
-            similarity_matrix = cosine_similarity(tfidf_matrix)
-
-            # Set diagonal to 0 (no self-similarity)
-            np.fill_diagonal(similarity_matrix, 0)
-
-        except Exception as e:
-            logger.warning(f"TF-IDF vectorization failed: {e}, falling back to simple method")
-            return self._textrank_summarize_simple(text)
-
-        # Build graph and apply PageRank
-        try:
-            nx_graph = nx.from_numpy_array(similarity_matrix)
-            scores = nx.pagerank(nx_graph, max_iter=100, tol=1e-4)
-        except Exception as e:
-            logger.warning(f"PageRank failed: {e}, falling back to simple method")
-            return self._textrank_summarize_simple(text)
+        # Build graph and apply PageRank for this document
+        nx_graph = nx.from_numpy_array(similarity_matrix)
+        scores = nx.pagerank(nx_graph, max_iter=100, tol=1e-4)
 
         # Sort sentences by score
         ranked_sentences = sorted(
@@ -128,16 +132,11 @@ class LocalClient(BaseClient):
         )
 
         # Select sentences based on target word count
-        selected_sentences = []
-        total_words = 0
+        sentence_scores = {sentences[i]: scores[i] for i in range(len(sentences))}
+        scored_sentences = sorted(sentence_scores.items(), key=lambda x: x[1], reverse=True)
 
-        for score, sentence in ranked_sentences:
-            sentence_words = len(sentence.split())
-            if total_words + sentence_words <= self.target_max_words:
-                selected_sentences.append(sentence)
-                total_words += sentence_words
-                if total_words >= self.target_min_words:
-                    break
+        # Select sentences
+        selected_sentences = self.preprocessor.select_sentences(scored_sentences=scored_sentences)
 
         if not selected_sentences:
             selected_sentences = [ranked_sentences[0][1]]
@@ -149,67 +148,20 @@ class LocalClient(BaseClient):
                 original_order.append(sentence)
 
         summary = ' '.join(original_order)
-        logger.info(f"Advanced TextRank summary: {len(summary.split())} words")
+        logger.info(f"TextRank summary: {len(summary.split())} words")
         return summary
 
-    def _textrank_summarize_simple(self, text: str) -> str:
-        """Simple TextRank-based extractive summarization (your original implementation)."""
-        sentences = self.preprocessor.extract_sentences(text)
-        if len(sentences) <= 1:
-            return text
 
-        # Calculate sentence scores using simple word frequency
-        sentence_scores = self._calculate_sentence_scores(sentences)
+class FrequencySummarizer(BaseClient):
+    def __init__(self):
+        self.preprocessor = TextPreprocessor(
+            min_words=self.min_words,
+            max_words=self.max_words
+        )
 
-        # Sort sentences by score
-        scored_sentences = list(sentence_scores.items())
-        scored_sentences.sort(key=lambda x: x[1], reverse=True)
+    def summarize(self, text: str, model_name: str, system_prompt_override: Optional[str] = None,
+                  parameter_overrides: dict[str, Any] | None = None) -> str:
 
-        # Select sentences to meet target length
-        result_sentences = []
-        total_words = 0
-
-        for sentence, score in scored_sentences:
-            sentence_words = len(sentence.split())
-            if total_words + sentence_words <= self.target_max_words:
-                result_sentences.append(sentence)
-                total_words += sentence_words
-                if total_words >= self.target_min_words:
-                    break
-
-        # Sort selected sentences by original order
-        if result_sentences:
-            result_sentences.sort(key=lambda x: sentences.index(x))
-            summary = ' '.join(result_sentences)
-        else:
-            # Fallback to highest scoring sentence
-            summary = scored_sentences[0][0]
-
-        logger.info(f"Simple TextRank summary: {len(summary.split())} words")
-        return summary
-
-    def _calculate_sentence_scores(self, sentences: List[str]) -> Dict[str, float]:
-        """Calculate sentence scores for simple TextRank."""
-        scores = {}
-
-        for sentence in sentences:
-            words = word_tokenize(sentence.lower())
-            words = [word for word in words if word.isalnum() and word not in self.preprocessor.stop_words]
-
-            # Simple scoring based on word frequency and length
-            word_freq = {}
-            for word in words:
-                word_freq[word] = word_freq.get(word, 0) + 1
-
-            if words:
-                scores[sentence] = sum(word_freq.values()) / len(words)
-            else:
-                scores[sentence] = 0
-
-        return scores
-
-    def _frequency_summarize(self, text: str) -> str:
-        """Frequency-based extractive summarization."""
         sentences = self.preprocessor.extract_sentences(text)
         if len(sentences) <= 1:
             return text
@@ -238,31 +190,14 @@ class LocalClient(BaseClient):
 
         # Select sentences based on length constraints
         scored_sentences = sorted(sentence_scores.items(), key=lambda x: x[1], reverse=True)
-
-        result_sentences = []
-        total_words = 0
-
-        for sentence, score in scored_sentences:
-            sentence_words = len(sentence.split())
-            if total_words + sentence_words <= self.target_max_words:
-                result_sentences.append(sentence)
-                total_words += sentence_words
-                if total_words >= self.target_min_words:
-                    break
+        selected_sentences = self.preprocessor.select_sentences(scored_sentences=scored_sentences)
 
         # Sort selected sentences by original order
-        if result_sentences:
-            result_sentences.sort(key=lambda x: sentences.index(x))
-            summary = ' '.join(result_sentences)
+        if selected_sentences:
+            selected_sentences.sort(key=lambda x: sentences.index(x))
+            summary = ' '.join(selected_sentences)
         else:
             summary = scored_sentences[0][0]
 
         logger.info(f"Frequency summary: {len(summary.split())} words")
         return summary
-
-    def first_sentence_plus_title(self, text: str) -> str:
-        """Fallback method: return first sentence plus title if available."""
-        sentences = self.preprocessor.extract_sentences(text)
-        if sentences:
-            return sentences[0]
-        return text[:100] + "..." if len(text) > 100 else text

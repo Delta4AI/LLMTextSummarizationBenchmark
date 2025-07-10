@@ -1,7 +1,11 @@
 MIN_WORDS: int = 15
 MAX_WORDS: int = 50
 OUTPUT_DIR: str = "benchmark_results"
-PAPERS_DATA_FILE: str = "Resources/text_summarization_goldstandard_data_AKI_CKD.json"
+
+GOLD_STANDARD_DATA: list[str] = [
+    "Resources/text_summarization_goldstandard_data_AKI_CKD.json",
+    "Resources/text_summarization_goldstandard_data_test.json"
+]
 
 # the system prompt used for ollama, openai etc. model calls
 SYSTEM_PROMPT = f"""Summarize the provided publication (consisting of a title and abstract) in {MIN_WORDS}-{MAX_WORDS} words, preserving all key findings and central conclusions.

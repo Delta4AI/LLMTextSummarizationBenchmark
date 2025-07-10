@@ -1,5 +1,7 @@
 import re
 
+import numpy as np
+
 
 def extract_response(response_text: str) -> str:
     if not response_text or not response_text.strip():
@@ -47,8 +49,19 @@ def extract_response(response_text: str) -> str:
 
     return _clean_text(text)
 
+
 def _clean_text(text: str) -> str:
     text = re.sub(r'^(?:Summary|Answer|Result):\s*', '', text, flags=re.IGNORECASE)
     text = re.sub(r'^["\'](.+)["\']$', r'\1', text)
     text = ' '.join(text.split())
     return text.strip()
+
+
+def get_min_max_mean_std(values: list[float]) -> dict[str, float]:
+    """Get min, max, mean, and std from a list of values."""
+    return {
+        "min": float(np.min(values)) if values else 0.0,
+        "max": float(np.max(values)) if values else 0.0,
+        "mean": float(np.mean(values)) if values else 0.0,
+        "std": float(np.std(values)) if values else 0.0
+    }

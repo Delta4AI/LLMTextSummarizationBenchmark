@@ -3,10 +3,12 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.offline as pyo
-from pathlib import Path
-from typing import Dict, Any
-import pickle
 import numpy as np
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from benchmark import SummarizationBenchmark
 
 logger = logging.getLogger(__name__)
 
@@ -14,151 +16,192 @@ logger = logging.getLogger(__name__)
 class SummarizationVisualizer:
     """Interactive visualization generator for summarization benchmark results."""
 
-    def __init__(self, output_dir: Path, min_words: int, max_words: int):
-        self.output_dir = Path(output_dir)
-        self.min_words = min_words
-        self.max_words = max_words
+    def __init__(self, benchmark_ref: 'SummarizationBenchmark'):
+        self.benchmark_ref = benchmark_ref
+
+        self.min_words = benchmark_ref.min_words
+        self.max_words = benchmark_ref.max_words
         self.results = {}
+        self.methods = None
+        self.out_dir = None
 
-        self.average_scores = {}
-        self.normalized_exec_times = {}
+        self.metric_scores = {}
+        self.exec_time_stats = {}
+        self.normalized_exec_time_stats = {}
 
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.results_fn = self.output_dir / "results.pkl"
-
-        self.colors = px.colors.qualitative.Set3
-
-    def set_results(self, results: Dict[str, Any]):
-        """Set the benchmark results to visualize."""
-        with open(self.results_fn, "wb") as f:
-            pickle.dump(results, f)
-        self.results = results
-
-        logger.info(f"Saved benchmark results to {self.results_fn}")
+        # https://plotly.com/python/discrete-color/#color-sequences-in-plotly-express
+        self.colors = px.colors.qualitative.Vivid
 
     def create_all_visualizations(self):
         """Create all visualization plots as separate HTML files."""
-        if not self.results:
-            logger.warning("No results to visualize")
-            return
+        self.results = self.benchmark_ref.results.data[self.benchmark_ref.papers_hash]
+        self.methods = list(self.results.keys())
+        self.out_dir = self.benchmark_ref.hashed_and_dated_output_dir
 
         logger.info("Creating interactive visualizations...")
 
-        self._get_average_metric_scores()
-        self._normalize_execution_times()
+        self._aggregate_metric_scores()
+        self._aggregate_execution_times()
 
         self._create_metric_comparison_plot()
         self._create_length_analysis_plot()
         self._create_radar_chart()
 
-        logger.info(f"Interactive visualizations saved to {self.output_dir}")
+        logger.info(f"Interactive visualizations saved to {self.out_dir}")
 
-    def _get_average_metric_scores(self):
-        metrics = ["rouge1", "rouge2", "rougeL", "bert_score"]
-        for method in self.results:
-            avg = 0
-            for metric in metrics:
-                avg += self.results[method].__dict__[metric]
-            avg /= len(metrics)
-            self.average_scores[method] = avg
+    def _aggregate_metric_scores(self):
+        for _m in self.results.values():
+            valid_metrics = []
 
+            if _m.meteor_scores["mean"] >= 0.0:
+                valid_metrics.append(_m.meteor_scores)
+
+            for rouge_type in self.benchmark_ref.rouge_types:
+                if _m.rouge_scores[rouge_type]["mean"] >= 0.0:
+                    valid_metrics.append(_m.rouge_scores[rouge_type])
+
+            if _m.bert_scores["f1"]["mean"] >= 0.0:
+                valid_metrics.append(_m.bert_scores["f1"])
+
+            if valid_metrics:
+                self.metric_scores[_m.method_name] = {
+                    "mean": np.mean([m["mean"] for m in valid_metrics]),
+                    "min": min(m["min"] for m in valid_metrics),
+                    "max": max(m["max"] for m in valid_metrics),
+                    "std": np.mean([m["std"] for m in valid_metrics])
+                }
+
+    def _aggregate_execution_times(self):
+        self.exec_time_stats = {}
+        for method in self.methods:
+            times = self.results[method].execution_times
+            self.exec_time_stats[method] = {
+                "min": np.min(times),
+                "max": np.max(times),
+                "mean": np.mean(times),
+                "std": np.std(times)
+            }
+
+        all_exec_times = [self.exec_time_stats[m]["mean"] for m in self.methods]
+        min_time = min(all_exec_times)
+        max_time = max(all_exec_times)
+
+        self.normalized_exec_time_stats = {}
+        for method in self.methods:
+            stats = self.exec_time_stats[method]
+            self.normalized_exec_time_stats[method] = {
+                "min": 1 - (stats["max"] - min_time) / (max_time - min_time),
+                "max": 1 - (stats["min"] - min_time) / (max_time - min_time),
+                "mean": 1 - (stats["mean"] - min_time) / (max_time - min_time),
+                "std": stats["std"] / (max_time - min_time)
+            }
+
+        print("K")
+        # TODO: why do i get:
+        #  local:frequency
+        #  Min: -0.239
     def _normalize_execution_times(self):
         """Calculate normalized execution times (inverted: faster = higher score)."""
         methods = self.results.keys()
-        exec_times = [self.results[m].execution_time for m in methods]
-        max_exec_time = max(exec_times)
-        min_exec_time = min(exec_times)
+
+        mean_times = {m: np.mean(self.results[m].execution_times) for m in methods}
+
+        max_exec_time = max(mean_times.values())
+        min_exec_time = min(mean_times.values())
 
         if max_exec_time == min_exec_time:
-            self.normalized_exec_times = {m: 1.0 for m in methods}
+            self.normalized_exec_times = dict.fromkeys(methods, 1.0)
             return
 
         self.normalized_exec_times = {
-            m: 1 - (self.results[m].execution_time - min_exec_time) / (max_exec_time - min_exec_time)
+            m: 1 - (mean_times[m] - min_exec_time) / (max_exec_time - min_exec_time)
             for m in methods
         }
 
     def _create_metric_comparison_plot(self):
-        """Create ROUGE comparison plot with BERTScore (multi-ref scores only)."""
+        """Create ROUGE comparison plot with BERTScore with filled confidence bands."""
         methods = list(self.results.keys())
-        best_method = max(methods, key=lambda m: self.average_scores[m])
-        best_score = self.average_scores[best_method]
+        best_method = max(methods, key=lambda m: self.metric_scores[m]["mean"])
 
-        # Calculate percentiles
-        scores = [self.average_scores[m] for m in methods]
+        # Calculate percentiles using means
+        scores = [self.metric_scores[m]["mean"] for m in methods]
         percentile_75 = np.percentile(scores, 75)
         percentile_90 = np.percentile(scores, 90)
 
         fig = go.Figure()
 
-        # ROUGE-1 Multi-ref
-        fig.add_trace(
-            go.Scatter(
-                x=methods,
-                y=[self.results[m].rouge1 for m in methods],
-                mode='lines+markers',
-                name='ROUGE-1',
-                line=dict(color='blue', width=2),
-                marker=dict(size=8),
-                opacity=0.8,
-                hovertemplate='<b>%{x}</b><br>ROUGE-1: %{y:.3f}<extra></extra>'
-            )
-        )
+        metrics = [
+            ("ROUGE-1", lambda m: self.results[m].rouge_scores["rouge1"], None),
+            ("ROUGE-2", lambda m: self.results[m].rouge_scores["rouge2"], None),
+            ("ROUGE-L", lambda m: self.results[m].rouge_scores["rougeL"], None),
+            ("BERTScore", lambda m: self.results[m].bert_scores["f1"], None),
+            ("METEOR", lambda m: self.results[m].meteor_scores, None),
+            ("Average", lambda m: self.metric_scores[m], {"color": "black", "width": 4}),
+            ("Execution Speed", lambda m: self.normalized_exec_time_stats[m], {"color": "rgb(138, 43, 226)", "width": 3}),
+        ]
 
-        # ROUGE-2 Multi-ref
-        fig.add_trace(
-            go.Scatter(
-                x=methods,
-                y=[self.results[m].rouge2 for m in methods],
-                mode='lines+markers',
-                name='ROUGE-2',
-                line=dict(color='red', width=2),
-                marker=dict(size=8),
-                opacity=0.8,
-                hovertemplate='<b>%{x}</b><br>ROUGE-2: %{y:.3f}<extra></extra>'
-            )
-        )
+        for i, (metric_name, metric_getter, line_override) in enumerate(metrics):
+            color = self.colors[i % len(self.colors)] if line_override is None else line_override["color"]
+            low_opacity_color = color.replace("rgb(", "rgba(").replace(")", ", 0.2)")
 
-        # ROUGE-L Multi-ref
-        fig.add_trace(
-            go.Scatter(
-                x=methods,
-                y=[self.results[m].rougeL for m in methods],
-                mode='lines+markers',
-                name='ROUGE-L',
-                line=dict(color='green', width=2),
-                marker=dict(size=8),
-                opacity=0.8,
-                hovertemplate='<b>%{x}</b><br>ROUGE-L: %{y:.3f}<extra></extra>'
+            # Main line (mean values)
+            fig.add_trace(
+                go.Scatter(
+                    x=methods,
+                    y=[metric_getter(m)["mean"] for m in methods],
+                    mode='lines+markers',
+                    name=metric_name,
+                    legendgroup=metric_name,
+                    line={
+                        "color": color,
+                        "width": 2
+                    } if line_override is None else line_override,
+                    marker={
+                        "size": 8
+                    },
+                    opacity=1.0,
+                    hovertemplate=str(f'<b>%{{x}}</b>'
+                                      f'<br>{metric_name}: %{{y:.3f}}'
+                                      f'<br>Min: %{{customdata[0]:.3f}}'
+                                      f'<br>Max: %{{customdata[1]:.3f}}'
+                                      f'<br>Std: %{{customdata[2]:.3f}}'
+                                      f'<extra></extra>'),
+                    customdata=[[metric_getter(m)["min"],
+                                 metric_getter(m)["max"],
+                                 metric_getter(m)["std"]] for m in methods]
+                )
             )
-        )
 
-        # BERTScore
-        fig.add_trace(
-            go.Scatter(
-                x=methods,
-                y=[self.results[m].bert_score for m in methods],
-                mode='lines+markers',
-                name='BERTScore',
-                line=dict(color='purple', width=2),
-                marker=dict(size=8),
-                opacity=0.8,
-                hovertemplate='<b>%{x}</b><br>BERTScore: %{y:.3f}<extra></extra>'
-            )
-        )
+            if metric_name == "Average":
+                continue
 
-        # Average Scores
-        fig.add_trace(
-            go.Scatter(
-                x=methods,
-                y=[self.average_scores[m] for m in methods],
-                mode='lines+markers',
-                name='Rogue-N+BERTScore Averaged',
-                line=dict(color='black', width=4),
-                marker=dict(size=8),
-                hovertemplate='<b>%{x}</b><br>Average: %{y:.3f}<extra></extra>'
+            # Upper bound (invisible line)
+            fig.add_trace(
+                go.Scatter(
+                    x=methods,
+                    y=[metric_getter(m)["max"] for m in methods],
+                    mode='lines',
+                    line={"width": 0},
+                    showlegend=False,
+                    legendgroup=metric_name,
+                    hoverinfo='skip'
+                )
             )
-        )
+
+            # Lower bound with fill
+            fig.add_trace(
+                go.Scatter(
+                    x=methods,
+                    y=[metric_getter(m)["min"] for m in methods],
+                    mode='lines',
+                    line={"width": 0},
+                    fill='tonexty',
+                    fillcolor=low_opacity_color,
+                    showlegend=False,
+                    legendgroup=metric_name,
+                    hoverinfo='skip'
+                )
+            )
 
         annotation_styles = {
             'best method': {'arrowcolor': 'darkred', 'bgcolor': 'lightcoral', 'bordercolor': 'red'},
@@ -167,7 +210,7 @@ class SummarizationVisualizer:
         }
 
         for method in methods:
-            score = self.average_scores[method]
+            score = self.metric_scores[method]["mean"]
 
             if method == best_method:
                 style_key = "best method"
@@ -176,7 +219,7 @@ class SummarizationVisualizer:
             elif score >= percentile_75:
                 style_key = "top 75%"
             else:
-                continue  # No annotation for methods below 75th percentile
+                continue
 
             fig.add_annotation(
                 x=method,
@@ -190,28 +233,17 @@ class SummarizationVisualizer:
                 borderwidth=2
             )
 
-        # Normalized execution times
-        fig.add_trace(
-            go.Scatter(
-                x=methods,
-                y=[self.normalized_exec_times[m] for m in methods],
-                mode='lines+markers',
-                name='Processing Speed Score',
-                line=dict(color='orange', width=2),
-                marker=dict(size=8),
-                hovertemplate='<b>%{x}</b><br>Processing Speed Score: %{y:.2f}<extra></extra>'
-            )
-        )
-
         fig.update_layout(
-            title="ROUGE and BERTScore Comparison (Multi-Reference)",
+            title="Metric Comparison",
             xaxis_title="Methods",
             yaxis_title="Score",
             hovermode='closest',
-            yaxis=dict(range=[0, 1])
+            yaxis={
+                "range": [0, 1]
+            }
         )
 
-        output_path = self.output_dir / "metric_comparison.html"
+        output_path = self.out_dir / "metric_comparison.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
 
     def _create_length_analysis_plot(self):
@@ -304,7 +336,7 @@ class SummarizationVisualizer:
         )
 
         # Save plot
-        output_path = self.output_dir / "length_analysis.html"
+        output_path = self.out_dir / "length_analysis.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
 
     def _create_radar_chart(self):
@@ -355,6 +387,6 @@ class SummarizationVisualizer:
             hovermode='closest'
         )
 
-        output_path = self.output_dir / "radar_chart.html"
+        output_path = self.out_dir / "radar_chart.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
 

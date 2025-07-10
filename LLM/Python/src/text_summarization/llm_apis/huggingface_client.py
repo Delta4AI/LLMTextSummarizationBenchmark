@@ -13,7 +13,7 @@ class HuggingFaceClient(BaseClient):
     def __init__(self):
         self.summarizer = None
 
-    def warmup(self, model_name: str):
+    def warmup(self, model_name: str, train_corpus: list[str] | None = None):
         self.summarizer = pipeline(task="summarization", model=model_name)
 
     def summarize(self, text: str, model_name: str, system_prompt_override: str | None = None,

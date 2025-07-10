@@ -13,7 +13,7 @@ class OllamaClient(BaseClient):
     def __init__(self, host: str = None):
         self.client = ollama.Client(host=host or self.get_dotenv_param("OLLAMA_BASE_URL"))
 
-    def warmup(self, model_name: str):
+    def warmup(self, model_name: str, train_corpus: list[str] | None = None):
         try:
             logger.info(f"Warming up Ollama {model_name} model")
             response = self.client.generate(
