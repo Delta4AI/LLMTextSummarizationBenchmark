@@ -25,9 +25,23 @@ class SummarizationVisualizer:
         self.methods = None
         self.out_dir = None
 
+        self.metrics = [
+            ("ROUGE-1", lambda m: self.results[m].rouge_scores["rouge1"], None),
+            ("ROUGE-2", lambda m: self.results[m].rouge_scores["rouge2"], None),
+            ("ROUGE-L", lambda m: self.results[m].rouge_scores["rougeL"], None),
+            ("BERTScore", lambda m: self.results[m].bert_scores["f1"], None),
+            ("METEOR", lambda m: self.results[m].meteor_scores, None),
+        ]
+
+        self.overall_qualities = (
+            "Overall Quality", lambda m: self.metric_scores[m], {"color": "black", "width": 4})
+        self.performances = (
+            "Speed Performance", lambda m: self.normalized_exec_times[m], {"color": "rgb(138, 43, 226)", "width": 3})
+        self.length_within_bounds = (
+            "Length Within Bounds", lambda m: {"mean": self.results[m].length_stats["within_bounds_pct"]/100}, None)
+
         self.metric_scores = {}
-        self.exec_time_stats = {}
-        self.normalized_exec_time_stats = {}
+        self.normalized_exec_times = {}
 
         # https://plotly.com/python/discrete-color/#color-sequences-in-plotly-express
         self.colors = px.colors.qualitative.Vivid
@@ -72,35 +86,6 @@ class SummarizationVisualizer:
                 }
 
     def _aggregate_execution_times(self):
-        self.exec_time_stats = {}
-        for method in self.methods:
-            times = self.results[method].execution_times
-            self.exec_time_stats[method] = {
-                "min": np.min(times),
-                "max": np.max(times),
-                "mean": np.mean(times),
-                "std": np.std(times)
-            }
-
-        all_exec_times = [self.exec_time_stats[m]["mean"] for m in self.methods]
-        min_time = min(all_exec_times)
-        max_time = max(all_exec_times)
-
-        self.normalized_exec_time_stats = {}
-        for method in self.methods:
-            stats = self.exec_time_stats[method]
-            self.normalized_exec_time_stats[method] = {
-                "min": 1 - (stats["max"] - min_time) / (max_time - min_time),
-                "max": 1 - (stats["min"] - min_time) / (max_time - min_time),
-                "mean": 1 - (stats["mean"] - min_time) / (max_time - min_time),
-                "std": stats["std"] / (max_time - min_time)
-            }
-
-        print("K")
-        # TODO: why do i get:
-        #  local:frequency
-        #  Min: -0.239
-    def _normalize_execution_times(self):
         """Calculate normalized execution times (inverted: faster = higher score)."""
         methods = self.results.keys()
 
@@ -114,8 +99,12 @@ class SummarizationVisualizer:
             return
 
         self.normalized_exec_times = {
-            m: 1 - (mean_times[m] - min_exec_time) / (max_exec_time - min_exec_time)
-            for m in methods
+            m: {
+                "min": np.min(self.results[m].execution_times),
+                "max": np.max(self.results[m].execution_times),
+                "mean": 1 - (mean_times[m] - min_exec_time) / (max_exec_time - min_exec_time),
+                "std": np.std(self.results[m].execution_times),
+            } for m in methods
         }
 
     def _create_metric_comparison_plot(self):
@@ -131,13 +120,9 @@ class SummarizationVisualizer:
         fig = go.Figure()
 
         metrics = [
-            ("ROUGE-1", lambda m: self.results[m].rouge_scores["rouge1"], None),
-            ("ROUGE-2", lambda m: self.results[m].rouge_scores["rouge2"], None),
-            ("ROUGE-L", lambda m: self.results[m].rouge_scores["rougeL"], None),
-            ("BERTScore", lambda m: self.results[m].bert_scores["f1"], None),
-            ("METEOR", lambda m: self.results[m].meteor_scores, None),
-            ("Average", lambda m: self.metric_scores[m], {"color": "black", "width": 4}),
-            ("Execution Speed", lambda m: self.normalized_exec_time_stats[m], {"color": "rgb(138, 43, 226)", "width": 3}),
+            *self.metrics,
+            self.overall_qualities,
+            self.performances,
         ]
 
         for i, (metric_name, metric_getter, line_override) in enumerate(metrics):
@@ -172,7 +157,7 @@ class SummarizationVisualizer:
                 )
             )
 
-            if metric_name == "Average":
+            if metric_name in ["Overall Quality", "Speed Performance"]:
                 continue
 
             # Upper bound (invisible line)
@@ -234,7 +219,7 @@ class SummarizationVisualizer:
             )
 
         fig.update_layout(
-            title="Metric Comparison",
+            title="Summary Quality and Performance Analysis",
             xaxis_title="Methods",
             yaxis_title="Score",
             hovermode='closest',
@@ -248,22 +233,19 @@ class SummarizationVisualizer:
 
     def _create_length_analysis_plot(self):
         """Create length analysis plot with compliance breakdown and box plot only."""
-        methods = list(self.results.keys())
-
         fig = make_subplots(
             rows=2, cols=1,
-            subplot_titles=('Length Compliance Breakdown', 'Box Plot Distribution'),
+            subplot_titles=('Compliance', 'Distribution'),
             vertical_spacing=0.15
         )
 
-        # 1. Stacked bar chart for compliance
-        within_bounds = [self.results[m].length_stats['within_bounds_pct'] for m in methods]
-        too_short = [self.results[m].length_stats['too_short_pct'] for m in methods]
-        too_long = [self.results[m].length_stats['too_long_pct'] for m in methods]
+        within_bounds = [self.results[m].length_stats['within_bounds_pct'] for m in self.methods]
+        too_short = [self.results[m].length_stats['too_short_pct'] for m in self.methods]
+        too_long = [self.results[m].length_stats['too_long_pct'] for m in self.methods]
 
         fig.add_trace(
             go.Bar(
-                x=methods,
+                x=self.methods,
                 y=within_bounds,
                 name='Within Bounds',
                 marker_color='lightgreen',
@@ -276,7 +258,7 @@ class SummarizationVisualizer:
 
         fig.add_trace(
             go.Bar(
-                x=methods,
+                x=self.methods,
                 y=too_short,
                 name='Too Short',
                 marker_color='lightcoral',
@@ -289,7 +271,7 @@ class SummarizationVisualizer:
 
         fig.add_trace(
             go.Bar(
-                x=methods,
+                x=self.methods,
                 y=too_long,
                 name='Too Long',
                 marker_color='lightyellow',
@@ -301,7 +283,7 @@ class SummarizationVisualizer:
         )
 
         # 2. Box plot for length distribution
-        for i, method in enumerate(methods):
+        for i, method in enumerate(self.methods):
             lengths = self.results[method].length_stats['all_lengths']
             fig.add_trace(
                 go.Box(
@@ -309,81 +291,85 @@ class SummarizationVisualizer:
                     name=method,
                     marker_color=self.colors[i % len(self.colors)],
                     showlegend=False,
-                    hovertemplate=f'<b>{method}</b><br>Length: %{{y}}<extra></extra>'
+                    hovertemplate=f'<b>{method}</b><br>Length: %{{y}}<extra></extra>',
                 ),
                 row=2, col=1
             )
 
         # Add target range lines to box plot
-        fig.add_hline(
-            y=self.min_words,
-            line_dash="dash",
-            line_color="red",
-            row=2, col=1
-        )
-        fig.add_hline(
-            y=self.max_words,
-            line_dash="dash",
-            line_color="red",
-            row=2, col=1
-        )
+        for _y in [self.min_words, self.max_words]:
+            fig.add_hline(
+                y=_y,
+                line_dash="dash",
+                line_color="red",
+                row=2, col=1
+            )
 
         fig.update_layout(
-            title_text=f"Length Analysis (Target: {self.min_words}-{self.max_words} words)",
+            title_text=f"Summary Length Analysis (Target: {self.min_words}-{self.max_words} words)",
             title_x=0.5,
             hovermode='closest',
-            barmode='stack'
+            barmode='stack',
+            xaxis_title="Methods",
+            xaxis2_title="Methods",
         )
 
-        # Save plot
+        fig.update_yaxes(title_text="Percentage (%)", row=1, col=1)
+        fig.update_yaxes(title_text="Length (Words)", row=2, col=1)
+
         output_path = self.out_dir / "length_analysis.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
 
-    def _create_radar_chart(self):
-        """Create radar chart for top 8 performing methods with processing time."""
-        methods = list(self.results.keys())
+    def _create_radar_chart(self, top_n: int = 10):
+        """Create radar chart for top n performing methods ranked by aggregate score."""
+        metrics = [
+            *self.metrics,
+            self.overall_qualities,
+            self.performances,
+            self.length_within_bounds,
+        ]
 
-        # Select top 8 methods by ROUGE-1
-        top_methods = sorted(methods, key=lambda m: self.results[m].rouge1, reverse=True)[:8]
+        top_methods = dict(sorted(
+            {
+                _method: {
+                    _metric[0]: _metric[1](_method)["mean"]
+                    for _metric in metrics
+                } for _method in self.methods
+            }.items(),
+            key=lambda x: sum(x[1].values()),
+            reverse=True
+        )[:top_n])
 
         fig = go.Figure()
 
-        metrics = ['ROUGE-1', 'ROUGE-2', 'ROUGE-L', 'BERTScore', 'Length Compliance', 'Processing Speed']
-
-        max_exec_time = max(self.results[m].execution_time for m in methods)
-
-        for i, method in enumerate(top_methods):
-            result = self.results[method]
-            values = [
-                result.rouge1,
-                result.rouge2,
-                result.rougeL,
-                result.bert_score,
-                result.length_stats['within_bounds_pct'] / 100,  # Normalize to 0-1
-                1 - (result.execution_time / max_exec_time)  # Invert and normalize (higher is better)
-            ]
+        for i, (method, vals) in enumerate(top_methods.items()):
+            hover_text = f'<b>{method}</b><br>'
+            hover_text += f'Aggregate Score: {sum(vals.values()):.3f}<br>'
+            hover_text += '<br>'.join([f'{metric}: {score:.3f}' for metric, score in vals.items()])
 
             fig.add_trace(
                 go.Scatterpolar(
-                    r=values,
-                    theta=metrics,
+                    r=list(vals.values()),
+                    theta=list(vals.keys()),
                     fill='toself',
                     name=method,
                     line_color=self.colors[i % len(self.colors)],
                     hovertemplate=f'<b>{method}</b><br>' +
                                   'Metric: %{theta}<br>' +
-                                  'Score: %{r:.3f}<extra></extra>'
+                                  'Score: %{r:.3f}<extra></extra>',
+                    text=hover_text,
+                    hoverinfo='text+name'
                 )
             )
 
         fig.update_layout(
-            polar=dict(
-                radialaxis=dict(
-                    visible=True,
-                    range=[0, 1]
-                )
-            ),
-            title="Top 8 Methods Performance Profile",
+            polar={
+                "radialaxis": {
+                    "visible": True,
+                    "range": [0, 1]
+                },
+            },
+            title=f"Top {top_n} Methods by Aggregate Performance Score",
             hovermode='closest'
         )
 
