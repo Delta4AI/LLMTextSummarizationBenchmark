@@ -29,7 +29,8 @@ class SummarizationVisualizer:
             ("ROUGE-1", lambda m: self.results[m].rouge_scores["rouge1"], None),
             ("ROUGE-2", lambda m: self.results[m].rouge_scores["rouge2"], None),
             ("ROUGE-L", lambda m: self.results[m].rouge_scores["rougeL"], None),
-            ("BERTScore", lambda m: self.results[m].bert_scores["f1"], None),
+            ("RoBERTa", lambda m: self.results[m].roberta_scores["f1"], None),
+            ("DeBERTa", lambda m: self.results[m].deberta_scores["f1"], None),
             ("METEOR", lambda m: self.results[m].meteor_scores, None),
         ]
 
@@ -74,8 +75,11 @@ class SummarizationVisualizer:
                 if _m.rouge_scores[rouge_type]["mean"] >= 0.0:
                     valid_metrics.append(_m.rouge_scores[rouge_type])
 
-            if _m.bert_scores["f1"]["mean"] >= 0.0:
-                valid_metrics.append(_m.bert_scores["f1"])
+            if _m.roberta_scores["f1"]["mean"] >= 0.0:
+                valid_metrics.append(_m.roberta_scores["f1"])
+
+            if _m.deberta_scores["f1"]["mean"] >= 0.0:
+                valid_metrics.append(_m.deberta_scores["f1"])
 
             if valid_metrics:
                 self.metric_scores[_m.method_name] = {

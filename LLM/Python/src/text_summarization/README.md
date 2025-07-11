@@ -8,17 +8,27 @@ Benchmarking tool for evaluating text summarization methods on scientific papers
 # Install dependencies
 uv add transformers rouge-score bert-score nltk scikit-learn matplotlib seaborn pandas numpy tqdm torch ollama
 
-# Run with default settings (15-35 words)
-python benchmark.py --data-file papers.json
-
-# Run with custom length constraints
-python benchmark.py --data-file papers.json --min-words 20 --max-words 30
-
+# Run (from within LLM folder)
+uv run Python/src/text_summarization/benchmark.py
 ```
+> Make sure to copy `Resources/example.env` to `Resources/.env` and enter LLM API keys
 
-## Input Format
-1-N reference summaries can be provided per paper. Multiple reference summaries improve evaluation robustness 
-and reduce single-annotator bias.
+> Make sure to check and update `config.py`
+
+---
+
+## Workflow
+![Workflow](../../../Resources/text_summarization_benchmark_diagram.svg)
+
+---
+
+## config.py
+Contains configuration parameters for min/max words, paths to gold-standard data following `papers.json` format, system prompt and LLM generation parameters. 
+
+## papers.json
+Document store in `Resources` folder, containing ID, title, abstract and reference summaries.
+1-N reference summaries can be provided per paper. 
+Multiple reference summaries improve evaluation robustness and reduce single-annotator bias.
 
 ```json
 [
@@ -33,50 +43,56 @@ and reduce single-annotator bias.
   }
 ]
 ```
+### Reference summary sources
+- Self composed summaries (MLE)
+- https://www.semanticscholar.org/ TLDR
+- claude 4 sonnet via jetbrains AI assistant
+- chatgpt o4-mini with reasoning
 
-### `testdata.json`
-- summary source #1: https://www.semanticscholar.org/ TLDR
-- summary source #2: claude 4 sonnet via jetbrains AI assistant
-- summary source #3: chatgpt o4-mini with reasoning
+---
 
+## Summarization Methods 
 
-#### Used prompt
-```
-Please provide a concise summary of the following scientific paper. 
-The summary MUST be between 15 and 35 words long.
-Focus on the key findings, methodology, and conclusions.
+### **local:textrank**
+1. Tokenizes sentences ([nltk](https://www.nltk.org/api/nltk.tokenize.html#nltk.tokenize.sent_tokenize))
+2. Creates TF-IDF vectors for sentence representation ([sklearn](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html#sklearn.feature_extraction.text.TfidfVectorizer))
+3. Calculates cosine similarities between TF-IDF vectors (sklearn)
+4. Builds similarity graph with cosine similarities as edge weights (networkx)
+5. Applies PageRank to rank sentences by importance ([networkx](https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.link_analysis.pagerank_alg.pagerank.html))
+6. Selects highest-scoring sentences within word count limits while preserving original order
+> **WARNING**: Results might be misleading when gold-standard summaries are (partial) copies from the source document, rather than being abstractive
 
-
-Title: <TITLE>
-
-Abstract: <ABSTRACT>
-
-Summary (15 - 35 words):
-```
-
-## Summarization Methods
-
-### Built-in Methods
-- **First Sentence Plus Title**: Baseline using title + first abstract sentence (length-aware)
-- **Key Sentences Extractive**: Position and content-based sentence extraction
-- **TextRank Length Aware**: Graph-based extractive with target length optimization
-- **BART Length Guided**: `facebook/bart-large-cnn` with length constraints
-- **T5 Length Guided**: `t5-base` with target length parameters
+### **local:frequency**
+1. Calculates word frequency scores
+2. ranks sentences by avg. word frequency (excluding stopwords ([nltk](https://www.nltk.org/))
+3. selects highest-scoring sentences (in original order) within word count limits
 
 ### External Platforms
 - **Ollama**, **OpenAI**, **Perplexity**, **Anthropic** and a number of models
 
-## Evaluation Metrics
+---
 
-### Quality Metrics
-- **ROUGE-N**: Overlap of n-grams between the system and reference summaries. [source](https://en.wikipedia.org/wiki/ROUGE_(metric))
-  - **ROUGE-1**: refers to the overlap of unigrams (each word) between the system and reference summaries.
-  - **ROUGE-2**: refers to the overlap of bigrams between the system and reference summaries.
-- **ROUGE-L**: Longest Common Subsequence (LCS) based statistics. Longest common subsequence problem takes into account sentence-level structure similarity naturally and identifies longest co-occurring in sequence n-grams automatically.
-- **ROUGE-W**: Weighted LCS-based statistics that favors consecutive LCSes.
-- **ROUGE-S**: Skip-bigram based co-occurrence statistics. Skip-bigram is any pair of words in their sentence order.
-- **ROUGE-SU**: Skip-bigram plus unigram-based co-occurrence statistics.
-- **BERTScore**: Semantic similarity using BERT embeddings
+## Evaluation Metrics
+> Each generated summary is evaluated against all available gold-standard reference summaries of a document using a number of metrics as listed below. For each metric, mean/min/max/std are computed.
+
+### Rouge
+Set of metrics for evaluating summary quality by comparing to reference summaries. [wiki](https://en.wikipedia.org/wiki/ROUGE_(metric)) | [used google-research package](https://github.com/google-research/google-research/tree/master/rouge) | [publication](https://aclanthology.org/W04-1013.pdf)
+- **ROUGE-N**: N-gram co-occurrence statistics between system and reference summaries.
+  - **ROUGE-1**: Overlap of unigrams (individual words)
+  - **ROUGE-2**: Overlap of bigrams (word pairs)
+- **ROUGE-L**: Longest Common Subsequence (LCS) based statistics that capture sentence-level structure similarity by awarding credit only to in-sequence word matches.
+
+### Bert
+Semantic similarity using BERT embeddings. [paper](https://arxiv.org/abs/1904.09675) | [used package](https://github.com/Tiiiger/bert_score)
+- `roberta-large`: Default model [paper](https://arxiv.org/abs/1907.11692) | [model](https://huggingface.co/FacebookAI/roberta-large)
+- `microsoft/deberta-xlarge-mnli`: Proposed as "better model" [paper](https://arxiv.org/abs/2006.03654) | [model](https://huggingface.co/microsoft/deberta-xlarge-mnli))
+
+### Meteor
+
+### BLEU
+
+
+### Further Metrics
 - **Execution Time**: Processing time
 - **Length Compliance Metrics**
   - **Within Bounds**: Percentage meeting length constraints
@@ -84,14 +100,3 @@ Summary (15 - 35 words):
   - **Average Length**: Mean word count with standard deviation
   - **Length Distribution**: Detailed statistical analysis
 
-## Output Files
-
-### Reports
-- `comparison_report.csv` - Main performance comparison with length statistics
-- `length_compliance_report.csv` - Detailed length constraint analysis
-- `detailed_results.json` - Complete results with individual summaries
-
-### Visualizations
-- `quality_comparison.png` - ROUGE-1/2/L and BERTScore comparison charts
-- `length_analysis.png` - Length distribution and compliance analysis
-- `performance_analysis.png` - Quality vs length compliance correlation

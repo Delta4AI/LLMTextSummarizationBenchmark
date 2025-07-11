@@ -2,14 +2,13 @@ import logging
 import networkx as nx
 import numpy as np
 import re
-from typing import Optional, List, Dict, Any
+from typing import Optional, Any
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import sent_tokenize, word_tokenize
-from nltk.stem import PorterStemmer
 
 from text_summarization.llm_apis.base_client import BaseClient
 
@@ -28,29 +27,9 @@ class TextPreprocessor:
     """Text preprocessing utilities."""
 
     def __init__(self, min_words: int, max_words: int):
-        self.stemmer = PorterStemmer()
         self.min_words = min_words
         self.max_words = max_words
-        try:
-            self.stop_words = set(stopwords.words('english'))
-        except Exception as e:
-            logger.error(f"Exception in stemmer, using empty stop words list instead: {e}")
-            self.stop_words = set()
-
-    @staticmethod
-    def clean_text(text: str) -> str:
-        """Clean and normalize text."""
-
-        # Remove special characters and extra whitespace
-        text = re.sub(r'[^\w\s\.]', ' ', text)
-        text = re.sub(r'\s+', ' ', text)
-        text = text.strip()
-
-        # Remove very short sentences
-        sentences = sent_tokenize(text)
-        sentences = [s for s in sentences if len(s.split()) > 5]
-
-        return ' '.join(sentences)
+        self.stop_words = set(stopwords.words('english'))
 
     @staticmethod
     def extract_sentences(text: str, max_sentences: int = None) -> list[str]:

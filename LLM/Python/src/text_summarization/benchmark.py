@@ -69,12 +69,14 @@ class EvaluationResult:
     summaries: list[str]
     length_stats: dict
     meteor_scores: dict[str, float]
-    bert_scores: dict[str, dict[str, float]]
+    roberta_scores: dict[str, dict[str, float]]
+    deberta_scores: dict[str, dict[str, float]]
     rouge_scores: dict[str, dict[str, float]]
 
     def as_json(self, detailed: bool = False) -> dict[str, Any]:
         rouge = {f"{k}_{kk}": vv for k, v in self.rouge_scores.items() for kk, vv in v.items()}
-        bert = {f"{k}_{kk}": vv for k, v in self.bert_scores.items() for kk, vv in v.items()}
+        roberta = {f"{k}_{kk}": vv for k, v in self.roberta_scores.items() for kk, vv in v.items()}
+        deberta = {f"{k}_{kk}": vv for k, v in self.deberta_scores.items() for kk, vv in v.items()}
         meteor = {f"meteor_{k}": v for k, v in self.meteor_scores.items()}
         _exec_times = get_min_max_mean_std(self.execution_times)
         exec_times = {f"exec_time_{k}": v for k, v in _exec_times.items()}
@@ -95,7 +97,8 @@ class EvaluationResult:
         return {
             'method': self.method_name,
             **rouge,
-            **bert,
+            **roberta,
+            **deberta,
             **meteor,
             **exec_times,
             **_variable_results
@@ -106,8 +109,17 @@ class SummarizationResult:
     def __init__(self, file_name: str | Path, papers_hash: str):
         self.fn = file_name
         self.data = {}
-        self.embeddings = {}  # TODO: make use of / implement
+        self._reference_embeddings = None  # TODO: implement
         self.papers_hash = papers_hash
+
+    @property
+    def reference_embeddings(self):
+        if not self._reference_embeddings:
+            self._reference_embeddings = self._generate_reference_embeddings()
+        return self._reference_embeddings
+
+    def _generate_reference_embeddings(self) -> dict[str, list[float]]:
+        return {}
 
     def load(self):
         try:
@@ -359,7 +371,8 @@ class SummarizationBenchmark:
             summaries=generated_summaries,
             length_stats=self.calculate_length_stats(generated_summaries),
             meteor_scores=self.calculate_meteor_score(generated_summaries, all_references),
-            bert_scores=self.calculate_bert_score(generated_summaries, all_references),
+            roberta_scores=self.calculate_bert_score(generated_summaries, all_references, "roberta-large"),
+            deberta_scores=self.calculate_bert_score(generated_summaries, all_references, "microsoft/deberta-xlarge-mnli"),
             rouge_scores=self.calculate_rouge_scores(generated_summaries, all_references)
         )
 
@@ -387,7 +400,9 @@ class SummarizationBenchmark:
             for rouge_type in self.rouge_types
         }
 
-    def calculate_bert_score(self, generated: List[str], references: List[List[str]]) -> dict[str, dict[str, float]]:
+    @staticmethod
+    def calculate_bert_score(generated: List[str], references: List[List[str]],
+                             model: str) -> dict[str, dict[str, float]]:
         """Calculate BERTScore using best reference for each generated summary."""
         best_precision = []
         best_recall = []
@@ -399,7 +414,13 @@ class SummarizationBenchmark:
                     continue
 
                 # Calculate BERTScore against all references for this summary
-                P, R, F1 = bert_score([gen] * len(ref_list), ref_list, lang="en", verbose=False)
+                P, R, F1 = bert_score(
+                    cands=[gen] * len(ref_list),
+                    refs=ref_list,
+                    model_type=model,
+                    lang="en",
+                    verbose=False
+                )
 
                 # Take the maximum scores
                 best_precision.append(P.max().item())
@@ -553,7 +574,6 @@ def main():
     # broken?
     # benchmark.run_external_model("ollama", "llama3-gradient:latest")
     # benchmark.run("ollama", "oscardp96/medcpt-query:latest")
-
 
     # generate reports and visualizations
     benchmark.export()

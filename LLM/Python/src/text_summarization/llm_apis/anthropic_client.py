@@ -15,6 +15,7 @@ class AnthropicClient(BaseClient):
 
     def summarize(self, text: str, model_name: str, system_prompt_override: str | None = None,
                   parameter_overrides: dict[str, Any] | None = None) -> str:
+        # TODO: might have to sleep before each request to prevent >1 request per second
         logger.info(f"Making Anthropic request with model {model_name}")
         response = self.client.messages.create(
             model=model_name,
