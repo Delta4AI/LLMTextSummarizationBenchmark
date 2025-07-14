@@ -52,7 +52,8 @@ from llm_apis.openai_client import OpenAIClient
 from llm_apis.huggingface_client import HuggingFaceClient
 from llm_apis.local_client import TextRankSummarizer, FrequencySummarizer
 from text_summarization.metrics import (get_length_scores, get_meteor_scores, ROUGE_TYPES, get_rouge_scores,
-                                        get_bert_scores, get_bleu_scores, get_sentence_transformer_similarity)
+                                        get_bert_scores, get_bleu_scores, get_sentence_transformer_similarity,
+                                        cleanup_metrics_cache)
 from text_summarization.visualization import SummarizationVisualizer
 
 
@@ -364,6 +365,11 @@ class SummarizationBenchmark:
         successful_papers = list(successful_papers)
         generated_summaries = list(generated_summaries)
 
+        try:
+            self.api_clients[platform].cleanup(model_name=model_name)
+        except NotImplementedError:
+            pass
+
         logger.info(f"Method {method_name} succeeded on {len(successful_papers)}/{len(self.papers)} papers")
 
         all_references = [paper.summaries for paper in successful_papers]
@@ -383,6 +389,7 @@ class SummarizationBenchmark:
             mpnet_content_coverage_scores=get_sentence_transformer_similarity(
                 generated_summaries, all_full_text_papers, "all-mpnet-base-v2")
         )
+        cleanup_metrics_cache()
 
         self.results.add(method_name=method_name, result=result)
         self.results.save()

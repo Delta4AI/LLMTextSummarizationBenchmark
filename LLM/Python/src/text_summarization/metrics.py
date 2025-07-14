@@ -1,4 +1,7 @@
 import logging
+import gc
+import time
+from typing import Dict, Any
 
 from nltk.translate.meteor_score import meteor_score
 from nltk.translate.bleu_score import sentence_bleu
@@ -10,11 +13,98 @@ from sklearn.metrics.pairwise import cosine_similarity
 from text_summarization.utilities import get_min_max_mean_std
 from llm_apis.huggingface_client import init_hf_cache_dir
 
+try:
+    import torch
+except ImportError:
+    torch = None
 
 logger = logging.getLogger(__name__)
 ROUGE_TYPES = ['rouge1', 'rouge2', 'rougeL']
 ROUGE_SCORER = RougeScorer(ROUGE_TYPES, use_stemmer=True)
 init_hf_cache_dir()
+
+
+class ModelCache:
+    """Cache for reusing models to avoid reloading"""
+
+    def __init__(self):
+        self.sentence_transformers = {}
+        self.bert_models = {}
+
+    def get_sentence_transformer(self, model_name: str) -> SentenceTransformer:
+        """Get or create a SentenceTransformer model"""
+        if model_name not in self.sentence_transformers:
+            logger.info(f"Loading SentenceTransformer model: {model_name}")
+
+            device = self._get_best_device()
+
+            self.sentence_transformers[model_name] = SentenceTransformer(
+                model_name,
+                device=device
+            )
+
+            self._log_memory_usage(f"After loading {model_name}")
+
+        return self.sentence_transformers[model_name]
+
+    @staticmethod
+    def _get_best_device() -> str:
+        """Determine the best device to use"""
+        if torch and torch.cuda.is_available():
+            # Check available GPU memory
+            gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024 ** 3
+            allocated = torch.cuda.memory_allocated(0) / 1024 ** 3
+            free_memory = gpu_memory - allocated
+
+            # Use GPU only if we have enough free memory (at least 1GB)
+            if free_memory > 1.0:
+                return 'cuda'
+            else:
+                logger.warning(f"Low GPU memory ({free_memory:.2f}GB), using CPU for SentenceTransformer")
+                return 'cpu'
+        return 'cpu'
+
+    @staticmethod
+    def _log_memory_usage(context: str = ""):
+        """Log current memory usage"""
+        if torch and torch.cuda.is_available():
+            allocated = torch.cuda.memory_allocated(0) / 1024 ** 3
+            cached = torch.cuda.memory_reserved(0) / 1024 ** 3
+            total = torch.cuda.get_device_properties(0).total_memory / 1024 ** 3
+            free = total - allocated
+            logger.info(f"{context} - GPU: {allocated:.2f}GB allocated, {cached:.2f}GB cached, {free:.2f}GB free")
+
+    def cleanup_sentence_transformers(self):
+        """Clean up all SentenceTransformer models"""
+        for model_name, model in self.sentence_transformers.items():
+
+            if hasattr(model, 'device') and 'cuda' in str(model.device):
+                model = model.cpu()
+
+            del model
+
+        self.sentence_transformers.clear()
+        self._force_cleanup()
+
+    def cleanup_all(self):
+        """Clean up all cached models"""
+        self.cleanup_sentence_transformers()
+        self.bert_models.clear()
+        self._force_cleanup()
+
+    def _force_cleanup(self):
+        """Force garbage collection and GPU cleanup"""
+        gc.collect()
+        if torch and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+            time.sleep(0.5)  # Give time for cleanup
+            torch.cuda.empty_cache()  # Second cleanup
+
+        self._log_memory_usage("After cleanup")
+
+
+_model_cache = ModelCache()
 
 
 def get_length_scores(summaries: list[str], min_words: int, max_words: int) -> dict:
@@ -67,7 +157,6 @@ def get_meteor_scores(generated: list[str], references: list[list[str]]) -> dict
 
     try:
         for gen, ref_list in zip(generated, references):
-
             # Pre-tokenize the generated summary
             gen_tokens = gen.split()
 
@@ -87,6 +176,7 @@ def get_meteor_scores(generated: list[str], references: list[list[str]]) -> dict
 
     return get_min_max_mean_std(meteor_scores)
 
+
 def get_bert_scores(generated: list[str], references: list[list[str]], model: str) -> dict[str, dict[str, float]]:
     """Calculate BERTScore using best reference for each generated summary."""
     best_precision = []
@@ -94,30 +184,54 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
     best_f1 = []
 
     try:
-        for gen, ref_list in zip(generated, references):
+        logger.info(f"Calculating BERTScore with model: {model}")
 
-            # Calculate BERTScore against all references for this summary
-            P, R, F1 = bert_score(
-                cands=[gen] * len(ref_list),
-                refs=ref_list,
-                model_type=model,
-                lang="en",
-                verbose=False
-            )
+        # Clear cache before BERTScore to free memory
+        if torch and torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
-            # Take the maximum scores
-            best_precision.append(P.max().item())
-            best_recall.append(R.max().item())
-            best_f1.append(F1.max().item())
+        batch_size = 2  # Process 2 documents at a time
+
+        for i in range(0, len(generated), batch_size):
+            batch_gen = generated[i:i + batch_size]
+            batch_ref = references[i:i + batch_size]
+
+            for gen, ref_list in zip(batch_gen, batch_ref):
+                # Calculate BERTScore against all references for this summary
+                with torch.no_grad():  # Disable gradient computation
+                    P, R, F1 = bert_score(
+                        cands=[gen] * len(ref_list),
+                        refs=ref_list,
+                        model_type=model,
+                        lang="en",
+                        verbose=False,
+                        device='cuda' if torch and torch.cuda.is_available() else 'cpu'
+                    )
+
+                # Take the maximum scores
+                best_precision.append(P.max().item())
+                best_recall.append(R.max().item())
+                best_f1.append(F1.max().item())
+
+                # Clean up tensors
+                del P, R, F1
+
+                # Clear cache after each document
+                if torch and torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
     except Exception as e:
         logger.error(f"BERTScore calculation failed: {e}")
+        # Force cleanup on error
+        if torch and torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     return {
         'precision': get_min_max_mean_std(best_precision),
         'recall': get_min_max_mean_std(best_recall),
         'f1': get_min_max_mean_std(best_f1)
     }
+
 
 def get_bleu_scores(generated: list[str], references: list[list[str]]) -> dict[str, float]:
     """Calculate BLEU score using best reference for each generated summary."""
@@ -131,16 +245,49 @@ def get_bleu_scores(generated: list[str], references: list[list[str]]) -> dict[s
 
     return get_min_max_mean_std(bleu_scores)
 
-def get_sentence_transformer_similarity(generated: list[str], source_documents: list[str], model: str) -> dict[str, float]:
-    model = SentenceTransformer(model)
+
+def get_sentence_transformer_similarity(generated: list[str], source_documents: list[str], model_name: str) -> dict[
+    str, float]:
+    """Calculate sentence transformer similarity using cached model."""
     similarities = []
 
     try:
-        for gen, src in zip(generated, source_documents):
-            embeddings = model.encode([gen, src])
-            similarity = cosine_similarity([embeddings[0]], [embeddings[1]])[0][0]
-            similarities.append(similarity)
+        logger.info(f"Calculating SentenceTransformer similarity with model: {model_name}")
+        model = _model_cache.get_sentence_transformer(model_name)
+
+        if torch and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        batch_size = 4
+
+        for i in range(0, len(generated), batch_size):
+            batch_gen = generated[i:i + batch_size]
+            batch_src = source_documents[i:i + batch_size]
+
+            for gen, src in zip(batch_gen, batch_src):
+                with torch.no_grad():  # Disable gradient computation
+                    embeddings = model.encode([gen, src], convert_to_tensor=True)
+                    similarity = cosine_similarity(
+                        embeddings[0].cpu().numpy().reshape(1, -1),
+                        embeddings[1].cpu().numpy().reshape(1, -1)
+                    )[0][0]
+                    similarities.append(float(similarity))
+
+                # Clean up tensors
+                del embeddings
+
+                if torch and torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
     except Exception as e:
-        logger.error(f"Sentence Transformer embedding similarity {model} failed: {e}")
+        logger.error(f"Sentence Transformer embedding similarity {model_name} failed: {e}")
+        if torch and torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     return get_min_max_mean_std(similarities)
+
+
+def cleanup_metrics_cache():
+    """Clean up all cached models in metrics"""
+    logger.info("Cleaning up metrics cache")
+    _model_cache.cleanup_all()
