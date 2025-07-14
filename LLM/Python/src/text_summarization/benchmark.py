@@ -324,6 +324,8 @@ class SummarizationBenchmark:
         execution_times = []
 
         for paper in tqdm(self.papers, desc=f"Processing {method_name}"):
+            time.sleep(1.5)
+
             start_time = time.time()
             try:
                 formatted_publication_text = f"Title: {paper.title}\n\nAbstract: \n{paper.abstract}"
