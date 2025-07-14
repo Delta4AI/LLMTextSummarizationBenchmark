@@ -70,28 +70,47 @@ def get_min_max_mean_std(values: list[float]) -> dict[str, float]:
         "std": float(np.std(values)) if values else 0.0
     }
 
-@functools.lru_cache(maxsize=1)
-def _load_dotenv_once():
-    """Load .env file once and cache the result."""
-    current_path = Path(__file__).resolve()
 
-    # Search upwards for Resources/.env
+@functools.lru_cache(maxsize=1)
+def _find_project_structure():
+    """Find project root and load .env file once and cache the result."""
+    current_path = Path(__file__).resolve()
+    project_root = None
+    env_file_path = None
+
+    # Search upwards for project root (pyproject.toml) and .env files
     for parent in current_path.parents:
-        env_file = parent / "Resources" / ".env"
-        if env_file.exists():
-            load_dotenv(env_file)
-            return str(env_file)
+        if project_root is None and (parent / "pyproject.toml").exists():
+            project_root = parent
+
+        # Check for Resources/.env
+        if env_file_path is None:
+            env_file = parent / "Resources" / ".env"
+            if env_file.exists():
+                load_dotenv(env_file)
+                env_file_path = str(env_file)
 
     # Fallback: try to find any .env file in parent directories
-    for parent in current_path.parents:
-        env_file = parent / ".env"
-        if env_file.exists():
-            load_dotenv(env_file)
-            return str(env_file)
+    if env_file_path is None:
+        for parent in current_path.parents:
+            env_file = parent / ".env"
+            if env_file.exists():
+                load_dotenv(env_file)
+                env_file_path = str(env_file)
+                break
 
-    return None
+    return {
+        'project_root': project_root or Path.cwd(),
+        'env_file': env_file_path
+    }
+
+
+def get_project_root() -> Path:
+    """Get the project root directory."""
+    return _find_project_structure()['project_root']
+
 
 def get_dotenv_param(param: str) -> str | None:
     """Get parameter from .env file (loads once and caches)."""
-    _load_dotenv_once()  # This will only actually load once
+    _find_project_structure()
     return os.getenv(param)

@@ -27,13 +27,17 @@ import pandas as pd
 from tqdm import tqdm
 import nltk
 
+from text_summarization.utilities import extract_response, get_min_max_mean_std, get_project_root
 
+project_root = get_project_root()
+out_dir = project_root / "Output" / "text_summarization_benchmark"
+out_dir.mkdir(exist_ok=True, parents=True)
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('benchmark.log'),
+        logging.FileHandler(out_dir / 'benchmark.log'),
         logging.StreamHandler()
     ],
     force=True
@@ -49,7 +53,6 @@ from text_summarization.llm_apis.huggingface_client import HuggingFaceClient
 from text_summarization.llm_apis.local_client import TextRankSummarizer, FrequencySummarizer
 from text_summarization.metrics import (get_length_scores, get_meteor_scores, ROUGE_TYPES, get_rouge_scores,
                                         get_bert_scores, get_bleu_scores, get_sentence_transformer_similarity)
-from text_summarization.utilities import extract_response, get_min_max_mean_std
 from text_summarization.visualization import SummarizationVisualizer
 
 
@@ -150,13 +153,9 @@ class SummarizationBenchmark:
 
     def __init__(self):
 
-        script_dir = Path(__file__).parent
-        if not Path(OUTPUT_DIR).is_absolute():
-            self.output_dir = script_dir / OUTPUT_DIR
-        else:
-            self.output_dir = Path(OUTPUT_DIR)
+        self.output_dir = out_dir
 
-        self.db_path = self.output_dir / "db.pkl"
+        self.db_path = self.output_dir / "benchmark.pkl"
 
         self.output_dir.mkdir(exist_ok=True)
         self.hashed_and_dated_output_dir = None
