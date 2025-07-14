@@ -1,5 +1,9 @@
 import re
+from pathlib import Path
+import os
+import functools
 
+from dotenv import load_dotenv
 import numpy as np
 
 
@@ -65,3 +69,29 @@ def get_min_max_mean_std(values: list[float]) -> dict[str, float]:
         "mean": float(np.mean(values)) if values else 0.0,
         "std": float(np.std(values)) if values else 0.0
     }
+
+@functools.lru_cache(maxsize=1)
+def _load_dotenv_once():
+    """Load .env file once and cache the result."""
+    current_path = Path(__file__).resolve()
+
+    # Search upwards for Resources/.env
+    for parent in current_path.parents:
+        env_file = parent / "Resources" / ".env"
+        if env_file.exists():
+            load_dotenv(env_file)
+            return str(env_file)
+
+    # Fallback: try to find any .env file in parent directories
+    for parent in current_path.parents:
+        env_file = parent / ".env"
+        if env_file.exists():
+            load_dotenv(env_file)
+            return str(env_file)
+
+    return None
+
+def get_dotenv_param(param: str) -> str | None:
+    """Get parameter from .env file (loads once and caches)."""
+    _load_dotenv_once()  # This will only actually load once
+    return os.getenv(param)

@@ -4,6 +4,7 @@ import time
 
 from text_summarization.llm_apis.base_client import BaseClient
 from text_summarization.config import ANTHROPIC_DEFAULT_PARAMS
+from text_summarization.utilities import get_dotenv_param
 
 import anthropic
 
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class AnthropicClient(BaseClient):
     def __init__(self, api_key: str = None):
-        self.client = anthropic.Anthropic(api_key=api_key or self.get_dotenv_param("ANTHROPIC_API_KEY"))
+        self.client = anthropic.Anthropic(api_key=api_key or get_dotenv_param("ANTHROPIC_API_KEY"))
 
     def summarize(self, text: str, model_name: str, system_prompt_override: str | None = None,
                   parameter_overrides: dict[str, Any] | None = None) -> str:

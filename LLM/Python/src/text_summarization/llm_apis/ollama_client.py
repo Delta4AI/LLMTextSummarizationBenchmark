@@ -5,13 +5,14 @@ import ollama
 
 from text_summarization.llm_apis.base_client import BaseClient
 from text_summarization.config import OLLAMA_DEFAULT_PARAMS
+from text_summarization.utilities import get_dotenv_param
 
 logger = logging.getLogger(__name__)
 
 
 class OllamaClient(BaseClient):
     def __init__(self, host: str = None):
-        self.client = ollama.Client(host=host or self.get_dotenv_param("OLLAMA_BASE_URL"))
+        self.client = ollama.Client(host=host or get_dotenv_param("OLLAMA_BASE_URL"))
 
     def warmup(self, model_name: str, train_corpus: list[str] | None = None):
         try:

@@ -16,10 +16,12 @@ import hashlib
 import json
 import logging
 import pickle
-from typing import List, Any
+from typing import  Any
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import time
+from argparse import ArgumentParser
+import shutil
 
 import pandas as pd
 from tqdm import tqdm
@@ -154,6 +156,8 @@ class SummarizationBenchmark:
         else:
             self.output_dir = Path(OUTPUT_DIR)
 
+        self.db_path = self.output_dir / "db.pkl"
+
         self.output_dir.mkdir(exist_ok=True)
         self.hashed_and_dated_output_dir = None
 
@@ -230,6 +234,18 @@ class SummarizationBenchmark:
         self.hashed_and_dated_output_dir = self.output_dir / self.papers_hash
         self.hashed_and_dated_output_dir.mkdir(parents=True, exist_ok=True)
 
+    def clear(self):
+        """Clear existing benchmark results."""
+        if self.hashed_and_dated_output_dir.exists():
+            logger.info(f"Clearing existing benchmark results in {self.hashed_and_dated_output_dir}")
+            shutil.rmtree(self.hashed_and_dated_output_dir)
+
+        if self.db_path.exists():
+            logger.info(f"Clearing existing benchmark results in {self.db_path}")
+            self.db_path.unlink()
+
+        self.hashed_and_dated_output_dir.mkdir(parents=True, exist_ok=True)
+
     def append_papers(self, json_file_path: str | Path):
         """Load papers from JSON file."""
         try:
@@ -269,7 +285,7 @@ class SummarizationBenchmark:
 
     def load_results(self):
         self.results = SummarizationResult(
-            file_name=self.output_dir / "db.pkl",
+            file_name=self.db_path,
             papers_hash=self.papers_hash,
         )
         self.results.load()
@@ -427,8 +443,15 @@ class SummarizationBenchmark:
 
 def main():
     """Main execution function with length constraints."""
+    parser = ArgumentParser(description="LLM Text Summarization Benchmark Utility")
+    parser.add_argument("--clear", action="store_true", help="Clear existing benchmark results")
+    args = parser.parse_args()
+
     benchmark = SummarizationBenchmark()
     benchmark.load_papers()
+    if args.clear:
+        benchmark.clear()
+
     benchmark.load_results()
 
     benchmark.add("local:textrank")

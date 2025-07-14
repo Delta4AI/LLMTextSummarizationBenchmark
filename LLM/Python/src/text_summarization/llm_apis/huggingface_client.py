@@ -1,16 +1,21 @@
 import logging
+import os
+from pathlib import Path
 from typing import Any
+
+from transformers import pipeline, AutoTokenizer
 
 from text_summarization.llm_apis.base_client import BaseClient
 from text_summarization.config import HUGGINGFACE_DEFAULT_PARAMS
+from text_summarization.utilities import get_dotenv_param
 
-from transformers import pipeline, AutoTokenizer
 
 logger = logging.getLogger(__name__)
 
 
 class HuggingFaceClient(BaseClient):
     def __init__(self):
+        init_hf_cache_dir()
         self.summarizer = None
 
     def warmup(self, model_name: str, train_corpus: list[str] | None = None):
@@ -34,3 +39,23 @@ class HuggingFaceClient(BaseClient):
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         tokens = tokenizer.encode(text)
         return len(tokens)
+
+
+def init_hf_cache_dir():
+    hf_home = get_dotenv_param("HF_HOME")
+    if hf_home:
+        hf_path = Path(hf_home)
+        if hf_path.is_dir():
+            os.environ["HF_HOME"] = str(hf_path)
+            logger.info(f"Set HF_HOME to: {hf_path}")
+        else:
+            logger.warning(f"HF_HOME directory does not exist: {hf_path}")
+            try:
+                hf_path.mkdir(parents=True, exist_ok=True)
+                os.environ["HF_HOME"] = str(hf_path)
+                logger.info(f"Created and set HF_HOME to: {hf_path}")
+            except OSError as e:
+                logger.error(f"Failed to create HF_HOME directory: {e}")
+                logger.warning("Using default HF_HOME: ~/.cache/huggingface")
+    else:
+        logger.info("HF_HOME not configured, using default: ~/.cache/huggingface")

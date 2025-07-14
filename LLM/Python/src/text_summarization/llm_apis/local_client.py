@@ -1,7 +1,6 @@
 import logging
 import networkx as nx
 import numpy as np
-import re
 from typing import Optional, Any
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity

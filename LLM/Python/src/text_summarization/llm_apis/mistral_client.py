@@ -6,13 +6,14 @@ from mistralai import Mistral
 
 from text_summarization.llm_apis.base_client import BaseClient
 from text_summarization.config import MISTRAL_DEFAULT_PARAMS
+from text_summarization.utilities import get_dotenv_param
 
 logger = logging.getLogger(__name__)
 
 
 class MistralClient(BaseClient):
     def __init__(self, api_key: str = None):
-        self.client = Mistral(api_key=api_key or self.get_dotenv_param("MISTRAL_API_KEY"))
+        self.client = Mistral(api_key=api_key or get_dotenv_param("MISTRAL_API_KEY"))
 
     def summarize(self, text: str, model_name: str, system_prompt_override: str | None = None,
                   parameter_overrides: dict[str, Any] | None = None) -> str:

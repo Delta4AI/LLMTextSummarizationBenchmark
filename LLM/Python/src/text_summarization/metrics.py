@@ -8,11 +8,14 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 from text_summarization.utilities import get_min_max_mean_std
+from text_summarization.llm_apis.huggingface_client import init_hf_cache_dir
 
 
 logger = logging.getLogger(__name__)
 ROUGE_TYPES = ['rouge1', 'rouge2', 'rougeL']
 ROUGE_SCORER = RougeScorer(ROUGE_TYPES, use_stemmer=True)
+init_hf_cache_dir()
+
 
 def get_length_scores(summaries: list[str], min_words: int, max_words: int) -> dict:
     """Calculate length compliance statistics for a set of summaries."""

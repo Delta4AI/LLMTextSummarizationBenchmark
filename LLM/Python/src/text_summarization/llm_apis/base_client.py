@@ -1,8 +1,5 @@
-import os
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Any
-from dotenv import load_dotenv
 
 from text_summarization.config import SYSTEM_PROMPT, MIN_WORDS, MAX_WORDS
 
@@ -24,9 +21,3 @@ class BaseClient(ABC):
     def test_token_size(self, model_name: str, text: str) -> int:
         """Optional test token size method. Override if needed"""
         raise NotImplementedError
-
-    @staticmethod
-    def get_dotenv_param(param: str) -> str | None:
-        env_file = Path(__file__).parents[4] / "Resources" / ".env"
-        load_dotenv(env_file)
-        return os.getenv(param)
