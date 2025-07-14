@@ -19,7 +19,8 @@ class OllamaClient(BaseClient):
             response = self.client.generate(
                 model=model_name,
                 prompt="What is 2+2?",
-                options={"temperature": 0.1, "num_predict": 10}
+                options={"temperature": 0.1, "num_predict": 10},
+                context=None
             )
             logger.info(f"Warmup response: {response['response']}")
         except Exception as e:
@@ -33,7 +34,8 @@ class OllamaClient(BaseClient):
             response = self.client.generate(
                 model=model_name,
                 prompt=f"{self.system_prompt}\n\n{text}",
-                options={**OLLAMA_DEFAULT_PARAMS, **(parameter_overrides or {})}
+                options={**OLLAMA_DEFAULT_PARAMS, **(parameter_overrides or {})},
+                context=None
             )
 
             if not response or 'response' not in response:
@@ -44,3 +46,12 @@ class OllamaClient(BaseClient):
 
         except Exception as e:
             raise ValueError(f"Unexpected error in Ollama summarization: {e}")
+
+    def test_token_size(self, model_name: str, text: str) -> int:
+        try:
+            resp = self.client.embed(model=model_name, input=text)
+        except ollama._types.ResponseError:
+            # fall back for models not supporting the embed endpoint
+            resp = self.client.generate(model=model_name, prompt=text, options={"num_predict": 0})
+        return resp["prompt_eval_count"]
+

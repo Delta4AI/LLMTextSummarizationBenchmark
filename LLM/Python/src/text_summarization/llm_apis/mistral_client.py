@@ -1,5 +1,6 @@
 import logging
 from typing import Any
+import time
 
 from mistralai import Mistral
 
@@ -15,7 +16,9 @@ class MistralClient(BaseClient):
 
     def summarize(self, text: str, model_name: str, system_prompt_override: str | None = None,
                   parameter_overrides: dict[str, Any] | None = None) -> str:
-        logger.info(f"Making MistralAI request with model {model_name}")
+        logger.info(f"Making MistralAI request with model {model_name} after sleeping for 1.5 seconds")
+        time.sleep(1.5)
+
         try:
             response = self.client.chat.complete(
                 model=model_name,

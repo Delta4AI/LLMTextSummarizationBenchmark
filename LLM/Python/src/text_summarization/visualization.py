@@ -32,6 +32,8 @@ class SummarizationVisualizer:
             ("RoBERTa", lambda m: self.results[m].roberta_scores["f1"], None),
             ("DeBERTa", lambda m: self.results[m].deberta_scores["f1"], None),
             ("METEOR", lambda m: self.results[m].meteor_scores, None),
+            ("BLEU", lambda m: self.results[m].bleu_scores, None),
+            ("all-mpnet-base-v2", lambda m: self.results[m].mpnet_content_coverage_scores, None)
         ]
 
         self.overall_qualities = (

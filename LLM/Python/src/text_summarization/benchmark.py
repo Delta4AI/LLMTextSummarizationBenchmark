@@ -16,7 +16,7 @@ import hashlib
 import json
 import logging
 import pickle
-from typing import List, Dict, Any
+from typing import List, Any
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import time
@@ -24,9 +24,7 @@ import time
 import pandas as pd
 from tqdm import tqdm
 import nltk
-from nltk.translate.meteor_score import meteor_score
-from rouge_score import rouge_scorer
-from bert_score import score as bert_score
+
 
 
 logging.basicConfig(
@@ -40,13 +38,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+from text_summarization.config import MIN_WORDS, MAX_WORDS, OUTPUT_DIR, GOLD_STANDARD_DATA, TOKEN_SIZE_SAMPLE_TEXT
 from text_summarization.llm_apis.ollama_client import OllamaClient
 from text_summarization.llm_apis.mistral_client import MistralClient
 from text_summarization.llm_apis.anthropic_client import AnthropicClient
 from text_summarization.llm_apis.openai_client import OpenAIClient
 from text_summarization.llm_apis.huggingface_client import HuggingFaceClient
 from text_summarization.llm_apis.local_client import TextRankSummarizer, FrequencySummarizer
-from text_summarization.config import MIN_WORDS, MAX_WORDS, OUTPUT_DIR, GOLD_STANDARD_DATA
+from text_summarization.metrics import (get_length_scores, get_meteor_scores, ROUGE_TYPES, get_rouge_scores,
+                                        get_bert_scores, get_bleu_scores, get_sentence_transformer_similarity)
 from text_summarization.utilities import extract_response, get_min_max_mean_std
 from text_summarization.visualization import SummarizationVisualizer
 
@@ -68,16 +68,20 @@ class EvaluationResult:
     full_responses: list[str]
     summaries: list[str]
     length_stats: dict
-    meteor_scores: dict[str, float]
+    rouge_scores: dict[str, dict[str, float]]
     roberta_scores: dict[str, dict[str, float]]
     deberta_scores: dict[str, dict[str, float]]
-    rouge_scores: dict[str, dict[str, float]]
+    meteor_scores: dict[str, float]
+    bleu_scores: dict[str, float]
+    mpnet_content_coverage_scores: dict[str, float]
 
     def as_json(self, detailed: bool = False) -> dict[str, Any]:
         rouge = {f"{k}_{kk}": vv for k, v in self.rouge_scores.items() for kk, vv in v.items()}
-        roberta = {f"{k}_{kk}": vv for k, v in self.roberta_scores.items() for kk, vv in v.items()}
-        deberta = {f"{k}_{kk}": vv for k, v in self.deberta_scores.items() for kk, vv in v.items()}
+        roberta = {f"roberta_{k}_{kk}": vv for k, v in self.roberta_scores.items() for kk, vv in v.items()}
+        deberta = {f"deberta_{k}_{kk}": vv for k, v in self.deberta_scores.items() for kk, vv in v.items()}
         meteor = {f"meteor_{k}": v for k, v in self.meteor_scores.items()}
+        bleu = {f"bleu_{k}": v for k, v in self.bleu_scores.items()}
+        mpnet_content_coverage = {f"content_coverage_{k}": v for k, v in self.mpnet_content_coverage_scores.items()}
         _exec_times = get_min_max_mean_std(self.execution_times)
         exec_times = {f"exec_time_{k}": v for k, v in _exec_times.items()}
         _lengths = get_min_max_mean_std(self.length_stats["all_lengths"])
@@ -100,6 +104,8 @@ class EvaluationResult:
             **roberta,
             **deberta,
             **meteor,
+            **bleu,
+            **mpnet_content_coverage,
             **exec_times,
             **_variable_results
         }
@@ -109,17 +115,7 @@ class SummarizationResult:
     def __init__(self, file_name: str | Path, papers_hash: str):
         self.fn = file_name
         self.data = {}
-        self._reference_embeddings = None  # TODO: implement
         self.papers_hash = papers_hash
-
-    @property
-    def reference_embeddings(self):
-        if not self._reference_embeddings:
-            self._reference_embeddings = self._generate_reference_embeddings()
-        return self._reference_embeddings
-
-    def _generate_reference_embeddings(self) -> dict[str, list[float]]:
-        return {}
 
     def load(self):
         try:
@@ -167,13 +163,13 @@ class SummarizationBenchmark:
         self.results = None
 
         self.papers = []
+        self.models = []
 
         self.visualizer = SummarizationVisualizer(
             benchmark_ref=self
         )
 
-        self.rouge_types = ["rouge1", "rouge2", "rougeL"]
-        self.rouge_scorer = rouge_scorer.RougeScorer(self.rouge_types, use_stemmer=True)
+        self.rouge_types = ROUGE_TYPES
         nltk.download('wordnet', quiet=True)
 
         self._load_api_clients()
@@ -197,28 +193,6 @@ class SummarizationBenchmark:
             except Exception as e:
                 logger.warning(f"Failed to load {_key} API client: {e}")
 
-    def calculate_length_stats(self, summaries: List[str]) -> Dict:
-        """Calculate length compliance statistics for a set of summaries."""
-        lengths = [len(summary.split()) for summary in summaries]
-
-        too_short = sum(1 for length in lengths if length < self.min_words)
-        too_long = sum(1 for length in lengths if length > self.max_words)
-        within_bounds = len(lengths) - too_short - too_long
-
-        return {
-            'total_summaries': len(summaries),
-            'too_short': too_short,
-            'too_long': too_long,
-            'within_bounds': within_bounds,
-            'too_short_pct': too_short / len(lengths) * 100 if lengths else 0,
-            'too_long_pct': too_long / len(lengths) * 100 if lengths else 0,
-            'within_bounds_pct': within_bounds / len(lengths) * 100 if lengths else 0,
-            **get_min_max_mean_std(lengths),
-            'target_min': self.min_words,
-            'target_max': self.max_words,
-            'all_lengths': lengths
-        }
-
     def load_papers(self):
         for file in GOLD_STANDARD_DATA:
             file_path = Path(__file__).parents[3] / file
@@ -235,6 +209,7 @@ class SummarizationBenchmark:
                     f"Average number of reference summaries per paper: {self._get_avg_summaries(self.papers):.2f}")
 
         self._calculate_papers_hash()
+        self._init_out_dir()
 
     def _calculate_papers_hash(self):
         papers_data = []
@@ -250,6 +225,10 @@ class SummarizationBenchmark:
         self.papers_hash = hash_obj.hexdigest()
 
         logger.info(f"Papers hash: {self.papers_hash}")
+
+    def _init_out_dir(self):
+        self.hashed_and_dated_output_dir = self.output_dir / self.papers_hash
+        self.hashed_and_dated_output_dir.mkdir(parents=True, exist_ok=True)
 
     def append_papers(self, json_file_path: str | Path):
         """Load papers from JSON file."""
@@ -295,7 +274,16 @@ class SummarizationBenchmark:
         )
         self.results.load()
 
-    def run(self, platform: str, model_name: str | None = None, parameter_overrides: dict[str, Any] | None = None):
+    def add(self, platform: str, model_name: str | None = None, parameter_overrides: dict[str, Any] | None = None):
+        self.models.append((platform, model_name, parameter_overrides))
+        
+    def run(self):
+        logger.info(f"Running benchmark for {len(self.models)} models ..")
+        for idx, (platform, model_name, parameter_overrides) in enumerate(self.models):
+            logger.info(f"Running model {idx+1}/{len(self.models)}: {platform} {model_name}")
+            self._run(platform=platform, model_name=model_name, parameter_overrides=parameter_overrides)
+    
+    def _run(self, platform: str, model_name: str | None = None, parameter_overrides: dict[str, Any] | None = None):
         """Run external model evaluation."""
         if model_name:
             method_name = f"{platform}_{model_name}"
@@ -306,12 +294,13 @@ class SummarizationBenchmark:
             logger.info(f"Skipping interference for existing method: {method_name}")
             return
 
-        if hasattr(self.api_clients[platform], 'warmup'):
-            try:
-                train_corpus = [f"Title: {paper.title}\n\nAbstract: {paper.abstract}" for paper in self.papers]
-                self.api_clients[platform].warmup(model_name=model_name, train_corpus=train_corpus)
-            except Exception as e:
-                logger.error(f"Warmup failed: {e}")
+        try:
+            train_corpus = [f"Title: {paper.title}\n\nAbstract: {paper.abstract}" for paper in self.papers]
+            self.api_clients[platform].warmup(model_name=model_name, train_corpus=train_corpus)
+        except NotImplementedError:
+            pass
+        except Exception as e:
+            logger.error(f"Warmup failed: {e}")
 
         results = []
         full_responses = []
@@ -363,114 +352,53 @@ class SummarizationBenchmark:
         logger.info(f"Method {method_name} succeeded on {len(successful_papers)}/{len(self.papers)} papers")
 
         all_references = [paper.summaries for paper in successful_papers]
+        all_full_text_papers = [f"{p.title}\n\n{p.abstract}" for p in successful_papers]
 
         result = EvaluationResult(
             method_name=method_name,
             execution_times=execution_times,
             full_responses=full_responses,
             summaries=generated_summaries,
-            length_stats=self.calculate_length_stats(generated_summaries),
-            meteor_scores=self.calculate_meteor_score(generated_summaries, all_references),
-            roberta_scores=self.calculate_bert_score(generated_summaries, all_references, "roberta-large"),
-            deberta_scores=self.calculate_bert_score(generated_summaries, all_references, "microsoft/deberta-xlarge-mnli"),
-            rouge_scores=self.calculate_rouge_scores(generated_summaries, all_references)
+            length_stats=get_length_scores(generated_summaries, self.min_words, self.max_words),
+            rouge_scores=get_rouge_scores(generated_summaries, all_references),
+            roberta_scores=get_bert_scores(generated_summaries, all_references, "roberta-large"),
+            deberta_scores=get_bert_scores(generated_summaries, all_references, "microsoft/deberta-xlarge-mnli"),
+            meteor_scores=get_meteor_scores(generated_summaries, all_references),
+            bleu_scores=get_bleu_scores(generated_summaries, all_references),
+            mpnet_content_coverage_scores=get_sentence_transformer_similarity(
+                generated_summaries, all_full_text_papers, "all-mpnet-base-v2")
         )
 
         self.results.add(method_name=method_name, result=result)
-        logger.info(f"Completed evaluation of {method_name}")
         self.results.save()
 
-    def calculate_rouge_scores(self, generated: List[str], references: List[List[str]]) -> dict[str, dict[str, float]]:
-        """Calculate ROUGE scores against multiple references (max score)."""
-        rouge_scores = {rouge_type: [] for rouge_type in self.rouge_types}
+    def test_token_sizes(self):
+        logger.info(f"Testing token sizes for {len(self.models)} models ..")
 
-        for gen, ref_list in zip(generated, references):
-            max_scores = dict.fromkeys(self.rouge_types, 0.0)
+        out_fn = self.hashed_and_dated_output_dir / "token_sizes.csv"
 
-            for ref in ref_list:
-                scores = self.rouge_scorer.score(ref, gen)
-                for rouge_type in self.rouge_types:
-                    max_scores[rouge_type] = max(max_scores[rouge_type], scores[rouge_type].fmeasure)
+        with open(out_fn, mode="w", encoding="utf-8") as f:
+            f.write("Platform,Model Name,Words,Tokens,Ratio\n")
+            logger.info(f"{'Platform':<12}|{'Model Name':<80}|{'Words':<8}|{'Tokens':<8}|{'Ratio':<8}")
+            text = TOKEN_SIZE_SAMPLE_TEXT
+            words = len(text.split())
 
-            for rouge_type in self.rouge_types:
-                rouge_scores[rouge_type].append(max_scores[rouge_type])
+            for platform, model_name, parameter_overrides in self.models:
+                try:
+                    token_size = self.api_clients[platform].test_token_size(model_name=model_name, text=text)
+                    ratio = token_size / words
 
-        return {
-            rouge_type: get_min_max_mean_std(rouge_scores[rouge_type])
-            for rouge_type in self.rouge_types
-        }
-
-    @staticmethod
-    def calculate_bert_score(generated: List[str], references: List[List[str]],
-                             model: str) -> dict[str, dict[str, float]]:
-        """Calculate BERTScore using best reference for each generated summary."""
-        best_precision = []
-        best_recall = []
-        best_f1 = []
-
-        try:
-            for gen, ref_list in zip(generated, references):
-                if not ref_list:
+                    logger.info(f"{platform:<12}|{model_name:<80}|{words:<8}|{token_size:<8}|{ratio:<8.2f}")
+                    f.write(f"{platform},{model_name},{words},{token_size},{ratio}\n")
+                except NotImplementedError:
                     continue
 
-                # Calculate BERTScore against all references for this summary
-                P, R, F1 = bert_score(
-                    cands=[gen] * len(ref_list),
-                    refs=ref_list,
-                    model_type=model,
-                    lang="en",
-                    verbose=False
-                )
-
-                # Take the maximum scores
-                best_precision.append(P.max().item())
-                best_recall.append(R.max().item())
-                best_f1.append(F1.max().item())
-
-        except Exception as e:
-            logger.error(f"BERTScore calculation failed: {e}")
-
-        return {
-            'precision': get_min_max_mean_std(best_precision),
-            'recall': get_min_max_mean_std(best_recall),
-            'f1': get_min_max_mean_std(best_f1)
-        }
-
-    def calculate_meteor_score(self, generated: List[str], references: List[List[str]]) -> dict[str, float]:
-        """Calculate METEOR score using best reference for each generated summary."""
-        meteor_scores = []
-
-        try:
-            for gen, ref_list in zip(generated, references):
-                if not ref_list:
-                    continue
-
-                # Pre-tokenize the generated summary
-                gen_tokens = gen.split()
-
-                # For each reference, calculate the METEOR score
-                ref_scores = []
-                for ref in ref_list:
-                    ref_tokens = ref.split()
-                    score = meteor_score([ref_tokens], gen_tokens)
-                    ref_scores.append(score)
-
-                # Take the best score for this document
-                best_score = max(ref_scores) if ref_scores else 0.0
-                meteor_scores.append(best_score)
-
-        except Exception as e:
-            logger.error(f"METEOR calculation failed: {str(e)}")
-
-        return get_min_max_mean_std([])
+        logger.info(f"Token sizes written to {out_fn}")
 
     def export(self):
-        self.hashed_and_dated_output_dir = self.output_dir / self.papers_hash
-        self.hashed_and_dated_output_dir.mkdir(parents=True, exist_ok=True)
-        
         self.generate_comparison_report()
         self.save_detailed_results_as_json()
-        self.create_visualizations()
+        self.visualizer.create_all_visualizations()
     
     def generate_comparison_report(self):
         """Generate comparison report with length compliance statistics."""
@@ -496,14 +424,6 @@ class SummarizationBenchmark:
 
         logger.info(f"Detailed results saved to {results_path}")
 
-    def create_visualizations(self):
-        """Create all visualization plots."""
-        if not self.results:
-            logger.warning("No results to visualize")
-            return
-
-        self.visualizer.create_all_visualizations()
-
 
 def main():
     """Main execution function with length constraints."""
@@ -511,71 +431,79 @@ def main():
     benchmark.load_papers()
     benchmark.load_results()
 
-    benchmark.run("local:textrank")
-    benchmark.run("local:frequency")
+    benchmark.add("local:textrank")
+    benchmark.add("local:frequency")
+
+    _p14 = {"max_new_tokens": MAX_WORDS*1.3, "min_new_tokens": MIN_WORDS*1.3}
+    _p16 = {"max_new_tokens": MAX_WORDS*1.6, "min_new_tokens": MIN_WORDS*1.6}
+    _p15 = {"max_new_tokens": MAX_WORDS*1.5, "min_new_tokens": MIN_WORDS*1.5}
+    _p17 = {"max_new_tokens": MAX_WORDS*1.7, "min_new_tokens": MIN_WORDS*1.7}
 
     # https://huggingface.co/models?pipeline_tag=summarization&language=en&sort=trending
-    benchmark.run("huggingface", "facebook/bart-large-cnn")
-    benchmark.run("huggingface", "facebook/bart-base")
-    # benchmark.run("huggingface", "google-t5/t5-base")
-    # benchmark.run("huggingface", "google-t5/t5-large")
-    # benchmark.run("huggingface", "csebuetnlp/mT5_multilingual_XLSum")
-    # benchmark.run("huggingface", "google/pegasus-xsum")
-    # benchmark.run("huggingface", "google/pegasus-large")
-    # benchmark.run("huggingface", "google/pegasus-cnn_dailymail")
-    # benchmark.run("huggingface", "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization")
+    benchmark.add("huggingface", "facebook/bart-large-cnn", _p16)
+    benchmark.add("huggingface", "facebook/bart-base", _p16)
+    benchmark.add("huggingface", "google-t5/t5-base", _p17)
+    benchmark.add("huggingface", "google-t5/t5-large", _p17)
+    benchmark.add("huggingface", "csebuetnlp/mT5_multilingual_XLSum", _p16)
+    benchmark.add("huggingface", "google/pegasus-xsum", _p14)
+    benchmark.add("huggingface", "google/pegasus-large", _p14)
+    benchmark.add("huggingface", "google/pegasus-cnn_dailymail", _p14)
+    benchmark.add("huggingface", "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization", _p16)
 
-    benchmark.run("ollama", "deepseek-r1:1.5b")
-    benchmark.run("ollama", "deepseek-r1:7b")
-    # benchmark.run("ollama", "deepseek-r1:8b")
-    # benchmark.run("ollama", "deepseek-r1:14b")
-    # benchmark.run("ollama", "gemma3:1b")
-    # benchmark.run("ollama", "gemma3:4b")
-    # benchmark.run("ollama", "gemma3:12b")
-    # benchmark.run("ollama", "granite3.3:2b")
-    # benchmark.run("ollama", "granite3.3:8b")
-    # benchmark.run("ollama", "llama3.1:8b")
-    # benchmark.run("ollama", "llama3.2:1b")
-    # benchmark.run("ollama", "llama3.2:3b")
-    # benchmark.run("ollama", "meditron:7b")
-    # benchmark.run("ollama", "medllama2:7b")
-    # benchmark.run("ollama", "mistral:7b")
-    # benchmark.run("ollama", "mistral-nemo:latest")
-    # benchmark.run("ollama", "PetrosStav/gemma3-tools:4b")
-    # benchmark.run("ollama", "phi3:3.8b")
-    # benchmark.run("ollama", "phi4:14b")
-    # benchmark.run("ollama", "phi4:latest")
-    # benchmark.run("ollama", "qwen3:4b")
-    # benchmark.run("ollama", "qwen3:8b")
-    # benchmark.run("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")
+    benchmark.add("ollama", "deepseek-r1:1.5b")
+    benchmark.add("ollama", "deepseek-r1:7b")
+    benchmark.add("ollama", "deepseek-r1:8b")
+    benchmark.add("ollama", "deepseek-r1:14b")
+    benchmark.add("ollama", "gemma3:1b")
+    benchmark.add("ollama", "gemma3:4b")
+    benchmark.add("ollama", "gemma3:12b")
+    benchmark.add("ollama", "granite3.3:2b")
+    benchmark.add("ollama", "granite3.3:8b")
+    benchmark.add("ollama", "llama3.1:8b")
+    benchmark.add("ollama", "llama3.2:1b")
+    benchmark.add("ollama", "llama3.2:3b")
+    benchmark.add("ollama", "meditron:7b")
+    benchmark.add("ollama", "medllama2:7b")
+    benchmark.add("ollama", "mistral:7b")
+    benchmark.add("ollama", "mistral-nemo:latest")
+    benchmark.add("ollama", "PetrosStav/gemma3-tools:4b")
+    benchmark.add("ollama", "phi3:3.8b")
+    benchmark.add("ollama", "phi4:14b")
+    benchmark.add("ollama", "phi4:latest")
+    benchmark.add("ollama", "qwen3:4b")
+    benchmark.add("ollama", "qwen3:8b")
+    benchmark.add("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")
 
     # https://platform.openai.com/docs/models
-    benchmark.run("openai", "gpt-3.5-turbo")
-    # benchmark.run("openai", "gpt-4.1")
+    # "protected" models (gpt-3o, ..) need ID verification and allows openai to freely disclose personal data ..
+    # https://community.openai.com/t/openai-non-announcement-requiring-identity-card-verification-for-access-to-new-api-models-and-capabilities/1230004/32
+    benchmark.add("openai", "gpt-3.5-turbo")
+    benchmark.add("openai", "gpt-4.1")
 
     # https://docs.anthropic.com/en/docs/about-claude/models/overview
-    benchmark.run("anthropic", "claude-3-5-haiku-20241022")  # fastest
-    # benchmark.run("anthropic", "claude-sonnet-4-20250514")  # high intelligence, balanced performance
-    # benchmark.run("anthropic", "claude-opus-4-20250514")  # most capable
+    benchmark.add("anthropic", "claude-3-5-haiku-20241022")  # fastest
+    benchmark.add("anthropic", "claude-sonnet-4-20250514")  # high intelligence, balanced performance
+    benchmark.add("anthropic", "claude-opus-4-20250514")  # most capable
 
     # https://docs.mistral.ai/getting-started/models/models_overview/
-    benchmark.run("mistral", "mistral-medium-latest")  # frontier-class multimodal model
-    # benchmark.run("mistral", "magistral-medium-latest")  # frontier-class reasoning
-    # benchmark.run("mistral", "mistral-large-latest")  # top-tier large model, high complexity tasks
-    # benchmark.run("mistral", "mistral-small-latest")
+    benchmark.add("mistral", "mistral-medium-latest")  # frontier-class multimodal model
+    benchmark.add("mistral", "magistral-medium-latest")  # frontier-class reasoning
+    benchmark.add("mistral", "mistral-large-latest")  # top-tier large model, high complexity tasks
+    benchmark.add("mistral", "mistral-small-latest")
 
 
     # expensive
-    # benchmark.run("ollama", "deepseek-r1:32b")
-    # benchmark.run("ollama", "gemma3:27b")
-    # benchmark.run("ollama", "llama3.3:latest")
-    # benchmark.run("ollama", "PetrosStav/gemma3-tools:27b")
+    # benchmark.add("ollama", "deepseek-r1:32b")
+    # benchmark.add("ollama", "gemma3:27b")
+    # benchmark.add("ollama", "llama3.3:latest")
+    # benchmark.add("ollama", "PetrosStav/gemma3-tools:27b")
 
     # broken?
-    # benchmark.run_external_model("ollama", "llama3-gradient:latest")
-    # benchmark.run("ollama", "oscardp96/medcpt-query:latest")
+    # benchmark.add("ollama", "llama3-gradient:latest")
+    # benchmark.add("ollama", "oscardp96/medcpt-query:latest")
 
-    # generate reports and visualizations
+    # benchmark.test_token_sizes()
+    benchmark.run()
     benchmark.export()
 
 

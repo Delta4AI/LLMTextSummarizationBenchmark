@@ -1,10 +1,11 @@
 import logging
 from typing import Any
 
+from openai import OpenAI
+import tiktoken
+
 from text_summarization.llm_apis.base_client import BaseClient
 from text_summarization.config import OPENAI_DEFAULT_PARAMS
-
-from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +29,20 @@ class OpenAIClient(BaseClient):
         if not response or not hasattr(response, 'output_text'):
             raise ValueError("Invalid or no response from OpenAI")
 
-        logger.info(f"Successfully generated summary with OpenAI {model_name}")
-
         return response.output_text
+
+    def test_token_size(self, model_name: str, text: str) -> int:
+        try:
+            tokenizer = tiktoken.encoding_for_model(model_name)
+        except KeyError:
+            # https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
+            logger.warning(f"Model {model_name} not found in tiktoken encoding list. "
+                           f"Using cl100k_base model as fallback.")
+            tokenizer = tiktoken.get_encoding("cl100k_base")
+
+        tokens = tokenizer.encode(text)
+        return len(tokens)
+
 
 if __name__ == "__main__":
     openai_client = OpenAIClient()

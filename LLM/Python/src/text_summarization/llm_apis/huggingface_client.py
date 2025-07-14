@@ -4,7 +4,7 @@ from typing import Any
 from text_summarization.llm_apis.base_client import BaseClient
 from text_summarization.config import HUGGINGFACE_DEFAULT_PARAMS
 
-from transformers import pipeline
+from transformers import pipeline, AutoTokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +26,11 @@ class HuggingFaceClient(BaseClient):
                 **(system_prompt_override or {})
             )
 
-            logger.info("Successfully generated summary with Huggingface summarizer pipeline")
             return response[0]['summary_text']
         except Exception as e:
             raise ValueError(f"Huggingface summarizer pipeline request failed: {e}")
 
+    def test_token_size(self, model_name: str, text: str) -> int:
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokens = tokenizer.encode(text)
+        return len(tokens)

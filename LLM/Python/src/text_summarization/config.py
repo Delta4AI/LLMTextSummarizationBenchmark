@@ -1,3 +1,6 @@
+from collections import namedtuple
+from typing import NamedTuple, Any
+
 MIN_WORDS: int = 15
 MAX_WORDS: int = 50
 OUTPUT_DIR: str = "benchmark_results"
@@ -16,9 +19,13 @@ SYSTEM_PROMPT = f"""Summarize the provided publication (consisting of a title an
 - Exclude unnecessary background, introductory explanations, or restatements of methods unless directly related to the main conclusion.
 - Write concisely and objectively, focusing on substance rather than style."""
 
+TOKEN_SIZE_SAMPLE_TEXT = """Many words map to one token, but some don't: indivisible.
+Unicode characters like emojis may be split into many tokens containing the underlying bytes: 🤚🏾
+Sequences of characters commonly found next to each other may be grouped together: 1234567890"""
+
 HUGGINGFACE_DEFAULT_PARAMS = {
-    "max_length": MAX_WORDS,
-    "min_length": MIN_WORDS,
+    "max_new_tokens": int(MAX_WORDS * 1.40),  # calculated with text_summarization.llm_apis.get_token_sizes()
+    "min_new_tokens": int(MIN_WORDS * 1.40),
     "do_sample": False,
     "num_beams": 4,
     "early_stopping": True,
@@ -30,6 +37,7 @@ HUGGINGFACE_DEFAULT_PARAMS = {
 OPENAI_DEFAULT_PARAMS = {
     "temperature": 1,
     "top_p": 1,
+    "max_tokens": int(MAX_WORDS * 1.45),  # https://platform.openai.com/tokenizer
 }
 
 ANTHROPIC_DEFAULT_PARAMS = {

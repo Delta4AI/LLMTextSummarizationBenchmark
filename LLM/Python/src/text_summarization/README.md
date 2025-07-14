@@ -76,21 +76,26 @@ Multiple reference summaries improve evaluation robustness and reduce single-ann
 > Each generated summary is evaluated against all available gold-standard reference summaries of a document using a number of metrics as listed below. For each metric, mean/min/max/std are computed.
 
 ### Rouge
-Set of metrics for evaluating summary quality by comparing to reference summaries. [wiki](https://en.wikipedia.org/wiki/ROUGE_(metric)) | [used google-research package](https://github.com/google-research/google-research/tree/master/rouge) | [publication](https://aclanthology.org/W04-1013.pdf)
+Set of metrics for evaluating summary quality by comparing to reference summaries. [wiki](https://en.wikipedia.org/wiki/ROUGE_(metric)) | [package](https://github.com/google-research/google-research/tree/master/rouge) | [publication](https://aclanthology.org/W04-1013.pdf)
 - **ROUGE-N**: N-gram co-occurrence statistics between system and reference summaries.
   - **ROUGE-1**: Overlap of unigrams (individual words)
   - **ROUGE-2**: Overlap of bigrams (word pairs)
 - **ROUGE-L**: Longest Common Subsequence (LCS) based statistics that capture sentence-level structure similarity by awarding credit only to in-sequence word matches.
 
 ### Bert
-Semantic similarity using BERT embeddings. [paper](https://arxiv.org/abs/1904.09675) | [used package](https://github.com/Tiiiger/bert_score)
+Semantic similarity using BERT embeddings. [paper](https://arxiv.org/abs/1904.09675) | [package](https://github.com/Tiiiger/bert_score)
 - `roberta-large`: Default model [paper](https://arxiv.org/abs/1907.11692) | [model](https://huggingface.co/FacebookAI/roberta-large)
 - `microsoft/deberta-xlarge-mnli`: Proposed as "better model" [paper](https://arxiv.org/abs/2006.03654) | [model](https://huggingface.co/microsoft/deberta-xlarge-mnli))
 
 ### Meteor
+Matches words through exact matches, stemming, synonyms, and considers word order. Claims to outperform BLEU. [paper](https://www.cs.cmu.edu/~alavie/METEOR/pdf/Lavie-Agarwal-2007-METEOR.pdf) | [function]()
 
 ### BLEU
+N-gram overlaps with brevity penalty. [paper](https://www.aclweb.org/anthology/P02-1040.pdf) | [function](https://www.nltk.org/api/nltk.translate.bleu_score.html#nltk.translate.bleu_score.sentence_bleu)
 
+### all-mpnet-base-v2
+Semantic similarity using sentence transformers. Compares generated summary directly against the source document 
+(rather than reference summaries like other metrics). [model](https://huggingface.co/sentence-transformers/all-mpnet-base-v2)
 
 ### Further Metrics
 - **Execution Time**: Processing time

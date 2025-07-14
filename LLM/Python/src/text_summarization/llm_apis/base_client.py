@@ -19,7 +19,11 @@ class BaseClient(ABC):
 
     def warmup(self, model_name: str, train_corpus: list[str] | None) -> None:
         """Optional warmup method. Override if needed"""
-        pass
+        raise NotImplementedError
+
+    def test_token_size(self, model_name: str, text: str) -> int:
+        """Optional test token size method. Override if needed"""
+        raise NotImplementedError
 
     @staticmethod
     def get_dotenv_param(param: str) -> str | None:

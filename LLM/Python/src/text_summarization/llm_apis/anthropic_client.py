@@ -1,5 +1,6 @@
 import logging
 from typing import Any
+import time
 
 from text_summarization.llm_apis.base_client import BaseClient
 from text_summarization.config import ANTHROPIC_DEFAULT_PARAMS
@@ -15,8 +16,9 @@ class AnthropicClient(BaseClient):
 
     def summarize(self, text: str, model_name: str, system_prompt_override: str | None = None,
                   parameter_overrides: dict[str, Any] | None = None) -> str:
-        # TODO: might have to sleep before each request to prevent >1 request per second
-        logger.info(f"Making Anthropic request with model {model_name}")
+        logger.info(f"Making Anthropic request with model {model_name} after sleeping for 1.5 seconds")
+        time.sleep(1.5)
+
         response = self.client.messages.create(
             model=model_name,
             system=system_prompt_override if system_prompt_override is not None else self.system_prompt,
@@ -32,7 +34,5 @@ class AnthropicClient(BaseClient):
 
         if not response or not hasattr(response, "content"):
             raise ValueError("Invalid or no response from Anthropic")
-
-        logger.info(f"Successfully generated summary with Anthropic {model_name}")
 
         return response.content[0].text
