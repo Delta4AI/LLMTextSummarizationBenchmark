@@ -8,7 +8,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 from text_summarization.utilities import get_min_max_mean_std
-from text_summarization.llm_apis.huggingface_client import init_hf_cache_dir
+from llm_apis.huggingface_client import init_hf_cache_dir
 
 
 logger = logging.getLogger(__name__)
