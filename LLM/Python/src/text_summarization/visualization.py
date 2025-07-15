@@ -1,4 +1,6 @@
 import logging
+from collections import namedtuple
+
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
@@ -11,6 +13,12 @@ if TYPE_CHECKING:
     from benchmark import SummarizationBenchmark
 
 logger = logging.getLogger(__name__)
+
+SURFACE_LEVEL = "Surface-level"
+REFERENCE_SIMILARITY = "Reference Similarity"
+CONTENT_COVERAGE = "Content Coverage"
+AGGREGATE = "Aggregate"
+PERFORMANCE = "Performance"
 
 
 class SummarizationVisualizer:
@@ -25,23 +33,29 @@ class SummarizationVisualizer:
         self.methods = None
         self.out_dir = None
 
+        _metric = namedtuple("Metric", ["label", "getter", "line_override", "category"])
+
         self.metrics = [
-            ("ROUGE-1", lambda m: self.results[m].rouge_scores["rouge1"], None),
-            ("ROUGE-2", lambda m: self.results[m].rouge_scores["rouge2"], None),
-            ("ROUGE-L", lambda m: self.results[m].rouge_scores["rougeL"], None),
-            ("RoBERTa", lambda m: self.results[m].roberta_scores["f1"], None),
-            ("DeBERTa", lambda m: self.results[m].deberta_scores["f1"], None),
-            ("METEOR", lambda m: self.results[m].meteor_scores, None),
-            ("BLEU", lambda m: self.results[m].bleu_scores, None),
-            ("all-mpnet-base-v2", lambda m: self.results[m].mpnet_content_coverage_scores, None)
+            _metric("ROUGE-1", lambda m: self.results[m].rouge_scores["rouge1"], None, SURFACE_LEVEL),
+            _metric("ROUGE-2", lambda m: self.results[m].rouge_scores["rouge2"], None, SURFACE_LEVEL),
+            _metric("ROUGE-L", lambda m: self.results[m].rouge_scores["rougeL"], None, SURFACE_LEVEL),
+            _metric("RoBERTa", lambda m: self.results[m].roberta_scores["f1"], None, REFERENCE_SIMILARITY),
+            _metric("DeBERTa", lambda m: self.results[m].deberta_scores["f1"], None, REFERENCE_SIMILARITY),
+            _metric("METEOR", lambda m: self.results[m].meteor_scores, None, SURFACE_LEVEL),
+            _metric("BLEU", lambda m: self.results[m].bleu_scores, None, SURFACE_LEVEL),
+            _metric("all-mpnet-base-v2", lambda m: self.results[m].mpnet_content_coverage_scores, None, CONTENT_COVERAGE)
         ]
 
-        self.overall_qualities = (
-            "Overall Quality", lambda m: self.metric_scores[m], {"color": "black", "width": 4})
-        self.performances = (
-            "Speed Performance", lambda m: self.normalized_exec_times[m], {"color": "rgb(138, 43, 226)", "width": 3})
-        self.length_within_bounds = (
-            "Length Within Bounds", lambda m: {"mean": self.results[m].length_stats["within_bounds_pct"]/100}, None)
+        self.aggregates = [
+            _metric("Overall Quality", lambda m: self.metric_scores[m], {"color": "black", "width": 4}, AGGREGATE)
+        ]
+
+        self.performances = [
+            _metric("Speed Performance", lambda m: self.normalized_exec_times[m],
+                    {"color": "rgb(138, 43, 226)", "width": 3}, PERFORMANCE)
+        ]
+
+        self.length_within_bounds = _metric("Length Within Bounds", lambda m: {"mean": self.results[m].length_stats["within_bounds_pct"]/100}, None, None)
 
         self.metric_scores = {}
         self.normalized_exec_times = {}
@@ -70,18 +84,13 @@ class SummarizationVisualizer:
         for _m in self.results.values():
             valid_metrics = []
 
-            if _m.meteor_scores["mean"] >= 0.0:
-                valid_metrics.append(_m.meteor_scores)
-
-            for rouge_type in self.benchmark_ref.rouge_types:
-                if _m.rouge_scores[rouge_type]["mean"] >= 0.0:
-                    valid_metrics.append(_m.rouge_scores[rouge_type])
-
-            if _m.roberta_scores["f1"]["mean"] >= 0.0:
-                valid_metrics.append(_m.roberta_scores["f1"])
-
-            if _m.deberta_scores["f1"]["mean"] >= 0.0:
-                valid_metrics.append(_m.deberta_scores["f1"])
+            for metric in self.metrics:
+                try:
+                    metric_data = metric.getter(_m.method_name)
+                    if metric_data["mean"] >= 0.0:
+                        valid_metrics.append(metric_data)
+                except (KeyError, TypeError):
+                    continue
 
             if valid_metrics:
                 self.metric_scores[_m.method_name] = {
@@ -127,54 +136,55 @@ class SummarizationVisualizer:
 
         metrics = [
             *self.metrics,
-            self.overall_qualities,
-            self.performances,
+            *self.aggregates,
+            *self.performances,
         ]
 
-        for i, (metric_name, metric_getter, line_override) in enumerate(metrics):
-            color = self.colors[i % len(self.colors)] if line_override is None else line_override["color"]
+        for i, metric in enumerate(metrics):
+            color = self.colors[i % len(self.colors)] if metric.line_override is None else metric.line_override["color"]
             low_opacity_color = color.replace("rgb(", "rgba(").replace(")", ", 0.2)")
 
             # Main line (mean values)
             fig.add_trace(
                 go.Scatter(
                     x=methods,
-                    y=[metric_getter(m)["mean"] for m in methods],
+                    y=[metric.getter(m)["mean"] for m in methods],
                     mode='lines+markers',
-                    name=metric_name,
-                    legendgroup=metric_name,
+                    name=metric.label,
+                    legendgroup=metric.category if metric.category else "Other",
+                    legendgrouptitle_text=metric.category if metric.category else "Other",
                     line={
                         "color": color,
                         "width": 2
-                    } if line_override is None else line_override,
+                    } if metric.line_override is None else metric.line_override,
                     marker={
                         "size": 8
                     },
                     opacity=1.0,
                     hovertemplate=str(f'<b>%{{x}}</b>'
-                                      f'<br>{metric_name}: %{{y:.3f}}'
+                                      f'<br>{metric.label}: %{{y:.3f}}'
                                       f'<br>Min: %{{customdata[0]:.3f}}'
                                       f'<br>Max: %{{customdata[1]:.3f}}'
                                       f'<br>Std: %{{customdata[2]:.3f}}'
                                       f'<extra></extra>'),
-                    customdata=[[metric_getter(m)["min"],
-                                 metric_getter(m)["max"],
-                                 metric_getter(m)["std"]] for m in methods]
+                    customdata=[[metric.getter(m)["min"],
+                                 metric.getter(m)["max"],
+                                 metric.getter(m)["std"]] for m in methods]
                 )
             )
 
-            if metric_name in ["Overall Quality", "Speed Performance"]:
+            if metric.label in ["Overall Quality", "Speed Performance"]:
                 continue
 
             # Upper bound (invisible line)
             fig.add_trace(
                 go.Scatter(
                     x=methods,
-                    y=[metric_getter(m)["max"] for m in methods],
+                    y=[metric.getter(m)["max"] for m in methods],
                     mode='lines',
                     line={"width": 0},
                     showlegend=False,
-                    legendgroup=metric_name,
+                    legendgroup=metric.category if metric.category else "Other",
                     hoverinfo='skip'
                 )
             )
@@ -183,46 +193,32 @@ class SummarizationVisualizer:
             fig.add_trace(
                 go.Scatter(
                     x=methods,
-                    y=[metric_getter(m)["min"] for m in methods],
+                    y=[metric.getter(m)["min"] for m in methods],
                     mode='lines',
                     line={"width": 0},
                     fill='tonexty',
                     fillcolor=low_opacity_color,
                     showlegend=False,
-                    legendgroup=metric_name,
+                    legendgroup=metric.category if metric.category else "Other",
                     hoverinfo='skip'
                 )
             )
 
-        annotation_styles = {
-            'best method': {'arrowcolor': 'darkred', 'bgcolor': 'lightcoral', 'bordercolor': 'red'},
-            'top 90%': {'arrowcolor': 'gold', 'bgcolor': 'yellow', 'bordercolor': 'orange'},
-            'top 75%': {'arrowcolor': 'steelblue', 'bgcolor': 'lightblue', 'bordercolor': 'blue'}
-        }
+        enhanced_labels = []
 
         for method in methods:
             score = self.metric_scores[method]["mean"]
 
             if method == best_method:
-                style_key = "best method"
+                prefix = '<span style="color:red;">🥇 BEST</span> '
             elif score >= percentile_90:
-                style_key = "top 90%"
+                prefix = '<span style="color:orange;">🥈 TOP 90%</span> '
             elif score >= percentile_75:
-                style_key = "top 75%"
+                prefix = '<span style="color:blue;">🥉 TOP 75%</span> '
             else:
-                continue
+                prefix = ''
 
-            fig.add_annotation(
-                x=method,
-                y=score,
-                text=f"{style_key}<br>{method}: {score:.3f}",
-                showarrow=True,
-                arrowhead=2,
-                arrowsize=1,
-                arrowwidth=2,
-                **annotation_styles[style_key],
-                borderwidth=2
-            )
+            enhanced_labels.append(f"{prefix}{method}")
 
         fig.update_layout(
             title="Summary Quality and Performance Analysis",
@@ -231,6 +227,17 @@ class SummarizationVisualizer:
             hovermode='closest',
             yaxis={
                 "range": [0, 1]
+            },
+            xaxis={
+                "tickmode": "array",
+                "tickvals": list(range(len(methods))),
+                "ticktext": enhanced_labels,
+                "tickangle": -45,
+                "tickfont": {"size": 10}
+            },
+            margin={"b": 100},
+            legend={
+                "groupclick": "togglegroup"
             }
         )
 
@@ -330,16 +337,16 @@ class SummarizationVisualizer:
         """Create radar chart for top n performing methods ranked by aggregate score."""
         metrics = [
             *self.metrics,
-            self.overall_qualities,
-            self.performances,
+            *self.aggregates,
+            *self.performances,
             self.length_within_bounds,
         ]
 
         top_methods = dict(sorted(
             {
                 _method: {
-                    _metric[0]: _metric[1](_method)["mean"]
-                    for _metric in metrics
+                    metric.label: metric.getter(_method)["mean"]
+                    for metric in metrics
                 } for _method in self.methods
             }.items(),
             key=lambda x: sum(x[1].values()),
@@ -349,6 +356,9 @@ class SummarizationVisualizer:
         fig = go.Figure()
 
         for i, (method, vals) in enumerate(top_methods.items()):
+            aggregate_score = sum(vals.values())
+            rank = i + 1
+
             hover_text = f'<b>{method}</b><br>'
             hover_text += f'Aggregate Score: {sum(vals.values()):.3f}<br>'
             hover_text += '<br>'.join([f'{metric}: {score:.3f}' for metric, score in vals.items()])
@@ -358,7 +368,7 @@ class SummarizationVisualizer:
                     r=list(vals.values()),
                     theta=list(vals.keys()),
                     fill='toself',
-                    name=method,
+                    name=f"#{rank} {method} ({aggregate_score:.3f})",
                     line_color=self.colors[i % len(self.colors)],
                     hovertemplate=f'<b>{method}</b><br>' +
                                   'Metric: %{theta}<br>' +

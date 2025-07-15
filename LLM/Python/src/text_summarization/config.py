@@ -37,7 +37,7 @@ HUGGINGFACE_DEFAULT_PARAMS = {
 OPENAI_DEFAULT_PARAMS = {
     "temperature": 1,
     "top_p": 1,
-    "max_tokens": int(MAX_WORDS * 1.45),  # https://platform.openai.com/tokenizer
+    # "max_completion_tokens": int(MAX_WORDS * 1.45),  # https://platform.openai.com/tokenizer
 }
 
 ANTHROPIC_DEFAULT_PARAMS = {
@@ -45,6 +45,7 @@ ANTHROPIC_DEFAULT_PARAMS = {
     "top_p": 1,
     "top_k": 40,
     "max_tokens": 1024,
+    "stream": False,
 }
 
 MISTRAL_DEFAULT_PARAMS = {
@@ -58,5 +59,5 @@ OLLAMA_DEFAULT_PARAMS = {
     "temperature": 1,
     "top_p": 1,
     "top_k": 40,
-    # "num_predict": 200,  # TODO: might influence the returned length .. update dynamically from min_words and max_words, calculate in warum?
+    # "num_predict": 200,
 }

@@ -320,7 +320,6 @@ class SummarizationBenchmark:
 
         results = []
         full_responses = []
-        failed_papers = []
         execution_times = []
 
         for paper in tqdm(self.papers, desc=f"Processing {method_name}"):
@@ -344,35 +343,22 @@ class SummarizationBenchmark:
 
                 else:
                     logger.warning(f"Empty summary for paper {paper.id} with {method_name}")
-                    failed_papers.append(paper.id)
+                    return
 
             except Exception as e:
                 logger.error(f"Error processing paper {paper.id} with {method_name}: {e}")
-                failed_papers.append(paper.id)
-                continue
+                return
 
             finally:
                 execution_times.append(time.time() - start_time)
-
-        if failed_papers:
-            logger.error(
-                f"Method {method_name} failed on {len(failed_papers)} papers: {failed_papers} - skipping evaluation")
-            return
-
-        if not results:
-            logger.error(f"Method {method_name} failed on all papers - skipping evaluation")
-            return
-
-        successful_papers, generated_summaries = zip(*results)
-        successful_papers = list(successful_papers)
-        generated_summaries = list(generated_summaries)
 
         try:
             self.api_clients[platform].cleanup(model_name=model_name)
         except NotImplementedError:
             pass
 
-        logger.info(f"Method {method_name} succeeded on {len(successful_papers)}/{len(self.papers)} papers")
+        successful_papers = [paper for paper, _ in results]
+        generated_summaries = [summary for _, summary in results]
 
         all_references = [paper.summaries for paper in successful_papers]
         all_full_text_papers = [f"{p.title}\n\n{p.abstract}" for p in successful_papers]
@@ -510,6 +496,9 @@ def main():
     # https://community.openai.com/t/openai-non-announcement-requiring-identity-card-verification-for-access-to-new-api-models-and-capabilities/1230004/32
     benchmark.add("openai", "gpt-3.5-turbo")
     benchmark.add("openai", "gpt-4.1")
+    benchmark.add("openai", "gpt-4.1-mini")
+    benchmark.add("openai", "gpt-4o")
+    benchmark.add("openai", "gpt-4o-mini")
 
     # https://docs.anthropic.com/en/docs/about-claude/models/overview
     benchmark.add("anthropic", "claude-3-5-haiku-20241022")  # fastest
@@ -521,7 +510,6 @@ def main():
     benchmark.add("mistral", "magistral-medium-latest")  # frontier-class reasoning
     benchmark.add("mistral", "mistral-large-latest")  # top-tier large model, high complexity tasks
     benchmark.add("mistral", "mistral-small-latest")
-
 
     # expensive
     # benchmark.add("ollama", "deepseek-r1:32b")
