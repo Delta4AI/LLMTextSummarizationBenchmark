@@ -10,7 +10,7 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from benchmark import SummarizationBenchmark
+    from text_summarization.benchmark import SummarizationBenchmark
 
 logger = logging.getLogger(__name__)
 

@@ -27,30 +27,36 @@ import pandas as pd
 from tqdm import tqdm
 import nltk
 
-from text_summarization.utilities import extract_response, get_min_max_mean_std, get_project_root
+from exploration_utilities import get_project_root
+from text_summarization.summarization_utilities import extract_response, get_min_max_mean_std
 
-project_root = get_project_root()
-out_dir = project_root / "Output" / "text_summarization_benchmark"
-out_dir.mkdir(exist_ok=True, parents=True)
+
+OUT_DIR = get_project_root() / "Output" / "text_summarization_benchmark"
+OUT_DIR.mkdir(exist_ok=True, parents=True)
+
+GOLD_STANDARD_DATA: list[str] = [
+    "Resources/text_summarization_goldstandard_data_AKI_CKD.json",
+    "Resources/text_summarization_goldstandard_data_test.json"
+]
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(out_dir / 'benchmark.log'),
+        logging.FileHandler(OUT_DIR / 'benchmark.log'),
         logging.StreamHandler()
     ],
     force=True
 )
 logger = logging.getLogger(__name__)
 
-from text_summarization.config import MIN_WORDS, MAX_WORDS, GOLD_STANDARD_DATA, TOKEN_SIZE_SAMPLE_TEXT
 from llm_apis.ollama_client import OllamaClient
 from llm_apis.mistral_client import MistralClient
 from llm_apis.anthropic_client import AnthropicClient
 from llm_apis.openai_client import OpenAIClient
 from llm_apis.huggingface_client import HuggingFaceClient
 from llm_apis.local_client import TextRankSummarizer, FrequencySummarizer
+from llm_apis.config import SUMMARY_MIN_WORDS, SUMMARY_MAX_WORDS, TOKEN_SIZE_SAMPLE_TEXT
 from text_summarization.metrics import (get_length_scores, get_meteor_scores, ROUGE_TYPES, get_rouge_scores,
                                         get_bert_scores, get_bleu_scores, get_sentence_transformer_similarity,
                                         cleanup_metrics_cache)
@@ -154,15 +160,15 @@ class SummarizationBenchmark:
 
     def __init__(self):
 
-        self.output_dir = out_dir
+        self.output_dir = OUT_DIR
 
         self.db_path = self.output_dir / "benchmark.pkl"
 
         self.output_dir.mkdir(exist_ok=True)
         self.hashed_and_dated_output_dir = None
 
-        self.min_words = MIN_WORDS
-        self.max_words = MAX_WORDS
+        self.min_words = SUMMARY_MIN_WORDS
+        self.max_words = SUMMARY_MAX_WORDS
 
         self.results = None
 
@@ -451,10 +457,10 @@ def main():
     benchmark.add("local:textrank")
     benchmark.add("local:frequency")
 
-    _p14 = {"max_new_tokens": MAX_WORDS*1.3, "min_new_tokens": MIN_WORDS*1.3}
-    _p16 = {"max_new_tokens": MAX_WORDS*1.6, "min_new_tokens": MIN_WORDS*1.6}
-    _p15 = {"max_new_tokens": MAX_WORDS*1.5, "min_new_tokens": MIN_WORDS*1.5}
-    _p17 = {"max_new_tokens": MAX_WORDS*1.7, "min_new_tokens": MIN_WORDS*1.7}
+    _p14 = {"max_new_tokens": SUMMARY_MAX_WORDS * 1.3, "min_new_tokens": SUMMARY_MIN_WORDS * 1.3}
+    _p16 = {"max_new_tokens": SUMMARY_MAX_WORDS * 1.6, "min_new_tokens": SUMMARY_MIN_WORDS * 1.6}
+    _p15 = {"max_new_tokens": SUMMARY_MAX_WORDS * 1.5, "min_new_tokens": SUMMARY_MIN_WORDS * 1.5}
+    _p17 = {"max_new_tokens": SUMMARY_MAX_WORDS * 1.7, "min_new_tokens": SUMMARY_MIN_WORDS * 1.7}
 
     # https://huggingface.co/models?pipeline_tag=summarization&language=en&sort=trending
     benchmark.add("huggingface", "facebook/bart-large-cnn", _p16)

@@ -1,9 +1,5 @@
 import re
-from pathlib import Path
-import os
-import functools
 
-from dotenv import load_dotenv
 import numpy as np
 
 
@@ -69,48 +65,3 @@ def get_min_max_mean_std(values: list[float]) -> dict[str, float]:
         "mean": float(np.mean(values)) if values else 0.0,
         "std": float(np.std(values)) if values else 0.0
     }
-
-
-@functools.lru_cache(maxsize=1)
-def _find_project_structure():
-    """Find project root and load .env file once and cache the result."""
-    current_path = Path(__file__).resolve()
-    project_root = None
-    env_file_path = None
-
-    # Search upwards for project root (pyproject.toml) and .env files
-    for parent in current_path.parents:
-        if project_root is None and (parent / "pyproject.toml").exists():
-            project_root = parent
-
-        # Check for Resources/.env
-        if env_file_path is None:
-            env_file = parent / "Resources" / ".env"
-            if env_file.exists():
-                load_dotenv(env_file)
-                env_file_path = str(env_file)
-
-    # Fallback: try to find any .env file in parent directories
-    if env_file_path is None:
-        for parent in current_path.parents:
-            env_file = parent / ".env"
-            if env_file.exists():
-                load_dotenv(env_file)
-                env_file_path = str(env_file)
-                break
-
-    return {
-        'project_root': project_root or Path.cwd(),
-        'env_file': env_file_path
-    }
-
-
-def get_project_root() -> Path:
-    """Get the project root directory."""
-    return _find_project_structure()['project_root']
-
-
-def get_dotenv_param(param: str) -> str | None:
-    """Get parameter from .env file (loads once and caches)."""
-    _find_project_structure()
-    return os.getenv(param)
