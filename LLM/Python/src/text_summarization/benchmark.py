@@ -34,8 +34,9 @@ OUT_DIR = get_project_root() / "Output" / "text_summarization_benchmark"
 OUT_DIR.mkdir(exist_ok=True, parents=True)
 
 GOLD_STANDARD_DATA: list[str] = [
-    "Resources/text_summarization_goldstandard_data_AKI_CKD.json",
-    "Resources/text_summarization_goldstandard_data_test.json"
+    # "Resources/text_summarization_goldstandard_data_AKI_CKD.json",
+    # "Resources/text_summarization_goldstandard_data_test.json"
+    "Resources/text_summarization_goldstandard_data_elsevier.json"
 ]
 
 setup_logging(OUT_DIR / "benchmark.log")
@@ -194,8 +195,8 @@ class SummarizationBenchmark:
             except Exception as e:
                 logger.warning(f"Failed to load {_key} API client: {e}")
 
-    def load_papers(self):
-        for file in GOLD_STANDARD_DATA:
+    def load_papers(self, gold_standard_data: list[str] | None = None):
+        for file in gold_standard_data:
             file_path = Path(__file__).parents[3] / file
             if not Path(file_path).exists():
                 logger.error(f"Data file not found: {file_path}")
@@ -436,10 +437,12 @@ def main():
     """Main execution function with length constraints."""
     parser = ArgumentParser(description="LLM Text Summarization Benchmark Utility")
     parser.add_argument("--clear", action="store_true", help="Clear existing benchmark results")
+    parser.add_argument("--gold-standard-data", default=GOLD_STANDARD_DATA, nargs="+",
+                        help="Gold standard data files to load (default: %(default)s)")
     args = parser.parse_args()
 
     benchmark = SummarizationBenchmark()
-    benchmark.load_papers()
+    benchmark.load_papers(args.gold_standard_data)
     if args.clear:
         benchmark.clear()
 
