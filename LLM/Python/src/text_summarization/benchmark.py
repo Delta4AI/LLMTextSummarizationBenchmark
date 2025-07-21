@@ -14,7 +14,6 @@ Requirements:
 """
 import hashlib
 import json
-import logging
 import pickle
 from typing import  Any
 from dataclasses import dataclass, asdict
@@ -27,7 +26,7 @@ import pandas as pd
 from tqdm import tqdm
 import nltk
 
-from exploration_utilities import get_project_root
+from exploration_utilities import get_project_root, get_logger, setup_logging
 from text_summarization.summarization_utilities import extract_response, get_min_max_mean_std
 
 
@@ -39,16 +38,8 @@ GOLD_STANDARD_DATA: list[str] = [
     "Resources/text_summarization_goldstandard_data_test.json"
 ]
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(OUT_DIR / 'benchmark.log'),
-        logging.StreamHandler()
-    ],
-    force=True
-)
-logger = logging.getLogger(__name__)
+setup_logging(OUT_DIR / "benchmark.log")
+logger = get_logger(__name__)
 
 from llm_apis.ollama_client import OllamaClient
 from llm_apis.mistral_client import MistralClient
