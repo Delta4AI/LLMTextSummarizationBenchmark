@@ -288,8 +288,8 @@ if __name__ == "__main__":
         Journal("journal-of-proteomics", 10, False),
         Journal("journal-of-biomedical-informatics", 10, False),
         Journal("the-international-journal-of-biochemistry-and-cell-biology", 10, False),
-        # Journal("advanced-engineering-informatics", 10, False),
-        # Journal("drug-resistance-updates", 10, False),
+        Journal("advanced-engineering-informatics", 10, False),
+        Journal("drug-resistance-updates", 10, False),
         # Journal("drug-metabolism-and-pharmacokinetics", 10, False),
     ]
 
