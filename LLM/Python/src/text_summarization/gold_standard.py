@@ -276,7 +276,7 @@ class ElsevierGoldStandardRetriever:
 
 
 if __name__ == "__main__":
-    retriever = ElsevierGoldStandardRetriever(sleep_min=2, sleep_max=10, cf_clearance="0Dbj4qZAMH3wE87n2KM8sGTgTogZnUZoOdXwKctQ3bE-1753089202-1.2.1.1-5e23c5n.lmgfrCkKk_juLvExmKkGQ7i1GpUjo.DUzGOFKHaLzqOmsj_NerMpthdbpD.mz9VGwa_CV8EyUlJeqRGGic.Za1xJNEhUoNGn_2ivSIueNuLz1oL2PIZJuPDiNk5SpEbjd1M2GsV7kx70tAwdu_9vikWk8OX0ulDl9xkaQqAI0H.202TCxBFztjaNoK9OZ5GH6fZM8sTus3YWUwZ2oWVvuFBg_yLSk_XMGS4")
+    retriever = ElsevierGoldStandardRetriever(sleep_min=2, sleep_max=10)
 
     journals = [
         Journal("drug-discovery-today", 10, False),
