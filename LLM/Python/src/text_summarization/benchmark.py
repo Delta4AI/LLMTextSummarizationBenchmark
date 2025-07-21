@@ -21,6 +21,7 @@ from pathlib import Path
 import time
 from argparse import ArgumentParser
 import shutil
+import os
 
 import pandas as pd
 from tqdm import tqdm
@@ -437,9 +438,16 @@ def main():
     """Main execution function with length constraints."""
     parser = ArgumentParser(description="LLM Text Summarization Benchmark Utility")
     parser.add_argument("--clear", action="store_true", help="Clear existing benchmark results")
+    parser.add_argument("--hf-online", action="store_true",
+                        help="Downloads and updates hugging face models. Causes rate-limiting on large amount of "
+                             "publications / models. Only necessary for initial downloading of models.")
     parser.add_argument("--gold-standard-data", default=GOLD_STANDARD_DATA, nargs="+",
                         help="Gold standard data files to load (default: %(default)s)")
     args = parser.parse_args()
+
+    os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+    if not args.hf_online:
+        os.environ["HF_HUB_OFFLINE"] = "1"
 
     benchmark = SummarizationBenchmark()
     benchmark.load_papers(args.gold_standard_data)
