@@ -36,6 +36,13 @@ class Publication:
     no_highlights: bool = False
 
 
+@dataclass
+class Journal:
+    identifier: str
+    limit_issues: int | None = None
+    force_recheck: bool = False
+
+
 class ElsevierGoldStandardRetriever:
     def __init__(self, sleep_min: int = 2, sleep_max: int = 10, cf_clearance: str = None):
         self.base_url = "https://www.sciencedirect.com"
@@ -48,39 +55,39 @@ class ElsevierGoldStandardRetriever:
                            "load an Elsevier publication in the browser and go to Debugger > Storage > "
                            "Cookies > .sciencedirect.com > cf-clearance and copy/paste the value.")
 
-        self.use_curl_cffi = cf_clearance is not None
-        self.sleep_min = sleep_min
-        self.sleep_max = sleep_max
-        self.publications: defaultdict[str, list[Publication]] = defaultdict(list)
-        self._load_cache()
+        self._use_curl_cffi = cf_clearance is not None
+        self._sleep_min = sleep_min
+        self._sleep_max = sleep_max
 
         self.stop = False
+        self.journals: defaultdict[str, list[Publication]] = defaultdict(list)
+
+        self._load_cache()
 
     def _load_cache(self) -> None:
         """Load cached publications from file"""
         if os.path.exists(CACHE_FILE):
             try:
                 with open(CACHE_FILE, 'rb') as f:
-                    self.publications = pickle.load(f)
-                logger.info(f"Loaded cache with {sum(len(pubs) for pubs in self.publications.values())} publications "
+                    self.journals = pickle.load(f)
+                logger.info(f"Loaded cache with {sum(len(pubs) for pubs in self.journals.values())} publications "
                             f"from {CACHE_FILE}")
             except Exception as e:
                 logger.error(f"Error loading cache: {e}")
-                self.publications = {}
 
     def _save_cache(self) -> None:
         """Save publications to cache file"""
         try:
             with open(CACHE_FILE, 'wb') as f:
-                pickle.dump(self.publications, f)
+                pickle.dump(self.journals, f)
         except Exception as e:
             logger.error(f"Error saving cache: {e}")
 
     def _get_soup(self, url: str) -> BeautifulSoup | None:
-        sleep_time = random.uniform(self.sleep_min, self.sleep_max)
-        # logger.info(f"Sleeping for {sleep_time:.2f} seconds before fetching {url}")
+        sleep_time = random.uniform(self._sleep_min, self._sleep_max)
         time.sleep(sleep_time)
-        if self.use_curl_cffi:
+
+        if self._use_curl_cffi:
             resp = self.session.get(url=url, timeout=10, impersonate="firefox135")
         else:
             resp = self.session.get(url=url, timeout=10)
@@ -101,19 +108,26 @@ class ElsevierGoldStandardRetriever:
 
         return [_["href"] for _ in soup.find_all("a", class_="js-issue-item-link")]
 
-    def add_publication_urls_from_latest_issues(self, journal_identifier: str, limit_issues: int = 5) -> None:
+    def add_publication_urls_from_latest_issues(self, journal: Journal) -> None:
         if self.stop:
             return
 
-        if journal_identifier in self.publications:
+        if journal.identifier in self.journals and not journal.force_recheck:
             logger.info(
-                f"Journal {journal_identifier} already cached with {len(self.publications[journal_identifier])} publications")
+                f"Journal {journal.identifier} already cached with "
+                f"{len(self.journals[journal.identifier])} publications")
             return
 
         try:
-            for idx, issue_url in enumerate(self._get_latest_science_direct_issues(journal_identifier=journal_identifier)):
-                if limit_issues and idx >= limit_issues:
-                    logger.info(f"Reached limit of {limit_issues} issues for {journal_identifier}. "
+            old_count = len(self.journals[journal.identifier])
+
+            for idx, issue_url in enumerate(self._get_latest_science_direct_issues(
+                    journal_identifier=journal.identifier)):
+
+                added_per_issue = 0
+
+                if journal.limit_issues and idx >= journal.limit_issues:
+                    logger.info(f"Reached limit of {journal.limit_issues} issues for {journal.identifier}. "
                                 f"Skipping remaining issues.")
                     break
 
@@ -122,30 +136,46 @@ class ElsevierGoldStandardRetriever:
                 if not soup:
                     return
 
-                self.publications[journal_identifier].extend([
-                    Publication(url=f"{self.base_url}{_['href']}")
+                hrefs = [
+                    f"{self.base_url}{_['href']}"
                     for _ in soup.find_all("a", class_="article-content-title")
-                ])
+                ]
 
-                logger.info(f"Added {len(self.publications[journal_identifier])} publications for {journal_identifier}")
+                for href in hrefs:
+                    if not self._href_exists(href=href, journal_identifier=journal.identifier):
+                        self.journals[journal.identifier].append(
+                            Publication(url=href)
+                        )
+                        added_per_issue += 1
+
+                current_total = len(self.journals[journal.identifier])
+                total_added_this_run = current_total - old_count
+
+                logger.info(f"Added {added_per_issue} publications for {journal.identifier}"
+                            f" (total: {current_total}, added this run: {total_added_this_run})")
                 self._save_cache()
         except Exception as e:
             logger.error(e)
 
+    def _href_exists(self, href: str, journal_identifier: str) -> bool:
+        for pub in self.journals[journal_identifier]:
+            if pub.url == href:
+                return True
+        return False
+
     def fetch_highlights(self, limit_to_n_publications_per_journal: int | None = None) -> None:
-        for journal_idx, (journal_identifier, publications) in enumerate(self.publications.items()):
+        for journal_idx, (journal_identifier, publications) in enumerate(self.journals.items()):
             _pubs_with_highlights = 0
-            # _publications = publications[:limit_to_n_publications_per_journal]
-            # for pub_idx, pub in enumerate(_publications):
+
             for pub_idx, pub in enumerate(publications):
+
                 if self.stop:
                     return
 
                 if _pubs_with_highlights >= limit_to_n_publications_per_journal:
                     break
 
-                _log = (f"J{journal_idx + 1}/{len(self.publications.keys())}"
-                        # f"|P{pub_idx + 1}/{len(_publications)}"
+                _log = (f"J{journal_idx + 1}/{len(self.journals.keys())}"
                         f"|P{pub_idx}/{len(publications)}"
                         f"({_pubs_with_highlights}/{limit_to_n_publications_per_journal})"
                         f" | {pub.url}")
@@ -200,7 +230,7 @@ class ElsevierGoldStandardRetriever:
     def export(self, out_file: str | Path) -> None:
         publications_data = []
 
-        for journal_identifier, publications in self.publications.items():
+        for journal_identifier, publications in self.journals.items():
             for pub in publications:
                 if not pub.title or not pub.abstract or not pub.doi:
                     continue
@@ -237,7 +267,9 @@ class ElsevierGoldStandardRetriever:
         logger.info("---")
 
     def clear_cache(self) -> None:
-        self.publications = {}
+        del self.journals
+        self.journals = defaultdict(list)
+
         if os.path.exists(CACHE_FILE):
             os.remove(CACHE_FILE)
         logger.info(f"Cache cleared {CACHE_FILE}")
@@ -246,23 +278,23 @@ class ElsevierGoldStandardRetriever:
 if __name__ == "__main__":
     retriever = ElsevierGoldStandardRetriever(sleep_min=2, sleep_max=10, cf_clearance="0Dbj4qZAMH3wE87n2KM8sGTgTogZnUZoOdXwKctQ3bE-1753089202-1.2.1.1-5e23c5n.lmgfrCkKk_juLvExmKkGQ7i1GpUjo.DUzGOFKHaLzqOmsj_NerMpthdbpD.mz9VGwa_CV8EyUlJeqRGGic.Za1xJNEhUoNGn_2ivSIueNuLz1oL2PIZJuPDiNk5SpEbjd1M2GsV7kx70tAwdu_9vikWk8OX0ulDl9xkaQqAI0H.202TCxBFztjaNoK9OZ5GH6fZM8sTus3YWUwZ2oWVvuFBg_yLSk_XMGS4")
 
-    journal_identifiers = [
-        "drug-discovery-today",
-        "journal-of-molecular-biology",
-        "febs-letters",
-        "journal-of-biotechnology",
-        "gene",
-        "genomics",
-        "journal-of-proteomics",
-        "journal-of-biomedical-informatics",
-        "the-international-journal-of-biochemistry-and-cell-biology",
-        # "advanced-engineering-informatics",
-        # "drug-resistance-updates",
-        # "drug-metabolism-and-pharmacokinetics",
+    journals = [
+        Journal("drug-discovery-today", 10, False),
+        Journal("journal-of-molecular-biology", 10, False),
+        Journal("febs-letters", 10, False),
+        Journal("journal-of-biotechnology", 10, False),
+        Journal("gene", 10, False),
+        Journal("genomics", 10, False),
+        Journal("journal-of-proteomics", 10, False),
+        Journal("journal-of-biomedical-informatics", 10, False),
+        Journal("the-international-journal-of-biochemistry-and-cell-biology", 10, False),
+        # Journal("advanced-engineering-informatics", 10, False),
+        # Journal("drug-resistance-updates", 10, False),
+        # Journal("drug-metabolism-and-pharmacokinetics", 10, False),
     ]
 
-    for j_i in journal_identifiers:
-        retriever.add_publication_urls_from_latest_issues(journal_identifier=j_i, limit_issues=10)
+    for j in journals:
+        retriever.add_publication_urls_from_latest_issues(journal=j)
 
     retriever.fetch_highlights(limit_to_n_publications_per_journal=10)
     retriever.export(out_file=RESOURCE_DIR / "text_summarization_goldstandard_data_elsevier.json")
