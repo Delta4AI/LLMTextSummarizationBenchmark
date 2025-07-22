@@ -376,6 +376,7 @@ class SummarizationBenchmark:
             logger.error(f"Warmup failed: {e}")
 
     def _run_batched_interference(self, run_params: InterferenceRunParameters) -> None:
+        logger.info(f"Running batched interference for {run_params.method_name} ..")
         start_time = time.time()
 
         run_params.raw_responses.extend(
@@ -391,7 +392,8 @@ class SummarizationBenchmark:
         run_params.execution_times.extend([batch_time / len(self.papers)] * len(self.papers))
 
     def _run_sequential_interference(self, run_params: InterferenceRunParameters) -> None:
-        for text in run_params.texts:
+        for idx, text in enumerate(run_params.texts):
+            logger.info(f"Running sequential interference {idx+1}/{len(run_params.texts)} for {run_params.method_name}")
             start_time = time.time()
             run_params.raw_responses.append(
                 self.api_clients[run_params.platform].summarize(
