@@ -391,7 +391,11 @@ class SummarizationBenchmark:
         batch_time = time.time() - start_time
         run_params.execution_times.extend([batch_time / len(self.papers)] * len(self.papers))
 
+        logger.info(f"Finished batched interference for {run_params.method_name} in {batch_time:.2f}s")
+
     def _run_sequential_interference(self, run_params: InterferenceRunParameters) -> None:
+        model_start_time = time.time()
+
         for idx, text in enumerate(run_params.texts):
             logger.info(f"Running sequential interference {idx+1}/{len(run_params.texts)} for {run_params.method_name}")
             start_time = time.time()
@@ -404,6 +408,9 @@ class SummarizationBenchmark:
                 )
             )
             run_params.execution_times.append(time.time() - start_time)
+
+        logger.info(f"Finished sequential interference for {run_params.method_name} "
+                    f"in {time.time() - model_start_time:.2f}s")
 
     def _cleanup(self, run_params: InterferenceRunParameters) -> None:
         try:
