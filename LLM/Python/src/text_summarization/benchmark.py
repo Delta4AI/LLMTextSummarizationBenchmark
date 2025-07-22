@@ -477,8 +477,8 @@ def main():
 
     benchmark.load_results()
 
-    # benchmark.add("local:textrank")
-    # benchmark.add("local:frequency")
+    benchmark.add("local:textrank")
+    benchmark.add("local:frequency")
 
     _p14 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.3), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.3)}
     _p16 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.6), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.6)}
