@@ -73,34 +73,19 @@ class ModelCache:
             free = total - allocated
             logger.info(f"{context} - GPU: {allocated:.2f}GB allocated, {cached:.2f}GB cached, {free:.2f}GB free")
 
-    def cleanup_sentence_transformers(self):
-        """Clean up all SentenceTransformer models"""
-        for model_name, model in self.sentence_transformers.items():
-
-            if hasattr(model, 'device') and 'cuda' in str(model.device):
-                model = model.cpu()
-
-            del model
-
-        self.sentence_transformers.clear()
-        self._force_cleanup()
-
     def cleanup_all(self):
         """Clean up all cached models"""
-        self.cleanup_sentence_transformers()
+        self.sentence_transformers.clear()
         self.bert_models.clear()
-        self._force_cleanup()
 
-    def _force_cleanup(self):
-        """Force garbage collection and GPU cleanup"""
         gc.collect()
         if torch and torch.cuda.is_available():
             torch.cuda.empty_cache()
             torch.cuda.synchronize()
-            time.sleep(0.5)  # Give time for cleanup
-            torch.cuda.empty_cache()  # Second cleanup
+            time.sleep(0.5)
+            torch.cuda.empty_cache()
 
-        self._log_memory_usage("After cleanup")
+        self._log_memory_usage("After Cleanup")
 
 
 _model_cache = ModelCache()

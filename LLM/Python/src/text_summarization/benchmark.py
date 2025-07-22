@@ -13,6 +13,7 @@ Requirements:
     uv add matplotlib seaborn pandas numpy tqdm torch
 """
 import os
+from collections import namedtuple
 
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 os.environ["HF_HUB_OFFLINE"] = "1"
@@ -21,14 +22,13 @@ import hashlib
 import json
 import pickle
 from typing import  Any
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from pathlib import Path
 import time
 from argparse import ArgumentParser
 import shutil
 
 import pandas as pd
-from tqdm import tqdm
 import nltk
 
 from exploration_utilities import get_project_root, get_logger, setup_logging
@@ -67,6 +67,18 @@ class Paper:
     abstract: str
     id: str
     summaries: list[str]  # Gold-standard reference summaries
+
+
+@dataclass
+class InterferenceRunParameters:
+    """Data class for run parameters."""
+    platform: str
+    model_name: str | None = None
+    method_name: str | None = None
+    parameter_overrides: dict[str, Any] | None = None
+    texts: list[str] = field(default_factory=list)
+    raw_responses: list[str] = field(default_factory=list)
+    execution_times: list[float] = field(default_factory=list)
 
 
 @dataclass
@@ -298,92 +310,104 @@ class SummarizationBenchmark:
         
     def run(self):
         logger.info(f"Running benchmark for {len(self.models)} models ..")
+        texts = [f"Title: {p.title}\n\nAbstract: \n{p.abstract}" for p in self.papers]
+
         for idx, (platform, model_name, parameter_overrides) in enumerate(self.models):
             logger.info(f"Running model {idx+1}/{len(self.models)}: {platform} {model_name}")
-            self._run(platform=platform, model_name=model_name, parameter_overrides=parameter_overrides)
-    
-    def _run(self, platform: str, model_name: str | None = None, parameter_overrides: dict[str, Any] | None = None):
-        """Run external model evaluation."""
-        if model_name:
-            method_name = f"{platform}_{model_name}"
-        else:
-            method_name = platform
+            irp = InterferenceRunParameters(
+                platform=platform,
+                model_name=model_name,
+                method_name = f"{platform}_{model_name}" if model_name else platform,
+                parameter_overrides=parameter_overrides,
+                texts=texts,
+            )
 
-        if self.results.exists(method_name):
-            logger.info(f"Skipping interference for existing method: {method_name}")
-            return
+            if self.results.exists(irp.method_name):
+                logger.info(f"Skipping interference for existing method: {irp.method_name}")
+                continue
 
+            self._warmup(run_params=irp)
+
+            time.sleep(1.5)
+
+            try:
+                self._run_batched_interference(run_params=irp)
+            except NotImplementedError:
+                self._run_sequential_interference(run_params=irp)
+
+            summaries = [extract_response(r) for r in irp.raw_responses]
+            references = [p.summaries for p in self.papers]
+
+            full_text_papers = [f"{p.title}\n\n{p.abstract}" for p in self.papers]
+
+            result = EvaluationResult(
+                method_name=irp.method_name,
+                execution_times=irp.execution_times,
+                full_responses=irp.raw_responses,
+                summaries=summaries,
+                length_stats=get_length_scores(summaries, self.min_words, self.max_words),
+                rouge_scores=get_rouge_scores(summaries, references),
+                roberta_scores=get_bert_scores(summaries, references, "roberta-large"),
+                deberta_scores=get_bert_scores(summaries, references, "microsoft/deberta-xlarge-mnli"),
+                meteor_scores=get_meteor_scores(summaries, references),
+                bleu_scores=get_bleu_scores(summaries, references),
+                mpnet_content_coverage_scores=get_sentence_transformer_similarity(summaries, full_text_papers,
+                                                                                  "all-mpnet-base-v2")
+            )
+
+            if result:
+                self.results.add(method_name=irp.method_name, result=result)
+                self.results.save()
+
+            self._cleanup(run_params=irp)
+
+
+            cleanup_metrics_cache()
+
+    def _warmup(self, run_params: InterferenceRunParameters) -> None:
         try:
-            train_corpus = [f"Title: {paper.title}\n\nAbstract: {paper.abstract}" for paper in self.papers]
-            self.api_clients[platform].warmup(model_name=model_name, train_corpus=train_corpus)
+            self.api_clients[run_params.platform].warmup(
+                model_name=run_params.model_name,
+                train_corpus=run_params.texts
+            )
         except NotImplementedError:
             pass
         except Exception as e:
             logger.error(f"Warmup failed: {e}")
 
-        results = []
-        full_responses = []
-        execution_times = []
+    def _run_batched_interference(self, run_params: InterferenceRunParameters) -> None:
+        start_time = time.time()
 
-        for paper in tqdm(self.papers, desc=f"Processing {method_name}"):
-            time.sleep(1.5)
+        run_params.raw_responses.extend(
+            self.api_clients[run_params.platform].summarize_batch(
+                texts=run_params.texts,
+                model_name=run_params.model_name,
+                system_prompt_override=None,
+                parameter_overrides=run_params.parameter_overrides
+            )
+        )
 
+        batch_time = time.time() - start_time
+        run_params.execution_times.extend([batch_time / len(self.papers)] * len(self.papers))
+
+    def _run_sequential_interference(self, run_params: InterferenceRunParameters) -> None:
+        for text in run_params.texts:
             start_time = time.time()
-            try:
-                formatted_publication_text = f"Title: {paper.title}\n\nAbstract: \n{paper.abstract}"
-
-                response = self.api_clients[platform].summarize(
-                    text=formatted_publication_text,
-                    model_name=model_name,
+            run_params.raw_responses.append(
+                self.api_clients[run_params.platform].summarize(
+                    text=text,
+                    model_name=run_params.model_name,
                     system_prompt_override=None,
-                    parameter_overrides=parameter_overrides
+                    parameter_overrides=run_params.parameter_overrides
                 )
-                full_responses.append(response)
-                summary = extract_response(response)
+            )
+            run_params.execution_times.append(time.time() - start_time)
 
-                if summary and summary.strip():
-                    results.append((paper, summary))
-
-                else:
-                    logger.warning(f"Empty summary for paper {paper.id} with {method_name}")
-                    return
-
-            except Exception as e:
-                logger.error(f"Error processing paper {paper.id} with {method_name}: {e}")
-                return
-
-            finally:
-                execution_times.append(time.time() - start_time)
-
+    def _cleanup(self, run_params: InterferenceRunParameters) -> None:
         try:
-            self.api_clients[platform].cleanup(model_name=model_name)
+            self.api_clients[run_params.platform].cleanup(model_name=run_params.model_name)
         except NotImplementedError:
             pass
-
-        successful_papers = [paper for paper, _ in results]
-        generated_summaries = [summary for _, summary in results]
-
-        all_references = [paper.summaries for paper in successful_papers]
-        all_full_text_papers = [f"{p.title}\n\n{p.abstract}" for p in successful_papers]
-
-        result = EvaluationResult(
-            method_name=method_name,
-            execution_times=execution_times,
-            full_responses=full_responses,
-            summaries=generated_summaries,
-            length_stats=get_length_scores(generated_summaries, self.min_words, self.max_words),
-            rouge_scores=get_rouge_scores(generated_summaries, all_references),
-            roberta_scores=get_bert_scores(generated_summaries, all_references, "roberta-large"),
-            deberta_scores=get_bert_scores(generated_summaries, all_references, "microsoft/deberta-xlarge-mnli"),
-            meteor_scores=get_meteor_scores(generated_summaries, all_references),
-            bleu_scores=get_bleu_scores(generated_summaries, all_references),
-            mpnet_content_coverage_scores=get_sentence_transformer_similarity(
-                generated_summaries, all_full_text_papers, "all-mpnet-base-v2")
-        )
-        cleanup_metrics_cache()
-
-        self.results.add(method_name=method_name, result=result)
-        self.results.save()
 
     def test_token_sizes(self):
         logger.info(f"Testing token sizes for {len(self.models)} models ..")
@@ -453,13 +477,13 @@ def main():
 
     benchmark.load_results()
 
-    benchmark.add("local:textrank")
-    benchmark.add("local:frequency")
+    # benchmark.add("local:textrank")
+    # benchmark.add("local:frequency")
 
-    _p14 = {"max_new_tokens": SUMMARY_MAX_WORDS * 1.3, "min_new_tokens": SUMMARY_MIN_WORDS * 1.3}
-    _p16 = {"max_new_tokens": SUMMARY_MAX_WORDS * 1.6, "min_new_tokens": SUMMARY_MIN_WORDS * 1.6}
-    _p15 = {"max_new_tokens": SUMMARY_MAX_WORDS * 1.5, "min_new_tokens": SUMMARY_MIN_WORDS * 1.5}
-    _p17 = {"max_new_tokens": SUMMARY_MAX_WORDS * 1.7, "min_new_tokens": SUMMARY_MIN_WORDS * 1.7}
+    _p14 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.3), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.3)}
+    _p16 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.6), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.6)}
+    _p15 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.5), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.5)}
+    _p17 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.7), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.7)}
 
     # https://huggingface.co/models?pipeline_tag=summarization&language=en&sort=trending
     benchmark.add("huggingface", "facebook/bart-large-cnn", _p16)
