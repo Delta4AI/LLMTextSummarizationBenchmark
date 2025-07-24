@@ -420,6 +420,9 @@ class SummarizationBenchmark:
                     continue
 
                 logger.info(f"Running sequential interference {_idx} for {_method}")
+                if run_params.platform in ["openai", "anthropic", "mistral"]:
+                    time.sleep(12)  # ensure not to exceed 5 requests per minute
+
                 start_time = time.time()
 
                 _raw_response = self.api_clients[run_params.platform].summarize(
