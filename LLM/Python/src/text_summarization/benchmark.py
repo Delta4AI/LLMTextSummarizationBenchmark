@@ -396,17 +396,15 @@ class SummarizationBenchmark:
 
     def _run_sequential_interference(self, run_params: InterferenceRunParameters) -> None:
         model_start_time = time.time()
+        _system_prompt = self.api_clients[run_params.platform].text_summarization_system_prompt
+        _method = run_params.method_name
 
         for idx, text in enumerate(run_params.texts):
-            logger.info(
-                f"Running sequential interference {idx + 1}/{len(run_params.texts)} for {run_params.method_name}")
-            start_time = time.time()
+            _idx = f"{idx + 1}/{len(run_params.texts)}"
 
             try:
-                _system_prompt = self.api_clients[run_params.platform].text_summarization_system_prompt
-
                 cache = self.api_clients[run_params.platform].load_cache(
-                    method_name=run_params.method_name,
+                    method_name=_method,
                     system_prompt=_system_prompt,
                     user_query=text
                 )
@@ -414,7 +412,11 @@ class SummarizationBenchmark:
                 if cache:
                     run_params.raw_responses.append(cache["response"])
                     run_params.execution_times.append(cache["execution_time"])
+                    logger.info(f"Using Cached response {_idx} for {_method}")
                     continue
+
+                logger.info(f"Running sequential interference {_idx} for {_method}")
+                start_time = time.time()
 
                 _raw_response = self.api_clients[run_params.platform].summarize(
                     text=text,
@@ -429,7 +431,7 @@ class SummarizationBenchmark:
                 run_params.execution_times.append(_execution_time)
 
                 self.api_clients[run_params.platform].save_cache(
-                    method_name=run_params.method_name,
+                    method_name=_method,
                     system_prompt=_system_prompt,
                     user_query=text,
                     response=_raw_response,
@@ -437,25 +439,14 @@ class SummarizationBenchmark:
                 )
 
             except RefusalError:
-                logger.warning(f"Interference for {run_params.method_name} refused on document "
-                               f"{idx + 1}/{len(run_params.texts)}")
+                logger.warning(f"Interference {_idx} refused for {_method}")
             except NoContentError:
-                logger.warning(f"Interference for {run_params.method_name} returned no content on document "
-                               f"{idx + 1}/{len(run_params.texts)}")
+                logger.warning(f"Interference {_idx} returned no content for {_method}")
             except Exception as exc:
-                logger.error(
-                    f"Aborting {run_params.method_name}: failed on document "
-                    f"{idx + 1}/{len(run_params.texts)} – {exc}"
-                )
+                logger.error(f"Interference {_idx} aborted for {_method} - {exc}")
                 raise
 
-        logger.info(f"Finished sequential interference for {run_params.method_name} "
-                    f"in {time.time() - model_start_time:.2f}s")
-
-    def _get_hash_from_query(self, system_prompt: str, user_query: str):
-        return "foo"
-
-
+        logger.info(f"Finished sequential interference for {_method} in {time.time() - model_start_time:.2f}s")
 
     def _cleanup(self, run_params: InterferenceRunParameters) -> None:
         try:
