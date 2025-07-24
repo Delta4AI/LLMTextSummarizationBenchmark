@@ -13,7 +13,8 @@ Requirements:
     uv add matplotlib seaborn pandas numpy tqdm torch
 """
 import os
-from collections import namedtuple
+
+from llm_apis.exceptions import RefusalError, NoContentError
 
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 os.environ["HF_HUB_OFFLINE"] = "1"
@@ -397,20 +398,64 @@ class SummarizationBenchmark:
         model_start_time = time.time()
 
         for idx, text in enumerate(run_params.texts):
-            logger.info(f"Running sequential interference {idx+1}/{len(run_params.texts)} for {run_params.method_name}")
+            logger.info(
+                f"Running sequential interference {idx + 1}/{len(run_params.texts)} for {run_params.method_name}")
             start_time = time.time()
-            run_params.raw_responses.append(
-                self.api_clients[run_params.platform].summarize(
+
+            try:
+                _system_prompt = self.api_clients[run_params.platform].text_summarization_system_prompt
+
+                cache = self.api_clients[run_params.platform].load_cache(
+                    method_name=run_params.method_name,
+                    system_prompt=_system_prompt,
+                    user_query=text
+                )
+
+                if cache:
+                    run_params.raw_responses.append(cache["response"])
+                    run_params.execution_times.append(cache["execution_time"])
+                    continue
+
+                _raw_response = self.api_clients[run_params.platform].summarize(
                     text=text,
                     model_name=run_params.model_name,
                     system_prompt_override=None,
                     parameter_overrides=run_params.parameter_overrides
                 )
-            )
-            run_params.execution_times.append(time.time() - start_time)
+
+                _execution_time = time.time() - start_time
+
+                run_params.raw_responses.append(_raw_response)
+                run_params.execution_times.append(_execution_time)
+
+                self.api_clients[run_params.platform].save_cache(
+                    method_name=run_params.method_name,
+                    system_prompt=_system_prompt,
+                    user_query=text,
+                    response=_raw_response,
+                    execution_time=_execution_time
+                )
+
+            except RefusalError:
+                logger.warning(f"Interference for {run_params.method_name} refused on document "
+                               f"{idx + 1}/{len(run_params.texts)}")
+            except NoContentError:
+                logger.warning(f"Interference for {run_params.method_name} returned no content on document "
+                               f"{idx + 1}/{len(run_params.texts)}")
+            except Exception as exc:
+                logger.error(
+                    f"Aborting {run_params.method_name}: failed on document "
+                    f"{idx + 1}/{len(run_params.texts)} – {exc}"
+                )
+                raise
 
         logger.info(f"Finished sequential interference for {run_params.method_name} "
                     f"in {time.time() - model_start_time:.2f}s")
+
+    def _get_hash_from_query(self, system_prompt: str, user_query: str):
+        return "foo"
+
+
 
     def _cleanup(self, run_params: InterferenceRunParameters) -> None:
         try:
