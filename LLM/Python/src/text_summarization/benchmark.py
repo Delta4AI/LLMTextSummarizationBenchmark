@@ -334,7 +334,11 @@ class SummarizationBenchmark:
             try:
                 self._run_batched_interference(run_params=irp)
             except NotImplementedError:
-                self._run_sequential_interference(run_params=irp)
+                try:
+                    self._run_sequential_interference(run_params=irp)
+                except Exception as e:
+                    logger.error(f"Interference failed for {irp.method_name}: {e}")
+                    continue
 
             summaries = [extract_response(r) for r in irp.raw_responses]
             references = [p.summaries for p in self.papers]
