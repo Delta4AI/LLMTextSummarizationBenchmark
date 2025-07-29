@@ -306,9 +306,27 @@ class SummarizationBenchmark:
         )
         self.results.load()
 
-    def add(self, platform: str, model_name: str | None = None, parameter_overrides: dict[str, Any] | None = None):
+    def add(self, platform: str, model_name: str | None = None, parameter_overrides: dict[str, Any] | None = None,
+            force_refresh: bool = False):
+        if force_refresh:
+            self._clear_cache(platform=platform, model_name=model_name)
         self.models.append((platform, model_name, parameter_overrides))
-        
+
+    def _clear_cache(self, platform: str, model_name: str) -> None:
+        method_name = f"{platform}_{model_name}" if model_name else platform
+
+        self.api_clients[platform].clean_cache(method_name=method_name)
+        logger.info(f"Cleared API cache for {method_name}")
+
+        try:
+            if (self.results and self.papers_hash in self.results.data and method_name in self.results.data[
+                self.papers_hash]):
+                del self.results.data[self.papers_hash][method_name]
+                self.results.save()
+                logger.info(f"Cleared results database for {method_name}")
+        except Exception as exc:
+            logger.warning(f"Failed to clear results database for {method_name}: {exc}")
+
     def run(self):
         logger.info(f"Running benchmark for {len(self.models)} models ..")
         texts = [f"Title: {p.title}\n\nAbstract: \n{p.abstract}" for p in self.papers]
@@ -562,8 +580,9 @@ def main():
     benchmark.add("ollama", "llama3.2:3b")
     benchmark.add("ollama", "meditron:7b")
     benchmark.add("ollama", "medllama2:7b")
-    benchmark.add("ollama", "mistral:7b")
-    benchmark.add("ollama", "mistral-nemo:latest")
+    benchmark.add("ollama", "mistral:7b", force_refresh=False)
+    benchmark.add("ollama", "mistral-nemo:12b", force_refresh=False)
+    benchmark.add("ollama", "mistral-small3.2:24b", force_refresh=False)
     benchmark.add("ollama", "PetrosStav/gemma3-tools:4b")
     benchmark.add("ollama", "phi3:3.8b")
     benchmark.add("ollama", "phi4:14b")
