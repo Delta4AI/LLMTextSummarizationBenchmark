@@ -573,59 +573,59 @@ def main():
 
     # https://huggingface.co/models?pipeline_tag=summarization&language=en&sort=trending
     benchmark.add("huggingface", "facebook/bart-large-cnn", _p16)
-    # benchmark.add("huggingface", "facebook/bart-base", _p16)
-    # benchmark.add("huggingface", "google-t5/t5-base", _p17)
-    # benchmark.add("huggingface", "google-t5/t5-large", _p17)
-    # benchmark.add("huggingface", "csebuetnlp/mT5_multilingual_XLSum", _p16)
-    # benchmark.add("huggingface", "google/pegasus-xsum", _p14)
-    # benchmark.add("huggingface", "google/pegasus-large", _p14)
-    # benchmark.add("huggingface", "google/pegasus-cnn_dailymail", _p14)
-    # benchmark.add("huggingface", "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization", _p16)
+    benchmark.add("huggingface", "facebook/bart-base", _p16)
+    benchmark.add("huggingface", "google-t5/t5-base", _p17)
+    benchmark.add("huggingface", "google-t5/t5-large", _p17)
+    benchmark.add("huggingface", "csebuetnlp/mT5_multilingual_XLSum", _p16)
+    benchmark.add("huggingface", "google/pegasus-xsum", _p14)
+    benchmark.add("huggingface", "google/pegasus-large", _p14)
+    benchmark.add("huggingface", "google/pegasus-cnn_dailymail", _p14)
+    benchmark.add("huggingface", "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization", _p16)
 
-    # benchmark.add("ollama", "deepseek-r1:1.5b")
-    # benchmark.add("ollama", "deepseek-r1:7b")
-    # benchmark.add("ollama", "deepseek-r1:8b")
-    # benchmark.add("ollama", "deepseek-r1:14b")
-    # benchmark.add("ollama", "gemma3:1b")
-    # benchmark.add("ollama", "gemma3:4b")
-    # benchmark.add("ollama", "gemma3:12b")
-    # benchmark.add("ollama", "granite3.3:2b")
-    # benchmark.add("ollama", "granite3.3:8b")
-    # benchmark.add("ollama", "llama3.1:8b")
-    # benchmark.add("ollama", "llama3.2:1b")
-    # benchmark.add("ollama", "llama3.2:3b")
-    # benchmark.add("ollama", "meditron:7b")
-    # benchmark.add("ollama", "medllama2:7b")
-    # benchmark.add("ollama", "mistral:7b")
-    # benchmark.add("ollama", "mistral-nemo:12b")
-    # benchmark.add("ollama", "mistral-small3.2:24b")
-    # benchmark.add("ollama", "PetrosStav/gemma3-tools:4b")
-    # benchmark.add("ollama", "phi3:3.8b")
-    # benchmark.add("ollama", "phi4:14b")
-    # benchmark.add("ollama", "phi4:latest")
-    # benchmark.add("ollama", "qwen3:4b")
-    # benchmark.add("ollama", "qwen3:8b")
-    # benchmark.add("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")
+    benchmark.add("ollama", "deepseek-r1:1.5b")
+    benchmark.add("ollama", "deepseek-r1:7b")
+    benchmark.add("ollama", "deepseek-r1:8b")
+    benchmark.add("ollama", "deepseek-r1:14b")
+    benchmark.add("ollama", "gemma3:1b")
+    benchmark.add("ollama", "gemma3:4b")
+    benchmark.add("ollama", "gemma3:12b")
+    benchmark.add("ollama", "granite3.3:2b")
+    benchmark.add("ollama", "granite3.3:8b")
+    benchmark.add("ollama", "llama3.1:8b")
+    benchmark.add("ollama", "llama3.2:1b")
+    benchmark.add("ollama", "llama3.2:3b")
+    benchmark.add("ollama", "meditron:7b")
+    benchmark.add("ollama", "medllama2:7b")
+    benchmark.add("ollama", "mistral:7b")
+    benchmark.add("ollama", "mistral-nemo:12b")
+    benchmark.add("ollama", "mistral-small3.2:24b")
+    benchmark.add("ollama", "PetrosStav/gemma3-tools:4b")
+    benchmark.add("ollama", "phi3:3.8b")
+    benchmark.add("ollama", "phi4:14b")
+    benchmark.add("ollama", "phi4:latest")
+    benchmark.add("ollama", "qwen3:4b")
+    benchmark.add("ollama", "qwen3:8b")
+    benchmark.add("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")
 
     # https://platform.openai.com/docs/models
     # "protected" models (gpt-3o, ..) need ID verification and allows openai to freely disclose personal data ..
     # https://community.openai.com/t/openai-non-announcement-requiring-identity-card-verification-for-access-to-new-api-models-and-capabilities/1230004/32
-    # benchmark.add("openai", "gpt-3.5-turbo")
-    # benchmark.add("openai", "gpt-4.1")
-    # benchmark.add("openai", "gpt-4.1-mini")
-    # benchmark.add("openai", "gpt-4o")
-    # benchmark.add("openai", "gpt-4o-mini")
+    benchmark.add("openai", "gpt-3.5-turbo")
+    benchmark.add("openai", "gpt-4.1")
+    benchmark.add("openai", "gpt-4.1-mini")
+    benchmark.add("openai", "gpt-4o")
+    benchmark.add("openai", "gpt-4o-mini")
 
     # https://docs.anthropic.com/en/docs/about-claude/models/overview
-    # benchmark.add("anthropic", "claude-3-5-haiku-20241022")  # fastest
-    # benchmark.add("anthropic", "claude-sonnet-4-20250514")  # high intelligence, balanced performance
+    benchmark.add("anthropic", "claude-3-5-haiku-20241022")  # fastest
+    benchmark.add("anthropic", "claude-sonnet-4-20250514")  # high intelligence, balanced performance
     benchmark.add("anthropic", "claude-opus-4-20250514")  # most capable
 
     # https://docs.mistral.ai/getting-started/models/models_overview/
-    # benchmark.add("mistral", "mistral-medium-latest")  # frontier-class multimodal model
-    # benchmark.add("mistral", "magistral-medium-latest")  # frontier-class reasoning
-    # benchmark.add("mistral", "mistral-large-latest")  # top-tier large model, high complexity tasks
-    # benchmark.add("mistral", "mistral-small-latest")
+    benchmark.add("mistral", "mistral-medium-latest")  # frontier-class multimodal model
+    benchmark.add("mistral", "magistral-medium-latest")  # frontier-class reasoning
+    benchmark.add("mistral", "mistral-large-latest")  # top-tier large model, high complexity tasks
+    benchmark.add("mistral", "mistral-small-latest")
 
     # expensive
     # benchmark.add("ollama", "deepseek-r1:32b")
