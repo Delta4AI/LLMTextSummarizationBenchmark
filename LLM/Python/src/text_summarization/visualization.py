@@ -7,18 +7,27 @@ from plotly.subplots import make_subplots
 import plotly.offline as pyo
 import numpy as np
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple, Any, Callable
 
 if TYPE_CHECKING:
     from text_summarization.benchmark import SummarizationBenchmark
 
 logger = logging.getLogger(__name__)
 
-SURFACE_LEVEL = "Surface-level"
-REFERENCE_SIMILARITY = "Reference Similarity"
-CONTENT_COVERAGE = "Content Coverage"
-AGGREGATE = "Aggregate"
+SURFACE_LEVEL = "Metrics: Surface-level"
+REFERENCE_SIMILARITY = "Metrics: Reference Similarity"
+CONTENT_COVERAGE = "Metrics: Content Coverage"
+AGGREGATE = "Metrics: Aggregate"
 PERFORMANCE = "Performance"
+OVERALL = "Overall (70% met, 20% spd, 10% cov)"
+
+
+class Metric(NamedTuple):
+    label: str
+    getter: Callable[[str], Any]
+    line_override: dict | None = None
+    category: str | None = None
+    error_bars: bool = True
 
 
 class SummarizationVisualizer:
@@ -32,33 +41,44 @@ class SummarizationVisualizer:
         self.results = {}
         self.methods = None
         self.out_dir = None
-
-        _metric = namedtuple("Metric", ["label", "getter", "line_override", "category"])
+        self.max_publications = None
 
         self.metrics = [
-            _metric("ROUGE-1", lambda m: self.results[m].rouge_scores["rouge1"], None, SURFACE_LEVEL),
-            _metric("ROUGE-2", lambda m: self.results[m].rouge_scores["rouge2"], None, SURFACE_LEVEL),
-            _metric("ROUGE-L", lambda m: self.results[m].rouge_scores["rougeL"], None, SURFACE_LEVEL),
-            _metric("RoBERTa", lambda m: self.results[m].roberta_scores["f1"], None, REFERENCE_SIMILARITY),
-            _metric("DeBERTa", lambda m: self.results[m].deberta_scores["f1"], None, REFERENCE_SIMILARITY),
-            _metric("METEOR", lambda m: self.results[m].meteor_scores, None, SURFACE_LEVEL),
-            _metric("BLEU", lambda m: self.results[m].bleu_scores, None, SURFACE_LEVEL),
-            _metric("all-mpnet-base-v2", lambda m: self.results[m].mpnet_content_coverage_scores, None, CONTENT_COVERAGE)
+            Metric("ROUGE-1", lambda m: self.results[m].rouge_scores["rouge1"], None, SURFACE_LEVEL),
+            Metric("ROUGE-2", lambda m: self.results[m].rouge_scores["rouge2"], None, SURFACE_LEVEL),
+            Metric("ROUGE-L", lambda m: self.results[m].rouge_scores["rougeL"], None, SURFACE_LEVEL),
+            Metric("RoBERTa", lambda m: self.results[m].roberta_scores["f1"], None, REFERENCE_SIMILARITY),
+            Metric("DeBERTa", lambda m: self.results[m].deberta_scores["f1"], None, REFERENCE_SIMILARITY),
+            Metric("METEOR", lambda m: self.results[m].meteor_scores, None, SURFACE_LEVEL),
+            Metric("BLEU", lambda m: self.results[m].bleu_scores, None, SURFACE_LEVEL),
+            Metric("all-mpnet-base-v2", lambda m: self.results[m].mpnet_content_coverage_scores, None, CONTENT_COVERAGE)
         ]
 
         self.aggregates = [
-            _metric("Overall Quality", lambda m: self.metric_scores[m], {"color": "black", "width": 4}, AGGREGATE)
+            Metric("Metrics Mean Score", lambda m: self.metric_scores[m],
+                   {"color": "black", "width": 4}, AGGREGATE, False),
+
         ]
 
         self.performances = [
-            _metric("Speed Performance", lambda m: self.normalized_exec_times[m],
-                    {"color": "rgb(138, 43, 226)", "width": 3}, PERFORMANCE)
+            Metric("Speed Performance", lambda m: self.normalized_exec_times[m],
+                    {"color": "rgb(138, 43, 226)", "width": 3}, PERFORMANCE, False),
+            Metric("Success Rate", lambda m: self.coverage_scores[m],
+                    {"color": "rgb(255, 165, 0)", "width": 3}, PERFORMANCE, False)
         ]
 
-        self.length_within_bounds = _metric("Length Within Bounds", lambda m: {"mean": self.results[m].length_stats["within_bounds_pct"]/100}, None, None)
+        self.overall = [
+            Metric("Overall Score", lambda m: self.combined_final_scores[m],
+                   {"color": "rgb(220, 20, 60)", "width": 5}, OVERALL, False)
+        ]
+
+        self.length_within_bounds = Metric("Length Within Bounds", lambda m: {
+            "mean": self.results[m].length_stats["within_bounds_pct"]/100}, None, None)
 
         self.metric_scores = {}
         self.normalized_exec_times = {}
+        self.coverage_scores = {}
+        self.combined_final_scores = {}
 
         # https://plotly.com/python/discrete-color/#color-sequences-in-plotly-express
         self.colors = px.colors.qualitative.Vivid
@@ -67,18 +87,34 @@ class SummarizationVisualizer:
         """Create all visualization plots as separate HTML files."""
         self.results = self.benchmark_ref.results.data[self.benchmark_ref.papers_hash]
         self.methods = list(self.results.keys())
+        self._sort_methods()
         self.out_dir = self.benchmark_ref.hashed_and_dated_output_dir
 
         logger.info("Creating interactive visualizations...")
 
         self._aggregate_metric_scores()
         self._aggregate_execution_times()
+        self._calculate_coverage_scores()
+        self._calculate_final_combined_scores()
 
         self._create_metric_comparison_plot()
         self._create_length_analysis_plot()
         self._create_radar_chart()
 
         logger.info(f"Interactive visualizations saved to {self.out_dir}")
+
+    def _sort_methods(self):
+        def sort_key(method):
+            if method.startswith('local:'):
+                return 0, method
+            elif method.startswith('huggingface_'):
+                return 1, method
+            elif method.startswith('ollama_'):
+                return 2, method
+            else:
+                return 3, method
+
+        self.methods.sort(key=sort_key)
 
     def _aggregate_metric_scores(self):
         for _m in self.results.values():
@@ -122,15 +158,62 @@ class SummarizationVisualizer:
             } for m in methods
         }
 
+    def _calculate_coverage_scores(self):
+        """Calculate coverage scores based on how many publications are summarized."""
+        methods = self.results.keys()
+
+        self.max_publications = max(len(self.results[m].execution_times) for m in methods)
+
+        for method in methods:
+            publications_processed = len(self.results[method].execution_times)
+            coverage_ratio = publications_processed / self.max_publications if self.max_publications > 0 else 0
+
+            self.coverage_scores[method] = {
+                "mean": coverage_ratio,
+                "min": coverage_ratio,
+                "max": coverage_ratio,
+                "std": 0.0
+            }
+
+    def _calculate_final_combined_scores(self):
+        """Calculate final combined score from metric sum performance, speed performance, and coverage."""
+        methods = self.results.keys()
+
+        quality_weight = 0.70
+        speed_weight = 0.20
+        coverage_weight = 0.10
+
+        for method in methods:
+            metric_sum_score = self.metric_scores.get(method, {}).get("mean", 0)
+            speed_score = self.normalized_exec_times.get(method, {}).get("mean", 0)
+            coverage_score = self.coverage_scores.get(method, {}).get("mean", 0)
+
+            combined_score = (
+                    metric_sum_score * quality_weight +
+                    speed_score * speed_weight +
+                    coverage_score * coverage_weight
+            )
+
+            metric_sum_std = self.metric_scores.get(method, {}).get("std", 0)
+            speed_std = self.normalized_exec_times.get(method, {}).get("std", 0)
+            coverage_std = self.coverage_scores.get(method, {}).get("std", 0)
+
+            combined_std = np.sqrt(
+                (metric_sum_std * quality_weight) ** 2 +
+                (speed_std * speed_weight) ** 2 +
+                (coverage_std * coverage_weight) ** 2
+            )
+
+            self.combined_final_scores[method] = {
+                "mean": combined_score,
+                "min": combined_score - combined_std,
+                "max": combined_score + combined_std,
+                "std": combined_std
+            }
+
     def _create_metric_comparison_plot(self):
         """Create ROUGE comparison plot with BERTScore with filled confidence bands."""
-        methods = list(self.results.keys())
-        best_method = max(methods, key=lambda m: self.metric_scores[m]["mean"])
-
-        # Calculate percentiles using means
-        scores = [self.metric_scores[m]["mean"] for m in methods]
-        percentile_75 = np.percentile(scores, 75)
-        percentile_90 = np.percentile(scores, 90)
+        best_overall_method = max(self.methods, key=lambda m: self.combined_final_scores[m]["mean"])
 
         fig = go.Figure()
 
@@ -138,6 +221,7 @@ class SummarizationVisualizer:
             *self.metrics,
             *self.aggregates,
             *self.performances,
+            *self.overall,
         ]
 
         for i, metric in enumerate(metrics):
@@ -147,8 +231,8 @@ class SummarizationVisualizer:
             # Main line (mean values)
             fig.add_trace(
                 go.Scatter(
-                    x=methods,
-                    y=[metric.getter(m)["mean"] for m in methods],
+                    x=self.methods,
+                    y=[metric.getter(m)["mean"] for m in self.methods],
                     mode='lines+markers',
                     name=metric.label,
                     legendgroup=metric.category if metric.category else "Other",
@@ -169,18 +253,18 @@ class SummarizationVisualizer:
                                       f'<extra></extra>'),
                     customdata=[[metric.getter(m)["min"],
                                  metric.getter(m)["max"],
-                                 metric.getter(m)["std"]] for m in methods]
+                                 metric.getter(m)["std"]] for m in self.methods]
                 )
             )
 
-            if metric.label in ["Overall Quality", "Speed Performance"]:
+            if not metric.error_bars:
                 continue
 
             # Upper bound (invisible line)
             fig.add_trace(
                 go.Scatter(
-                    x=methods,
-                    y=[metric.getter(m)["max"] for m in methods],
+                    x=self.methods,
+                    y=[metric.getter(m)["max"] for m in self.methods],
                     mode='lines',
                     line={"width": 0},
                     showlegend=False,
@@ -192,8 +276,8 @@ class SummarizationVisualizer:
             # Lower bound with fill
             fig.add_trace(
                 go.Scatter(
-                    x=methods,
-                    y=[metric.getter(m)["min"] for m in methods],
+                    x=self.methods,
+                    y=[metric.getter(m)["min"] for m in self.methods],
                     mode='lines',
                     line={"width": 0},
                     fill='tonexty',
@@ -204,12 +288,35 @@ class SummarizationVisualizer:
                 )
             )
 
+        # Prepare threshold data
+        threshold_scores = {
+            "Overall": {
+                "scores": [self.combined_final_scores[m]["mean"] for m in self.methods],
+                "dash_style": "dash",
+            },
+            "Metrics Mean": {
+                "scores": [self.metric_scores[m]["mean"] for m in self.methods],
+                "dash_style": "dot",
+            },
+            "Speed": {
+                "scores": [self.normalized_exec_times[m]["mean"] for m in self.methods],
+                "dash_style": "dashdot",
+            }
+        }
+
+        # Generate threshold lines and annotations
+        shapes, annotations = self._create_threshold_lines_and_annotations(threshold_scores)
+
+        # Create enhanced labels using overall scores for ranking
         enhanced_labels = []
+        overall_scores = [self.combined_final_scores[m]["mean"] for m in self.methods]
+        percentile_75 = np.percentile(overall_scores, 75)
+        percentile_90 = np.percentile(overall_scores, 90)
 
-        for method in methods:
-            score = self.metric_scores[method]["mean"]
+        for method in self.methods:
+            score = self.combined_final_scores[method]["mean"]
 
-            if method == best_method:
+            if method == best_overall_method:
                 prefix = '<span style="color:red;">🥇 BEST</span> '
             elif score >= percentile_90:
                 prefix = '<span style="color:orange;">🥈 TOP 90%</span> '
@@ -221,28 +328,90 @@ class SummarizationVisualizer:
             enhanced_labels.append(f"{prefix}{method}")
 
         fig.update_layout(
-            title="Summary Quality and Performance Analysis",
+            title=f"Summary Quality and Performance Analysis based on {self.max_publications} publications",
             xaxis_title="Methods",
             yaxis_title="Score",
             hovermode='closest',
             yaxis={
-                "range": [0, 1]
+                "range": [0, 1.01]
             },
             xaxis={
                 "tickmode": "array",
-                "tickvals": list(range(len(methods))),
+                "tickvals": list(range(len(self.methods))),
                 "ticktext": enhanced_labels,
                 "tickangle": -45,
                 "tickfont": {"size": 10}
             },
-            margin={"b": 100},
+            margin={"b": 10},
             legend={
                 "groupclick": "togglegroup"
-            }
+            },
+            shapes=shapes,
+            annotations=annotations
         )
 
         output_path = self.out_dir / "metric_comparison.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
+
+    def _create_threshold_lines_and_annotations(self, scores_dict):
+        """Create threshold lines and annotations"""
+        shapes = []
+        annotations = []
+
+        for score_name, config in scores_dict.items():
+            scores = config["scores"]
+            dash_style = config.get("dash_style", "dash")
+
+            percentile_75 = np.percentile(scores, 75)
+            percentile_90 = np.percentile(scores, 90)
+
+            # Create threshold lines
+            for percentile, color in [(percentile_90, "orange"), (percentile_75, "blue")]:
+                shapes.append({
+                    "type": "line",
+                    "x0": -0.5,
+                    "x1": len(self.methods) - 0.5,
+                    "y0": percentile,
+                    "y1": percentile,
+                    "line": {
+                        "color": color,
+                        "width": 2,
+                        "dash": dash_style
+                    }
+                })
+
+            # Create annotations
+            x_pos = len(self.methods) - 0.5
+            x_anchor = "left"
+
+            annotations.extend([
+                {
+                    "x": x_pos,
+                    "y": percentile_90,
+                    "text": f"{score_name} 90th: {percentile_90:.3f}",
+                    "showarrow": False,
+                    "xanchor": x_anchor,
+                    "yanchor": "bottom",
+                    "bgcolor": "rgba(255,255,255,0.8)",
+                    "bordercolor": "orange",
+                    "borderwidth": 1,
+                    "font": {"color": "orange", "size": 10}
+                },
+                {
+                    "x": x_pos,
+                    "y": percentile_75,
+                    "text": f"{score_name} 75th: {percentile_75:.3f}",
+                    "showarrow": False,
+                    "xanchor": x_anchor,
+                    "yanchor": "top",
+                    "bgcolor": "rgba(255,255,255,0.8)",
+                    "bordercolor": "blue",
+                    "borderwidth": 1,
+                    "font": {"color": "blue", "size": 10}
+                }
+            ])
+
+        return shapes, annotations
 
     def _create_length_analysis_plot(self):
         """Create length analysis plot with compliance breakdown and box plot only."""
