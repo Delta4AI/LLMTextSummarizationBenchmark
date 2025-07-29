@@ -41,8 +41,8 @@ OUT_DIR.mkdir(exist_ok=True, parents=True)
 
 GOLD_STANDARD_DATA: list[str] = [
     # "Resources/text_summarization_goldstandard_data_AKI_CKD.json",
-    "Resources/text_summarization_goldstandard_data_test.json"
-    # "Resources/text_summarization_goldstandard_data_elsevier.json"
+    # "Resources/text_summarization_goldstandard_data_test.json"
+    "Resources/text_summarization_goldstandard_data_elsevier.json"
 ]
 
 setup_logging(OUT_DIR / "benchmark.log")
