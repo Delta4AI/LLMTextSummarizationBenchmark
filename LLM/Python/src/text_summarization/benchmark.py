@@ -41,8 +41,8 @@ OUT_DIR.mkdir(exist_ok=True, parents=True)
 
 GOLD_STANDARD_DATA: list[str] = [
     # "Resources/text_summarization_goldstandard_data_AKI_CKD.json",
-    # "Resources/text_summarization_goldstandard_data_test.json"
-    "Resources/text_summarization_goldstandard_data_elsevier.json"
+    "Resources/text_summarization_goldstandard_data_test.json"
+    # "Resources/text_summarization_goldstandard_data_elsevier.json"
 ]
 
 setup_logging(OUT_DIR / "benchmark.log")
@@ -80,6 +80,8 @@ class InterferenceRunParameters:
     texts: list[str] = field(default_factory=list)
     raw_responses: list[str] = field(default_factory=list)
     execution_times: list[float] = field(default_factory=list)
+    input_tokens: list[int] = field(default_factory=list)
+    output_tokens: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -89,6 +91,8 @@ class EvaluationResult:
     execution_times: list[float]
     full_responses: list[str]
     summaries: list[str]
+    input_tokens: list[int]
+    output_tokens: list[int]
     length_stats: dict
     rouge_scores: dict[str, dict[str, float]]
     roberta_scores: dict[str, dict[str, float]]
@@ -181,6 +185,7 @@ class SummarizationBenchmark:
         self.max_words = SUMMARY_MAX_WORDS
 
         self.results = None
+        self.force_refresh = False
 
         self.papers = []
         self.models = []
@@ -308,7 +313,7 @@ class SummarizationBenchmark:
 
     def add(self, platform: str, model_name: str | None = None, parameter_overrides: dict[str, Any] | None = None,
             force_refresh: bool = False):
-        if force_refresh:
+        if force_refresh or self.force_refresh:
             self._clear_cache(platform=platform, model_name=model_name)
         self.models.append((platform, model_name, parameter_overrides))
 
@@ -369,6 +374,8 @@ class SummarizationBenchmark:
                 full_responses=irp.raw_responses,
                 summaries=summaries,
                 length_stats=get_length_scores(summaries, self.min_words, self.max_words),
+                input_tokens=irp.input_tokens,
+                output_tokens=irp.output_tokens,
                 rouge_scores=get_rouge_scores(summaries, references),
                 roberta_scores=get_bert_scores(summaries, references, "roberta-large"),
                 deberta_scores=get_bert_scores(summaries, references, "microsoft/deberta-xlarge-mnli"),
@@ -402,14 +409,16 @@ class SummarizationBenchmark:
         logger.info(f"Running batched interference for {run_params.method_name} ..")
         start_time = time.time()
 
-        run_params.raw_responses.extend(
-            self.api_clients[run_params.platform].summarize_batch(
-                texts=run_params.texts,
-                model_name=run_params.model_name,
-                system_prompt_override=None,
-                parameter_overrides=run_params.parameter_overrides
-            )
+        _raw_responses, _input_tokens, _output_tokens = self.api_clients[run_params.platform].summarize_batch(
+            texts=run_params.texts,
+            model_name=run_params.model_name,
+            system_prompt_override=None,
+            parameter_overrides=run_params.parameter_overrides
         )
+
+        run_params.raw_responses.extend(_raw_responses)
+        run_params.input_tokens.extend(_input_tokens)
+        run_params.output_tokens.extend(_output_tokens)
 
         batch_time = time.time() - start_time
         run_params.execution_times.extend([batch_time / len(self.papers)] * len(self.papers))
@@ -434,6 +443,8 @@ class SummarizationBenchmark:
                 if cache:
                     run_params.raw_responses.append(cache["response"])
                     run_params.execution_times.append(cache["execution_time"])
+                    run_params.input_tokens.append(cache["input_tokens"])
+                    run_params.output_tokens.append(cache["output_tokens"])
                     logger.info(f"Using Cached response {_idx} for {_method}")
                     continue
 
@@ -443,7 +454,7 @@ class SummarizationBenchmark:
 
                 start_time = time.time()
 
-                _raw_response = self.api_clients[run_params.platform].summarize(
+                _raw_response, _input_tokens, _output_tokens = self.api_clients[run_params.platform].summarize(
                     text=text,
                     model_name=run_params.model_name,
                     system_prompt_override=None,
@@ -453,6 +464,8 @@ class SummarizationBenchmark:
                 _execution_time = time.time() - start_time
 
                 run_params.raw_responses.append(_raw_response)
+                run_params.input_tokens.append(_input_tokens)
+                run_params.output_tokens.append(_output_tokens)
                 run_params.execution_times.append(_execution_time)
 
                 self.api_clients[run_params.platform].save_cache(
@@ -460,7 +473,9 @@ class SummarizationBenchmark:
                     system_prompt=_system_prompt,
                     user_query=text,
                     response=_raw_response,
-                    execution_time=_execution_time
+                    execution_time=_execution_time,
+                    input_tokens=_input_tokens,
+                    output_tokens=_output_tokens,
                 )
 
             except RefusalError:
@@ -544,6 +559,7 @@ def main():
     benchmark.load_papers(args.gold_standard_data)
     if args.clear:
         benchmark.clear()
+        benchmark.force_refresh = True
 
     benchmark.load_results()
 
@@ -557,59 +573,59 @@ def main():
 
     # https://huggingface.co/models?pipeline_tag=summarization&language=en&sort=trending
     benchmark.add("huggingface", "facebook/bart-large-cnn", _p16)
-    benchmark.add("huggingface", "facebook/bart-base", _p16)
-    benchmark.add("huggingface", "google-t5/t5-base", _p17)
-    benchmark.add("huggingface", "google-t5/t5-large", _p17)
-    benchmark.add("huggingface", "csebuetnlp/mT5_multilingual_XLSum", _p16)
-    benchmark.add("huggingface", "google/pegasus-xsum", _p14)
-    benchmark.add("huggingface", "google/pegasus-large", _p14)
-    benchmark.add("huggingface", "google/pegasus-cnn_dailymail", _p14)
-    benchmark.add("huggingface", "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization", _p16)
+    # benchmark.add("huggingface", "facebook/bart-base", _p16)
+    # benchmark.add("huggingface", "google-t5/t5-base", _p17)
+    # benchmark.add("huggingface", "google-t5/t5-large", _p17)
+    # benchmark.add("huggingface", "csebuetnlp/mT5_multilingual_XLSum", _p16)
+    # benchmark.add("huggingface", "google/pegasus-xsum", _p14)
+    # benchmark.add("huggingface", "google/pegasus-large", _p14)
+    # benchmark.add("huggingface", "google/pegasus-cnn_dailymail", _p14)
+    # benchmark.add("huggingface", "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization", _p16)
 
-    benchmark.add("ollama", "deepseek-r1:1.5b")
-    benchmark.add("ollama", "deepseek-r1:7b")
-    benchmark.add("ollama", "deepseek-r1:8b")
-    benchmark.add("ollama", "deepseek-r1:14b")
-    benchmark.add("ollama", "gemma3:1b")
-    benchmark.add("ollama", "gemma3:4b")
-    benchmark.add("ollama", "gemma3:12b")
-    benchmark.add("ollama", "granite3.3:2b")
-    benchmark.add("ollama", "granite3.3:8b")
-    benchmark.add("ollama", "llama3.1:8b")
-    benchmark.add("ollama", "llama3.2:1b")
-    benchmark.add("ollama", "llama3.2:3b")
-    benchmark.add("ollama", "meditron:7b")
-    benchmark.add("ollama", "medllama2:7b")
-    benchmark.add("ollama", "mistral:7b", force_refresh=False)
-    benchmark.add("ollama", "mistral-nemo:12b", force_refresh=False)
-    benchmark.add("ollama", "mistral-small3.2:24b", force_refresh=False)
-    benchmark.add("ollama", "PetrosStav/gemma3-tools:4b")
-    benchmark.add("ollama", "phi3:3.8b")
-    benchmark.add("ollama", "phi4:14b")
-    benchmark.add("ollama", "phi4:latest")
-    benchmark.add("ollama", "qwen3:4b")
-    benchmark.add("ollama", "qwen3:8b")
-    benchmark.add("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")
+    # benchmark.add("ollama", "deepseek-r1:1.5b")
+    # benchmark.add("ollama", "deepseek-r1:7b")
+    # benchmark.add("ollama", "deepseek-r1:8b")
+    # benchmark.add("ollama", "deepseek-r1:14b")
+    # benchmark.add("ollama", "gemma3:1b")
+    # benchmark.add("ollama", "gemma3:4b")
+    # benchmark.add("ollama", "gemma3:12b")
+    # benchmark.add("ollama", "granite3.3:2b")
+    # benchmark.add("ollama", "granite3.3:8b")
+    # benchmark.add("ollama", "llama3.1:8b")
+    # benchmark.add("ollama", "llama3.2:1b")
+    # benchmark.add("ollama", "llama3.2:3b")
+    # benchmark.add("ollama", "meditron:7b")
+    # benchmark.add("ollama", "medllama2:7b")
+    # benchmark.add("ollama", "mistral:7b")
+    # benchmark.add("ollama", "mistral-nemo:12b")
+    # benchmark.add("ollama", "mistral-small3.2:24b")
+    # benchmark.add("ollama", "PetrosStav/gemma3-tools:4b")
+    # benchmark.add("ollama", "phi3:3.8b")
+    # benchmark.add("ollama", "phi4:14b")
+    # benchmark.add("ollama", "phi4:latest")
+    # benchmark.add("ollama", "qwen3:4b")
+    # benchmark.add("ollama", "qwen3:8b")
+    # benchmark.add("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")
 
     # https://platform.openai.com/docs/models
     # "protected" models (gpt-3o, ..) need ID verification and allows openai to freely disclose personal data ..
     # https://community.openai.com/t/openai-non-announcement-requiring-identity-card-verification-for-access-to-new-api-models-and-capabilities/1230004/32
-    benchmark.add("openai", "gpt-3.5-turbo")
-    benchmark.add("openai", "gpt-4.1")
-    benchmark.add("openai", "gpt-4.1-mini")
-    benchmark.add("openai", "gpt-4o")
-    benchmark.add("openai", "gpt-4o-mini")
+    # benchmark.add("openai", "gpt-3.5-turbo")
+    # benchmark.add("openai", "gpt-4.1")
+    # benchmark.add("openai", "gpt-4.1-mini")
+    # benchmark.add("openai", "gpt-4o")
+    # benchmark.add("openai", "gpt-4o-mini")
 
     # https://docs.anthropic.com/en/docs/about-claude/models/overview
-    benchmark.add("anthropic", "claude-3-5-haiku-20241022")  # fastest
-    benchmark.add("anthropic", "claude-sonnet-4-20250514")  # high intelligence, balanced performance
+    # benchmark.add("anthropic", "claude-3-5-haiku-20241022")  # fastest
+    # benchmark.add("anthropic", "claude-sonnet-4-20250514")  # high intelligence, balanced performance
     benchmark.add("anthropic", "claude-opus-4-20250514")  # most capable
 
     # https://docs.mistral.ai/getting-started/models/models_overview/
-    benchmark.add("mistral", "mistral-medium-latest")  # frontier-class multimodal model
-    benchmark.add("mistral", "magistral-medium-latest")  # frontier-class reasoning
-    benchmark.add("mistral", "mistral-large-latest")  # top-tier large model, high complexity tasks
-    benchmark.add("mistral", "mistral-small-latest")
+    # benchmark.add("mistral", "mistral-medium-latest")  # frontier-class multimodal model
+    # benchmark.add("mistral", "magistral-medium-latest")  # frontier-class reasoning
+    # benchmark.add("mistral", "mistral-large-latest")  # top-tier large model, high complexity tasks
+    # benchmark.add("mistral", "mistral-small-latest")
 
     # expensive
     # benchmark.add("ollama", "deepseek-r1:32b")

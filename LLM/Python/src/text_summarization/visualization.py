@@ -167,6 +167,8 @@ class SummarizationVisualizer:
         for method in methods:
             publications_processed = len(self.results[method].execution_times)
             coverage_ratio = publications_processed / self.max_publications if self.max_publications > 0 else 0
+            # TODO: add this to score; also check for * or something in responses
+            insufficient_findings = [_ for _ in self.results[method].summaries if _ == "INSUFFICIENT_FINDINGS"]
 
             self.coverage_scores[method] = {
                 "mean": coverage_ratio,
