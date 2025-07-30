@@ -483,7 +483,8 @@ class SummarizationBenchmark:
             except NoContentError:
                 logger.warning(f"Interference {_idx} returned no content for {_method}")
             except UnknownResponse:
-                logger.warning(f"Interference {_idx} returned unknown response for {_method}")
+                logger.error(f"Interference {_idx} returned unknown response for {_method}")
+                raise
             except Exception as exc:
                 logger.error(f"Interference {_idx} aborted for {_method} - {exc}")
                 raise
