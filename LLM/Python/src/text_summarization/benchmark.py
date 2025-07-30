@@ -14,7 +14,7 @@ Requirements:
 """
 import os
 
-from llm_apis.exceptions import RefusalError, NoContentError
+from llm_apis.exceptions import RefusalError, NoContentError, UnknownResponse
 
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 os.environ["HF_HUB_OFFLINE"] = "1"
@@ -406,7 +406,7 @@ class SummarizationBenchmark:
             logger.error(f"Warmup failed: {e}")
 
     def _run_batched_interference(self, run_params: InterferenceRunParameters) -> None:
-        logger.info(f"Running batched interference for {run_params.method_name} ..")
+        logger.info(f"Attempting to run batched interference for {run_params.method_name} ..")
         start_time = time.time()
 
         _raw_responses, _input_tokens, _output_tokens = self.api_clients[run_params.platform].summarize_batch(
@@ -450,7 +450,7 @@ class SummarizationBenchmark:
 
                 logger.info(f"Running sequential interference {_idx} for {_method}")
                 if run_params.platform in ["openai", "anthropic", "mistral"]:
-                    time.sleep(12)  # ensure not to exceed 5 requests per minute
+                    time.sleep(2)  # ensure not to exceed 5 requests per minute
 
                 start_time = time.time()
 
@@ -482,6 +482,8 @@ class SummarizationBenchmark:
                 logger.warning(f"Interference {_idx} refused for {_method}")
             except NoContentError:
                 logger.warning(f"Interference {_idx} returned no content for {_method}")
+            except UnknownResponse:
+                logger.warning(f"Interference {_idx} returned unknown response for {_method}")
             except Exception as exc:
                 logger.error(f"Interference {_idx} aborted for {_method} - {exc}")
                 raise
@@ -594,7 +596,6 @@ def main():
     benchmark.add("ollama", "llama3.1:8b")
     benchmark.add("ollama", "llama3.2:1b")
     benchmark.add("ollama", "llama3.2:3b")
-    benchmark.add("ollama", "meditron:7b")
     benchmark.add("ollama", "medllama2:7b")
     benchmark.add("ollama", "mistral:7b")
     benchmark.add("ollama", "mistral-nemo:12b")
@@ -602,7 +603,6 @@ def main():
     benchmark.add("ollama", "PetrosStav/gemma3-tools:4b")
     benchmark.add("ollama", "phi3:3.8b")
     benchmark.add("ollama", "phi4:14b")
-    benchmark.add("ollama", "phi4:latest")
     benchmark.add("ollama", "qwen3:4b")
     benchmark.add("ollama", "qwen3:8b")
     benchmark.add("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")
@@ -622,16 +622,17 @@ def main():
     benchmark.add("anthropic", "claude-opus-4-20250514")  # most capable
 
     # https://docs.mistral.ai/getting-started/models/models_overview/
-    benchmark.add("mistral", "mistral-medium-latest")  # frontier-class multimodal model
-    benchmark.add("mistral", "magistral-medium-latest")  # frontier-class reasoning
-    benchmark.add("mistral", "mistral-large-latest")  # top-tier large model, high complexity tasks
-    benchmark.add("mistral", "mistral-small-latest")
+    benchmark.add("mistral", "mistral-medium-2505")  # frontier-class multimodal model
+    benchmark.add("mistral", "magistral-medium-2507")  # frontier-class reasoning
+    benchmark.add("mistral", "mistral-large-2411")  # top-tier large model, high complexity tasks
+    benchmark.add("mistral", "mistral-small-2506")
 
     # expensive
     # benchmark.add("ollama", "deepseek-r1:32b")
     # benchmark.add("ollama", "gemma3:27b")
     # benchmark.add("ollama", "llama3.3:latest")
     # benchmark.add("ollama", "PetrosStav/gemma3-tools:27b")
+    # benchmark.add("ollama", "meditron:7b")
 
     # broken?
     # benchmark.add("ollama", "llama3-gradient:latest")

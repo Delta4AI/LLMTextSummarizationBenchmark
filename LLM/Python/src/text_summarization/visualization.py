@@ -1,5 +1,4 @@
 import logging
-from collections import namedtuple
 
 import plotly.graph_objects as go
 import plotly.express as px
@@ -19,7 +18,7 @@ REFERENCE_SIMILARITY = "Metrics: Reference Similarity"
 CONTENT_COVERAGE = "Metrics: Content Coverage"
 AGGREGATE = "Metrics: Aggregate"
 PERFORMANCE = "Performance"
-OVERALL = "Overall (70% met, 20% spd, 10% cov)"
+OVERALL = "Overall (70% metrics, 10% speed/accept./cost)"
 
 
 class Metric(NamedTuple):
@@ -61,10 +60,16 @@ class SummarizationVisualizer:
         ]
 
         self.performances = [
-            Metric("Speed Performance", lambda m: self.normalized_exec_times[m],
+            Metric("Speed", lambda m: self.normalized_exec_times[m],
                     {"color": "rgb(138, 43, 226)", "width": 3}, PERFORMANCE, False),
-            Metric("Success Rate", lambda m: self.coverage_scores[m],
-                    {"color": "rgb(255, 165, 0)", "width": 3}, PERFORMANCE, False)
+            Metric("Acceptance", lambda m: self.acceptance_scores[m],
+                   {"color": "rgb(255, 165, 0)", "width": 3}, PERFORMANCE, False),
+            Metric("Insufficient Findings", lambda m: self.insufficient_findings_rates[m],
+                   {"color": "rgb(106, 137, 247)", "width": 3}, PERFORMANCE, False),
+            # Metric("Input Token Cost", lambda m: self.input_token_costs[m],
+            #        {"color": "rgb(204, 204, 0)", "width": 3}, PERFORMANCE, False),
+            Metric("Output Token Cost", lambda m: self.output_token_costs[m],
+                   {"color": "rgb(102, 51, 0)", "width": 3}, PERFORMANCE, False),
         ]
 
         self.overall = [
@@ -77,7 +82,10 @@ class SummarizationVisualizer:
 
         self.metric_scores = {}
         self.normalized_exec_times = {}
-        self.coverage_scores = {}
+        self.acceptance_scores = {}
+        self.insufficient_findings_rates = {}
+        self.input_token_costs = {}
+        self.output_token_costs = {}
         self.combined_final_scores = {}
 
         # https://plotly.com/python/discrete-color/#color-sequences-in-plotly-express
@@ -94,7 +102,9 @@ class SummarizationVisualizer:
 
         self._aggregate_metric_scores()
         self._aggregate_execution_times()
-        self._calculate_coverage_scores()
+        self._calculate_acceptance_rates()
+        self._calculate_insufficient_findings_rates()
+        self._calculate_token_costs()
         self._calculate_final_combined_scores()
 
         self._create_metric_comparison_plot()
@@ -158,8 +168,8 @@ class SummarizationVisualizer:
             } for m in methods
         }
 
-    def _calculate_coverage_scores(self):
-        """Calculate coverage scores based on how many publications are summarized."""
+    def _calculate_acceptance_rates(self):
+        """Calculate acceptance rates based on how many responses are present."""
         methods = self.results.keys()
 
         self.max_publications = max(len(self.results[m].execution_times) for m in methods)
@@ -167,43 +177,126 @@ class SummarizationVisualizer:
         for method in methods:
             publications_processed = len(self.results[method].execution_times)
             coverage_ratio = publications_processed / self.max_publications if self.max_publications > 0 else 0
-            # TODO: add this to score; also check for * or something in responses
-            insufficient_findings = [_ for _ in self.results[method].summaries if _ == "INSUFFICIENT_FINDINGS"]
 
-            self.coverage_scores[method] = {
+            self.acceptance_scores[method] = {
                 "mean": coverage_ratio,
                 "min": coverage_ratio,
                 "max": coverage_ratio,
                 "std": 0.0
             }
 
+    def _calculate_insufficient_findings_rates(self):
+        """Calculate summary rates and normalize to 0-1 where 1 is best (fewer insufficient findings)."""
+        for method in self.results.keys():
+            insufficient_findings = [
+                _ for _ in self.results[method].summaries
+                if _ == "INSUFFICIENT_FINDINGS"
+                   or _.startswith("INSUFFICIENT")
+                   or _ == "'**'"
+                   or len(_) < 10
+            ]
+            insufficient_ratio = len(insufficient_findings) / self.max_publications
+
+            normalized_score = 1 - insufficient_ratio
+
+            self.insufficient_findings_rates[method] = {
+                "mean": normalized_score,
+                "min": normalized_score,
+                "max": normalized_score,
+                "std": 0.0
+            }
+
+    def _calculate_token_costs(self):
+        """Calculate token costs and normalize to 0-1 where 1 is best (lower cost)."""
+        methods = list(self.results.keys())
+
+        raw_input_costs = {}
+        raw_output_costs = {}
+
+        for method in methods:
+            input_tokens = self.results[method].input_tokens
+            output_tokens = self.results[method].output_tokens
+
+            raw_input_costs[method] = {
+                "mean": np.mean(input_tokens),
+                "min": np.min(input_tokens),
+                "max": np.max(input_tokens),
+                "std": np.std(input_tokens)
+            }
+
+            raw_output_costs[method] = {
+                "mean": np.mean(output_tokens),
+                "min": np.min(output_tokens),
+                "max": np.max(output_tokens),
+                "std": np.std(output_tokens)
+            }
+
+        output_means = [raw_output_costs[method]["mean"] for method in methods]
+        max_output = max(output_means)
+        min_output = min(output_means)
+
+        if max_output != min_output:
+            for method in methods:
+                raw_mean = raw_output_costs[method]["mean"]
+                normalized_mean = 1 - (raw_mean - min_output) / (max_output - min_output)
+
+                self.output_token_costs[method] = {
+                    "mean": normalized_mean,
+                    "min": normalized_mean,
+                    "max": normalized_mean,
+                    "std": 0.0
+                }
+        else:
+            for method in methods:
+                self.output_token_costs[method] = {
+                    "mean": 1.0,
+                    "min": 1.0,
+                    "max": 1.0,
+                    "std": 0.0
+                }
+
+        self.input_token_costs = raw_input_costs
+
     def _calculate_final_combined_scores(self):
-        """Calculate final combined score from metric sum performance, speed performance, and coverage."""
+        """Calculate final combined score from all normalized metrics."""
         methods = self.results.keys()
 
-        quality_weight = 0.70
-        speed_weight = 0.20
-        coverage_weight = 0.10
+        # check whether to include costs
+        output_token_means = {method: self.output_token_costs[method]["mean"] for method in methods}
+        include_cost = any(tokens > 0 for tokens in output_token_means.values())
+
+        if include_cost:
+            quality_weight = 0.70
+            speed_weight = 0.1
+            acceptance_weight = 0.1
+            cost_weight = 0.1
+        else:
+            quality_weight = 0.70
+            speed_weight = 0.15
+            acceptance_weight = 0.15
+            cost_weight = 0.0
 
         for method in methods:
             metric_sum_score = self.metric_scores.get(method, {}).get("mean", 0)
             speed_score = self.normalized_exec_times.get(method, {}).get("mean", 0)
-            coverage_score = self.coverage_scores.get(method, {}).get("mean", 0)
+            acceptance_score = self.acceptance_scores.get(method, {}).get("mean", 0)
+            cost_score = self.output_token_costs.get(method, {}).get("mean", 0) if include_cost else 0
 
             combined_score = (
                     metric_sum_score * quality_weight +
                     speed_score * speed_weight +
-                    coverage_score * coverage_weight
+                    acceptance_score * acceptance_weight +
+                    cost_score * cost_weight
             )
 
             metric_sum_std = self.metric_scores.get(method, {}).get("std", 0)
             speed_std = self.normalized_exec_times.get(method, {}).get("std", 0)
-            coverage_std = self.coverage_scores.get(method, {}).get("std", 0)
+            acceptance_std = self.acceptance_scores.get(method, {}).get("std", 0)
 
             combined_std = np.sqrt(
                 (metric_sum_std * quality_weight) ** 2 +
                 (speed_std * speed_weight) ** 2 +
-                (coverage_std * coverage_weight) ** 2
+                (acceptance_std * acceptance_weight) ** 2
             )
 
             self.combined_final_scores[method] = {
