@@ -42,7 +42,7 @@ OUT_DIR.mkdir(exist_ok=True, parents=True)
 GOLD_STANDARD_DATA: list[str] = [
     # "Resources/text_summarization_goldstandard_data_AKI_CKD.json",
     # "Resources/text_summarization_goldstandard_data_test.json"
-    "Resources/text_summarization_goldstandard_data_elsevier.json"
+    "Resources/text_summarization_goldstandard_data.json"
 ]
 
 setup_logging(OUT_DIR / "benchmark.log")
@@ -607,6 +607,7 @@ def main():
     benchmark.add("ollama", "qwen3:4b")
     benchmark.add("ollama", "qwen3:8b")
     benchmark.add("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")
+    benchmark.add("ollama", "gpt-oss:20b")
 
     # https://platform.openai.com/docs/models
     # "protected" models (gpt-3o, ..) need ID verification and allows openai to freely disclose personal data ..
