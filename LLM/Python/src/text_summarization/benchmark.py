@@ -612,11 +612,11 @@ def main():
     # https://platform.openai.com/docs/models
     # "protected" models (gpt-3o, ..) need ID verification and allows openai to freely disclose personal data ..
     # https://community.openai.com/t/openai-non-announcement-requiring-identity-card-verification-for-access-to-new-api-models-and-capabilities/1230004/32
-    benchmark.add("openai", "gpt-3.5-turbo")
-    benchmark.add("openai", "gpt-4.1")
-    benchmark.add("openai", "gpt-4.1-mini")
-    benchmark.add("openai", "gpt-4o")
-    benchmark.add("openai", "gpt-4o-mini")
+    benchmark.add("openai", "gpt-3.5-turbo")  # gpt-3.5-turbo-0125
+    benchmark.add("openai", "gpt-4.1")  # gpt-4.1-2025-04-14
+    benchmark.add("openai", "gpt-4.1-mini")  # gpt-4.1-mini-2025-04-14
+    benchmark.add("openai", "gpt-4o")  # gpt-4o-2024-08-06
+    benchmark.add("openai", "gpt-4o-mini")  # gpt-4o-mini-2024-07-18
     benchmark.add("openai", "gpt-5-nano-2025-08-07")
     benchmark.add("openai", "gpt-5-mini-2025-08-07")
     benchmark.add("openai", "gpt-5-2025-08-07")
