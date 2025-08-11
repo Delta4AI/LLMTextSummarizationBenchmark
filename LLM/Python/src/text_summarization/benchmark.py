@@ -617,11 +617,15 @@ def main():
     benchmark.add("openai", "gpt-4.1-mini")
     benchmark.add("openai", "gpt-4o")
     benchmark.add("openai", "gpt-4o-mini")
+    benchmark.add("openai", "gpt-5-nano-2025-08-07")
+    benchmark.add("openai", "gpt-5-mini-2025-08-07")
+    benchmark.add("openai", "gpt-5-2025-08-07")
 
     # https://docs.anthropic.com/en/docs/about-claude/models/overview
     benchmark.add("anthropic", "claude-3-5-haiku-20241022")  # fastest
     benchmark.add("anthropic", "claude-sonnet-4-20250514")  # high intelligence, balanced performance
     benchmark.add("anthropic", "claude-opus-4-20250514")  # most capable
+    benchmark.add("anthropic", "claude-opus-4-1-20250805")
 
     # https://docs.mistral.ai/getting-started/models/models_overview/
     benchmark.add("mistral", "mistral-medium-2505")  # frontier-class multimodal model
