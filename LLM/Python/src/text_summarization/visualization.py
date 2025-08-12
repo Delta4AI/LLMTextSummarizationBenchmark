@@ -1,3 +1,4 @@
+import argparse
 import logging
 
 import plotly.graph_objects as go
@@ -656,3 +657,21 @@ class SummarizationVisualizer:
         output_path = self.out_dir / "radar_chart.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
 
+
+if __name__ == "__main__":
+    """This script runs the visualization component of the text summarization benchmark pipeline without benchmarking.
+    The following files have to be in place:
+
+    The following files must exist:    
+        - /path/to/Repositories/exploration/LLM/Output/text_summarization_benchmark/benchmark.pkl
+        - /path/to/Repositories/exploration/LLM/Resources/text_summarization_goldstandard_data.json
+    
+    Usage:
+        cd /path/to/Repositories/exploration/LLM
+        uv run Python/src/text_summarization/visualization.py
+    """
+    from text_summarization.benchmark import SummarizationBenchmark, GOLD_STANDARD_DATA, EvaluationResult
+    benchmark = SummarizationBenchmark()
+    benchmark.load_papers(GOLD_STANDARD_DATA)
+    benchmark.load_results()
+    benchmark.visualizer.create_all_visualizations()

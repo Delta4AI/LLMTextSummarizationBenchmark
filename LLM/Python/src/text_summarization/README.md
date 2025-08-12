@@ -6,6 +6,9 @@ Benchmarking tool for evaluating text summarization methods on scientific papers
 
 ```bash
 # Install dependencies
+uv sync
+
+# In case only text summarization is required, the following dependencies can be installed separately:
 uv add transformers rouge-score bert-score nltk scikit-learn matplotlib seaborn pandas numpy tqdm torch ollama
 
 # Run (from within LLM folder)
@@ -14,6 +17,19 @@ uv run Python/src/text_summarization/benchmark.py
 > Make sure to copy `Resources/example.env` to `Resources/.env` and enter LLM API keys
 
 > Make sure to check and update `config.py`
+
+### Run the visualization only without benchmarking
+
+The following files must exist:    
+- `Output/text_summarization_benchmark/benchmark.pkl`
+- `Resources/text_summarization_goldstandard_data.json`
+
+Usage:
+```bash
+cd /path/to/LLM
+uv run Python/src/text_summarization/visualization.py
+```
+
 
 ---
 
@@ -44,10 +60,7 @@ Multiple reference summaries improve evaluation robustness and reduce single-ann
 ]
 ```
 ### Reference summary sources
-- Self composed summaries (MLE)
-- https://www.semanticscholar.org/ TLDR
-- claude 4 sonnet via jetbrains AI assistant
-- chatgpt o4-mini with reasoning
+- Highlight sections of Elsevier and Cell papers, joined by ". ".
 
 ---
 
