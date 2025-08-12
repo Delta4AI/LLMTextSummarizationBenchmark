@@ -40,8 +40,6 @@ OUT_DIR = get_project_root() / "Output" / "text_summarization_benchmark"
 OUT_DIR.mkdir(exist_ok=True, parents=True)
 
 GOLD_STANDARD_DATA: list[str] = [
-    # "Resources/text_summarization_goldstandard_data_AKI_CKD.json",
-    # "Resources/text_summarization_goldstandard_data_test.json"
     "Resources/text_summarization_goldstandard_data.json"
 ]
 
