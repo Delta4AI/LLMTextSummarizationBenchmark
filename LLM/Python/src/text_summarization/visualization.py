@@ -1,11 +1,13 @@
 import argparse
 import logging
+import math
 
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.offline as pyo
 import numpy as np
+from scipy.spatial import ConvexHull, QhullError
 
 from typing import TYPE_CHECKING, NamedTuple, Any, Callable
 
@@ -111,6 +113,13 @@ class SummarizationVisualizer:
         self._create_metric_comparison_plot()
         self._create_length_analysis_plot()
         self._create_radar_chart()
+
+        self._create_execution_time_boxplot()
+        self._create_insufficient_findings_bar()
+        self._create_metric_correlation_matrix()
+        self._create_rank_heatmap()
+        self._create_tradeoff_3d()
+        self._create_pareto_bubble()
 
         logger.info(f"Interactive visualizations saved to {self.out_dir}")
 
@@ -657,6 +666,377 @@ class SummarizationVisualizer:
         output_path = self.out_dir / "radar_chart.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
 
+    def _create_execution_time_boxplot(self):
+        """Create boxplot for execution time distribution per method."""
+        fig = go.Figure()
+        for i, method in enumerate(self.methods):
+            times = self.results[method].execution_times
+            fig.add_trace(go.Box(
+                y=times,
+                name=method,
+                marker_color=self.colors[i % len(self.colors)],
+                boxpoints="outliers",
+                hovertemplate=f'<b>{method}</b><br>Time: %{{y:.2f}} sec<extra></extra>'
+            ))
+
+        fig.update_layout(
+            title="Execution Time Distribution per Method",
+            yaxis_title="Time (seconds, log scale)",
+            xaxis_title="Methods",
+            boxmode="group",
+            boxgap=0.3,
+            boxgroupgap=0.2,
+            yaxis=dict(
+                type="log",
+                tickvals=[1, 2, 5, 10, 20, 50, 100, 200, 500, 1000],
+                ticktext=["1s", "2s", "5s", "10s", "20s", "50s", "100s", "200s", "500s", "1000s"]
+            )
+        )
+
+        fig.update_traces(
+            width=0.6,
+            line=dict(width=2)
+        )
+
+        output_path = self.out_dir / "execution_time_distribution.html"
+        pyo.plot(fig, filename=str(output_path), auto_open=False)
+
+    def _create_insufficient_findings_bar(self):
+        """Create bar chart for insufficient findings per method."""
+        fig = go.Figure()
+
+        for i, method in enumerate(self.methods):
+            insufficient = [
+                _ for _ in self.results[method].summaries
+                if _ == "INSUFFICIENT_FINDINGS"
+                or _.startswith("INSUFFICIENT")
+                or _ == "'**'"
+                or len(_) < 10
+            ]
+            ratio = len(insufficient) / self.max_publications * 100
+
+            fig.add_trace(go.Bar(
+                x=[method],
+                y=[ratio],
+                marker_color=self.colors[i % len(self.colors)],
+                name=method,
+                hovertemplate=f"<b>{method}</b><br>Insufficient Rate: {ratio:.1f}%<extra></extra>"
+            ))
+        
+        fig.update_layout(
+            title="Rate of INSUFFICIENT Findings per Method",
+            xaxis_title="Method",
+            yaxis_title="Percentage (%)",
+            yaxis=dict(range=[0, 12.5], tick0=0, dtick=2.5),
+        )
+
+        output_path = self.out_dir / "insufficient_findings_bar.html"
+        pyo.plot(fig, filename=str(output_path), auto_open=False)
+    
+    def _create_metric_correlation_matrix(self):
+        """
+        Correlate evaluation metrics across models (each metric is a variable; observations = models).
+        Only includes true quality metrics (e.g., ROUGE, BERTScore, METEOR, BLEU, mpnet).
+        """
+        chosen_metrics = [*self.metrics]  
+        labels = [m.label for m in chosen_metrics]
+
+        data = []
+        for metric in chosen_metrics:
+            row = []
+            for method in self.methods:
+                try:
+                    val = metric.getter(method)["mean"]
+                except Exception:
+                    val = np.nan
+                row.append(val)
+            data.append(row)
+        
+        A = np.array(data, dtype=float)
+
+        with np.errstate(invalid="ignore"):
+            corr = np.ma.corrcoef(np.ma.masked_invalid(A))
+
+        corr_filled = np.array(corr.filled(np.nan))
+        np.fill_diagonal(corr_filled, 1.0)
+        corr_filled = np.nan_to_num(corr_filled, nan=0.0)
+
+        # heatmap
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=corr_filled,
+                x=labels,
+                y=labels,
+                zmin=-1, zmax=1,
+                colorscale="RdBu",
+                reversescale=True,
+                colorbar=dict(title="ρ")
+            )
+        )
+
+        # annotate only upper triangle and correlations above 0.5
+        annotations = []
+        for i in range(len(labels)):
+            for j in range(len(labels)):
+                if j >= i and abs(corr_filled[i, j]) >= 0.5:
+                    annotations.append(dict(
+                        x=labels[j], y=labels[i],
+                        text=f"{corr_filled[i, j]:.2f}",
+                        showarrow=False,
+                        font=dict(size=11, color="black")
+                    ))
+        
+        fig.update_layout(
+            title="Correlation Between Metrics (across models)",
+            xaxis=dict(tickangle=60),
+            yaxis=dict(autorange="reversed"),
+            annotations=annotations,
+            margin=dict(l=120, r=40, t=60, b=120),
+            height=700,
+            width=700
+        )
+
+        output_path = self.out_dir / "metric_correlation_matrix.html"
+        pyo.plot(fig, filename=str(output_path), auto_open=False)
+    
+    def _create_rank_heatmap(self):
+        """
+        Shows ranks of models per metric in a heatmap.
+        """
+        # metrics to rank (quality only)
+        metrics = [*self.metrics]
+        metric_labels = [m.label for m in metrics]
+
+        rank_matrix = []
+        for method in self.methods:
+            row = []
+            for metric in metrics:
+                try:
+                    val = metric.getter(method)["mean"]
+                except Exception:
+                    val = math.nan
+                row.append(val)
+            rank_matrix.append(row)
+        
+        A = np.array(rank_matrix, dtype=float)
+
+        ranks = np.zeros_like(A)
+        for j in range(A.shape[1]):
+            col = A[:, j]
+            # higher is better; handle NaNs by pushing them to bottom
+            order = np.argsort(np.argsort(np.nan_to_num(-col, nan=-1e9))) + 1
+            if np.all(np.isnan(col)):
+                ranks[:, j] = np.nan
+            else:
+                ranks[:, j] = np.where(np.isnan(col), np.nan, order)
+        
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=ranks,
+                x=metric_labels,
+                y=self.methods,
+                colorbar=dict(title="Rank (1=best)"),
+                colorscale="Viridis",
+                reversescale=True,
+                zauto=False
+            )
+        )
+
+        annotations = []
+        for i in range(ranks.shape[0]):
+            for j in range(ranks.shape[1]):
+                if not np.isnan(ranks[i, j]):
+                    annotations.append(dict(
+                        x=metric_labels[j], y=self.methods[i],
+                        text=str(int(ranks[i, j])),
+                        showarrow=False, font=dict(size=10, color="white")
+                    ))
+        fig.update_layout(
+            title="Model Ranks per Metric (lower is better)",
+            annotations=annotations,
+            xaxis=dict(tickangle=45),
+            margin=dict(l=180, r=40, t=60, b=120)
+        )
+        output_path = self.out_dir / "rank_heatmap.html"
+        pyo.plot(fig, filename=str(output_path), auto_open=False)
+
+    def _create_tradeoff_3d(self):
+        """
+        3D trade-off: Quality (↑) vs Speed (↑) vs Tokens (↓).
+        All models as points; Pareto frontier shown as a translucent surface.
+        """
+        points = []
+        names = []
+        hover = []
+        for m in self.methods:
+            q = self.metric_scores.get(m, {}).get("mean", None)
+            s = self.normalized_exec_times.get(m, {}).get("mean", None)
+
+            t = self.input_token_costs.get(m, {}).get("mean", None)
+            if q is None or s is None or t is None or np.isnan(q) or np.isnan(s) or np.isnan(t):
+                continue
+            points.append((q, s, t))
+            names.append(m)
+            hover.append(f"<b>{m}</b><br>Quality: {q:.3f}<br>Speed: {s:.3f}<br>Tokens: {t:.1f}")
+
+        if not points:
+            logger.warning("No points available for tradeoff 3D plot.")
+            return
+        
+        P = np.array(points)
+        Q = P[:, 0]
+        S = P[:, 1]
+        T = P[:, 2]
+        
+        def dominates(a, b):
+            # a dominates b if: Q_a>=Q_b, S_a>=S_b, T_a<=T_b and at least one strict
+            return (a[0] >= b[0] and a[1] >= b[1] and a[2] <= b[2] and
+                    ((a[0] > b[0]) or (a[1] > b[1]) or (a[2] < b[2])))
+        
+        pareto_idx = []
+        for i in range(len(P)):
+            dominated = False
+            for j in range(len(P)):
+                if i != j and dominates(P[j], P[i]):
+                    dominated = True
+                    break
+            if not dominated:
+                pareto_idx.append(i)
+        pareto_idx = np.array(pareto_idx, dtype=int)
+        P_pareto = P[pareto_idx]
+        names_pareto = [names[i] for i in pareto_idx]
+
+        fig = go.Figure()
+
+        fig.add_trace(go.Scatter3d(
+            x=Q, y=S, z=T,
+            mode="markers+text",
+            text=names,
+            textposition="top center",
+            marker=dict(size=6, opacity=0.9),
+            hovertext=hover,
+            hoverinfo="text",
+            name="Models"
+        ))
+
+        # highlight pareto points
+        fig.add_trace(go.Scatter3d(
+            x=P_pareto[:, 0], y=P_pareto[:, 1], z=P_pareto[:, 2],
+            mode="markers",
+            marker=dict(size=8, symbol="diamond", color="crimson"),
+            hovertext=[hover[i] for i in pareto_idx],
+            hoverinfo="text",
+            name="Pareto frontier (points)"
+        ))
+
+        mesh_added = False
+        if len(P_pareto) >= 4:
+            try:
+                P_trans = P_pareto.copy()
+                P_trans[:, 2] = -P_trans[:, 2]
+                hull = ConvexHull(P_trans)
+                simplices = hull.simplices
+
+                fig.add_trace(go.Mesh3d(
+                    x=P_pareto[:, 0],
+                    y=P_pareto[:, 1],
+                    z=P_pareto[:, 2],
+                    i=simplices[:, 0],
+                    j=simplices[:, 1],
+                    k=simplices[:, 2],
+                    opacity=0.25,
+                    color="crimson",
+                    name="Pareto frontier (surface)",
+                    hoverinfo="skip"
+                ))
+                mesh_added = True
+            except QhullError:
+                logger.warning("Convex hull failed; plotting Pareto points only.")
+            except Exception as e:
+                logger.warning(f"Pareto surface construction error: {e}")
+        
+        title_suffix = " (with surface)" if mesh_added else " (points only)"
+        fig.update_layout(
+            title="Quality–Speed–Tokens Trade-off" + title_suffix,
+            scene=dict(
+                xaxis_title="Quality (Metric Mean, ↑ better)",
+                yaxis_title="Speed (Normalized, ↑ faster)",
+                zaxis_title="Tokens (Mean input, ↓ better)",
+                xaxis=dict(range=[max(0, float(np.nanmin(Q)) - 0.05),
+                                min(1.0, float(np.nanmax(Q)) + 0.05)]),
+                yaxis=dict(range=[max(0, float(np.nanmin(S)) - 0.05),
+                                min(1.0, float(np.nanmax(S)) + 0.05)]),
+            ),
+            legend=dict(itemsizing="constant")
+        )
+
+        output_path = self.out_dir / "tradeoff_3d.html"
+        pyo.plot(fig, filename=str(output_path), auto_open=False)
+    
+    def _create_pareto_bubble(self):
+        """
+        Pareto View considering Quality (Metric Mean Score) vs Speed (Mean Execution Time).
+        Each model is a bubble; Pareto frontier shown as a thick dashed line.
+        """
+        x_quality = []
+        y_time = []
+        colors = []
+        texts = []
+
+        for m in self.methods:
+            q = self.metric_scores.get(m, {}).get("mean", 0.0)
+            t = float(np.mean(self.results[m].execution_times)) if len(self.results[m].execution_times) else np.nan
+            x_quality.append(q)
+            y_time.append(t)
+            colors.append(m)
+            texts.append(m)
+        
+        fig = px.scatter(
+            x=x_quality,
+            y=y_time,
+            size=[10 for _ in texts],
+            color=colors,
+            hover_name=texts,
+            labels=dict(x="Quality (Metric Mean Score)", y="Mean Execution Time (s)", color="Model"),
+            title="Pareto View: Quality vs Speed"
+        )
+
+        # invert Y axis visually (top = faster)
+        fig.update_yaxes(autorange="reversed")
+
+        # compute Pareto frontier (upper-left: high quality, low time)
+        pts = sorted([(x_quality[i], y_time[i], texts[i]) for i in range(len(texts)) if not np.isnan(y_time[i])],
+                    key=lambda p: (-p[0], p[1]))
+        frontier = []
+        best_time = float("inf")
+        for q, t, name in pts:
+            if t < best_time:
+                frontier.append((q, t, name))
+                best_time = t
+
+        if len(frontier) >= 2:
+            fig.add_trace(go.Scatter(
+                x=[p[0] for p in frontier],
+                y=[p[1] for p in frontier],
+                mode="lines+markers",
+                name="Pareto frontier",
+                line=dict(width=3, dash="dash", color="red"),
+                marker=dict(size=6, color="red")
+            ))
+        
+        # annotate only Pareto frontier models
+        for q, t, name in frontier:
+            fig.add_annotation(
+                x=q,
+                y=t,
+                text=name,
+                showarrow=False,
+                font=dict(size=10, color="black"),
+                yshift=10
+            )
+        
+        output_path = self.out_dir / "pareto_quality_speed_bubble.html"
+        pyo.plot(fig, filename=str(output_path), auto_open=False)
 
 if __name__ == "__main__":
     """This script runs the visualization component of the text summarization benchmark pipeline without benchmarking.
