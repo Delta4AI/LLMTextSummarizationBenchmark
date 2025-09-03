@@ -1,6 +1,7 @@
 import argparse
 import logging
 import math
+import json
 
 import plotly.graph_objects as go
 import plotly.express as px
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 SURFACE_LEVEL = "Metrics: Surface-level"
 REFERENCE_SIMILARITY = "Metrics: Reference Similarity"
 CONTENT_COVERAGE = "Metrics: Content Coverage"
+FACTUALITY = "Metrics: Factuality"
 AGGREGATE = "Metrics: Aggregate"
 PERFORMANCE = "Performance"
 OVERALL = "Overall (70% metrics, 10% speed/accept./cost)"
@@ -41,6 +43,7 @@ class SummarizationVisualizer:
         self.min_words = benchmark_ref.min_words
         self.max_words = benchmark_ref.max_words
         self.results = {}
+        self.alignscore_scores = {}
         self.methods = None
         self.out_dir = None
         self.max_publications = None
@@ -53,7 +56,8 @@ class SummarizationVisualizer:
             Metric("DeBERTa", lambda m: self.results[m].deberta_scores["f1"], None, REFERENCE_SIMILARITY),
             Metric("METEOR", lambda m: self.results[m].meteor_scores, None, SURFACE_LEVEL),
             Metric("BLEU", lambda m: self.results[m].bleu_scores, None, SURFACE_LEVEL),
-            Metric("all-mpnet-base-v2", lambda m: self.results[m].mpnet_content_coverage_scores, None, CONTENT_COVERAGE)
+            Metric("all-mpnet-base-v2", lambda m: self.results[m].mpnet_content_coverage_scores, None, CONTENT_COVERAGE),
+            Metric("AlignScore", lambda m: self.alignscore_scores.get(m, {"mean": -1, "min": 0, "max": 0, "std": 0}), None, FACTUALITY),
         ]
 
         self.aggregates = [
@@ -94,6 +98,34 @@ class SummarizationVisualizer:
         # https://plotly.com/python/discrete-color/#color-sequences-in-plotly-express
         self.colors = px.colors.qualitative.Vivid
 
+    def _load_alignscore_scores(self, path="alignscore_full_results.json"):
+        """Load AlignScore stats from JSON and map to {method: {mean,min,max,std}}."""
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            raw = payload.get("results", {})
+        except FileNotFoundError:
+            logger.warning("AlignScore file not found: %s (skipping AlignScore metric)", path)
+            self.alignscore_scores = {}
+            return
+        except Exception as e:
+            logger.warning("Failed to read AlignScore file: %s (skipping). Error: %s", path, e)
+            self.alignscore_scores = {}
+            return
+        
+        out = {}
+        for method, entry in raw.items():
+            mean = entry.get("AlignScore")
+            mn   = entry.get("Min")
+            mx   = entry.get("Max")
+            std  = entry.get("Std")
+
+            if mean is None:
+                continue
+
+            out[method] = {"mean": float(mean), "min": float(mn), "max": float(mx), "std": float(std)}
+        self.alignscore_scores = out
+
     def create_all_visualizations(self):
         """Create all visualization plots as separate HTML files."""
         self.results = self.benchmark_ref.results.data[self.benchmark_ref.papers_hash]
@@ -102,6 +134,8 @@ class SummarizationVisualizer:
         self.out_dir = self.benchmark_ref.hashed_and_dated_output_dir
 
         logger.info("Creating interactive visualizations...")
+
+        self._load_alignscore_scores("alignscore_full_results.json")
 
         self._aggregate_metric_scores()
         self._aggregate_execution_times()
@@ -119,6 +153,7 @@ class SummarizationVisualizer:
         self._create_rank_heatmap()
         self._create_tradeoff_3d()
         self._create_pareto_bubble()
+        self._create_alignscore_only_plot()
 
         logger.info(f"Interactive visualizations saved to {self.out_dir}")
 
@@ -517,6 +552,101 @@ class SummarizationVisualizer:
 
         return shapes, annotations
 
+    def _create_alignscore_only_plot(self, out_name="alignscore_only.html"):
+        """Bar chart of AlignScore per model with asymmetric error bars (min/max)."""
+        if not self.alignscore_scores:
+            logger.warning("No AlignScore scores loaded; skipping AlignScore-only plot.")
+            return
+
+        rows = []
+        for m in self.methods:
+            s = self.alignscore_scores.get(m)
+            if not s or s.get("mean") is None:
+                continue
+            rows.append({
+                "method": m,
+                "mean": float(s["mean"]),
+                "min": float(s["min"]),
+                "max": float(s["max"]),
+                "std": float(s["std"])
+            })
+
+        if not rows:
+            logger.warning("No overlapping methods between results and AlignScore; skipping plot.")
+            return
+
+        rows.sort(key=lambda r: r["mean"], reverse=True)
+
+        x = [r["method"] for r in rows]
+        y = [r["mean"] for r in rows]
+        err_plus  = [max(0.0, r["max"] - r["mean"]) for r in rows]
+        err_minus = [max(0.0, r["mean"] - r["min"]) for r in rows]
+
+        def family(name: str) -> str:
+            if name.startswith("local:"): return "Local"
+            if name.startswith("huggingface_"): return "HuggingFace"
+            if name.startswith("ollama_"): return "Ollama"
+            if name.startswith("openai_"): return "OpenAI"
+            if name.startswith("anthropic_"): return "Anthropic"
+            if name.startswith("mistral_"): return "Mistral"
+            return "Other"
+
+        families = [family(m) for m in x]
+        fam_set = list(dict.fromkeys(families))
+        color_map = {fam: self.colors[i % len(self.colors)] for i, fam in enumerate(fam_set)}
+        bar_colors = [color_map[f] for f in families]
+
+        fig = go.Figure(
+            data=[
+                go.Bar(
+                    x=x,
+                    y=y,
+                    marker={"color": bar_colors},
+                    error_y=dict(
+                        type="data",
+                        symmetric=False,
+                        array=err_plus,
+                        arrayminus=err_minus,
+                        thickness=1.5,
+                        width=2,
+                        visible=True
+                    ),
+                    hovertemplate=(
+                        "<b>%{x}</b><br>"
+                        "AlignScore (mean): %{y:.4f}<br>"
+                        "min–max: %{customdata[0]:.4f} – %{customdata[1]:.4f}<br>"
+                        "std: %{customdata[2]:.4f}<extra></extra>"
+                    ),
+                    customdata=[[r["min"], r["max"], r["std"]] for r in rows],
+                )
+            ]
+        )
+
+        for fam, color in color_map.items():
+            fig.add_trace(
+                go.Bar(
+                    x=[None], y=[None],
+                    marker={"color": color},
+                    name=fam,
+                    showlegend=True
+                )
+            )
+
+        fig.update_layout(
+            title=f"AlignScore by Model (n={len(rows)})",
+            xaxis_title="Model",
+            yaxis_title="AlignScore",
+            yaxis=dict(range=[0, 1.01]),
+            bargap=0.2,
+            hovermode="closest",
+            legend_title_text="Family",
+            xaxis=dict(tickangle=-45, tickfont={"size": 10}),
+            margin={"b": 40}
+        )
+
+        output_path = self.out_dir / out_name
+        pyo.plot(fig, filename=str(output_path), auto_open=False)
+
     def _create_length_analysis_plot(self):
         """Create length analysis plot with compliance breakdown."""
 
@@ -801,12 +931,14 @@ class SummarizationVisualizer:
     def _create_rank_heatmap(self):
         """
         Shows ranks of models per metric in a heatmap.
+        Lower rank = better (1 is best).
+        Models sorted by average rank across metrics (best at top).
         """
         # metrics to rank (quality only)
         metrics = [*self.metrics]
         metric_labels = [m.label for m in metrics]
 
-        rank_matrix = []
+        value_rows = []
         for method in self.methods:
             row = []
             for metric in metrics:
@@ -815,47 +947,107 @@ class SummarizationVisualizer:
                 except Exception:
                     val = math.nan
                 row.append(val)
-            rank_matrix.append(row)
+            value_rows.append(row)
         
-        A = np.array(rank_matrix, dtype=float)
+        A = np.array(value_rows, dtype=float)
 
-        ranks = np.zeros_like(A)
+        # convert to rank matrix (1 = best)
+        ranks = np.zeros_like(A, dtype=float)
         for j in range(A.shape[1]):
             col = A[:, j]
-            # higher is better; handle NaNs by pushing them to bottom
-            order = np.argsort(np.argsort(np.nan_to_num(-col, nan=-1e9))) + 1
             if np.all(np.isnan(col)):
                 ranks[:, j] = np.nan
-            else:
-                ranks[:, j] = np.where(np.isnan(col), np.nan, order)
-        
+                continue
+            col_nonan = np.nan_to_num(col, nan=-1e12)
+            sorted_idx = np.argsort(-col_nonan)
+            rank_col = np.empty_like(sorted_idx, dtype=float)
+            rank_col[sorted_idx] = np.arange(1, len(sorted_idx) + 1)
+            rank_col[np.isnan(col)] = np.nan
+            ranks[:, j] = rank_col
+
+        # compute aggregate rank per model to sort (mean of available ranks)
+        avg_ranks = np.nanmean(ranks, axis=1)
+        sort_idx = np.argsort(avg_ranks)
+
+        # reorder methods and matrices
+        methods_sorted = [self.methods[i] for i in sort_idx]
+        ranks_sorted = ranks[sort_idx, :]
+
+        # shorten some method names
+        display_methods = [
+            m.replace("huggingface_", "hf_") if m.startswith("huggingface_") else m
+            for m in methods_sorted
+        ]
+
+        if np.all(np.isnan(ranks_sorted)):
+            max_rank = 1.0
+        else:
+            max_rank = int(np.nanmax(ranks_sorted))
+
+        Z = -ranks_sorted
+        zmin, zmax = -max_rank, -1
+
+        # green (best) → yellow → red (worst)
+        colorscale = [
+            [0.0, "rgb(200, 0, 0)"],
+            [0.5, "rgb(255, 215, 0)"],
+            [1.0, "rgb(0, 150, 0)"],
+        ]
+
+        n_ticks = min(6, max_rank)
+        if n_ticks <= 1:
+            tickvals = [-1]
+            ticktext = ["1"]
+        else:
+            tickvals = np.linspace(-1, -max_rank, n_ticks)
+            ticktext = [str(int(-v)) for v in tickvals]
+
         fig = go.Figure(
             data=go.Heatmap(
-                z=ranks,
+                z=Z,
                 x=metric_labels,
-                y=self.methods,
-                colorbar=dict(title="Rank (1=best)"),
-                colorscale="tempo",
-                reversescale=True,
-                zauto=False
+                y=display_methods,
+                zmin=zmin,
+                zmax=zmax,
+                colorscale=colorscale,
+                zauto=False,
+                colorbar=dict(
+                    title="Rank (1 = best)",
+                    tickmode="array",
+                    tickvals=tickvals.tolist(),
+                    ticktext=ticktext,
+                ),
             )
         )
 
+        # annotations: show rank number + 🥇🥈🥉 for top-3
         annotations = []
-        for i in range(ranks.shape[0]):
-            for j in range(ranks.shape[1]):
-                if not np.isnan(ranks[i, j]):
-                    annotations.append(dict(
-                        x=metric_labels[j], y=self.methods[i],
-                        text=str(int(ranks[i, j])),
-                        showarrow=False, font=dict(size=10, color="white")
-                    ))
+        for i in range(ranks_sorted.shape[0]):
+            for j in range(ranks_sorted.shape[1]):
+                r = ranks_sorted[i, j]
+                if np.isnan(r):
+                    continue
+                r_int = int(r)
+                medal = " 🥇" if r_int == 1 else (" 🥈" if r_int == 2 else (" 🥉" if r_int == 3 else ""))
+                annotations.append(
+                    dict(
+                        x=metric_labels[j],
+                        y=display_methods[i],
+                        text=f"{r_int}{medal}",
+                        showarrow=False,
+                        font=dict(size=11, color="white"),
+                    )
+                )
+
         fig.update_layout(
-            title="Model Ranks per Metric (lower is better)",
+            title="Model Ranks per Metric (lower is better; models sorted by average rank)",
             annotations=annotations,
             xaxis=dict(tickangle=45),
-            margin=dict(l=180, r=40, t=60, b=120)
+            margin=dict(l=200, r=40, t=60, b=120),
         )
+
+        fig.update_yaxes(autorange="reversed")
+        
         output_path = self.out_dir / "rank_heatmap.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
 
