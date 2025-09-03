@@ -115,7 +115,6 @@ class SummarizationVisualizer:
         self._create_radar_chart()
 
         self._create_execution_time_boxplot()
-        self._create_insufficient_findings_bar()
         self._create_metric_correlation_matrix()
         self._create_rank_heatmap()
         self._create_tradeoff_3d()
@@ -519,90 +518,94 @@ class SummarizationVisualizer:
         return shapes, annotations
 
     def _create_length_analysis_plot(self):
-        """Create length analysis plot with compliance breakdown and box plot only."""
+        """Create length analysis plot with compliance breakdown."""
+
+        # shorten some method names
+        def shorten_name(name):
+            short = name.replace("huggingface_", "hf_")
+            if "hf_AlgorithmicResearchGroup/" in short:
+                short = short.replace("hf_AlgorithmicResearchGroup/", "hf_AlgorithmicResearchGroup/<br>")
+            return short
+
+        shortened_methods = [shorten_name(m) for m in self.methods]
+
+        mid_idx = len(self.methods) // 2
+        methods_top = shortened_methods[:mid_idx]
+        methods_bottom = shortened_methods[mid_idx:]
+
+        def split_percentages(percent_list):
+            return percent_list[:mid_idx], percent_list[mid_idx:]
+
+        within_bounds_top, within_bounds_bottom = split_percentages(
+            [self.results[m].length_stats['within_bounds_pct'] for m in self.methods])
+        too_short_top, too_short_bottom = split_percentages(
+            [self.results[m].length_stats['too_short_pct'] for m in self.methods])
+        too_long_top, too_long_bottom = split_percentages(
+            [self.results[m].length_stats['too_long_pct'] for m in self.methods])
+
         fig = make_subplots(
             rows=2, cols=1,
-            subplot_titles=('Compliance', 'Distribution'),
-            vertical_spacing=0.15
+            shared_yaxes=True,
+            vertical_spacing=0.2
         )
 
-        within_bounds = [self.results[m].length_stats['within_bounds_pct'] for m in self.methods]
-        too_short = [self.results[m].length_stats['too_short_pct'] for m in self.methods]
-        too_long = [self.results[m].length_stats['too_long_pct'] for m in self.methods]
-
-        fig.add_trace(
-            go.Bar(
-                x=self.methods,
-                y=within_bounds,
+        # helper to add traces
+        def add_bar_traces(methods, wb, ts, tl, row, showlegend):
+            fig.add_trace(go.Bar(
+                x=methods,
+                y=wb,
                 name='Within Bounds',
                 marker_color='lightgreen',
-                text=[f'{w:.1f}%' for w in within_bounds],
-                textposition='auto',
-                hovertemplate='<b>%{x}</b><br>Within Bounds: %{y:.1f}%<extra></extra>'
-            ),
-            row=1, col=1
-        )
+                text=[f'{v:.1f}%' if v >= 5 else '' for v in wb],
+                textposition='inside',
+                hovertemplate='<b>%{x}</b><br>Within Bounds: %{y:.1f}%<extra></extra>',
+                showlegend=showlegend
+            ), row=row, col=1)
 
-        fig.add_trace(
-            go.Bar(
-                x=self.methods,
-                y=too_short,
+            fig.add_trace(go.Bar(
+                x=methods,
+                y=ts,
                 name='Too Short',
                 marker_color='lightcoral',
-                text=[f'{s:.1f}%' for s in too_short],
-                textposition='auto',
-                hovertemplate='<b>%{x}</b><br>Too Short: %{y:.1f}%<extra></extra>'
-            ),
-            row=1, col=1
-        )
+                text=[f'{v:.1f}%' if v >= 5 else '' for v in ts],
+                textposition='inside',
+                hovertemplate='<b>%{x}</b><br>Too Short: %{y:.1f}%<extra></extra>',
+                showlegend=showlegend
+            ), row=row, col=1)
 
-        fig.add_trace(
-            go.Bar(
-                x=self.methods,
-                y=too_long,
+            fig.add_trace(go.Bar(
+                x=methods,
+                y=tl,
                 name='Too Long',
                 marker_color='lightyellow',
-                text=[f'{l:.1f}%' for l in too_long],
-                textposition='auto',
-                hovertemplate='<b>%{x}</b><br>Too Long: %{y:.1f}%<extra></extra>'
-            ),
-            row=1, col=1
-        )
+                text=[f'{v:.1f}%' if v >= 5 else '' for v in tl],
+                textposition='inside',
+                hovertemplate='<b>%{x}</b><br>Too Long: %{y:.1f}%<extra></extra>',
+                showlegend=showlegend
+            ), row=row, col=1)
 
-        # 2. Box plot for length distribution
-        for i, method in enumerate(self.methods):
-            lengths = self.results[method].length_stats['all_lengths']
-            fig.add_trace(
-                go.Box(
-                    y=lengths,
-                    name=method,
-                    marker_color=self.colors[i % len(self.colors)],
-                    showlegend=False,
-                    hovertemplate=f'<b>{method}</b><br>Length: %{{y}}<extra></extra>',
-                ),
-                row=2, col=1
-            )
+        # add top and bottom rows
+        add_bar_traces(methods_top, within_bounds_top, too_short_top, too_long_top, row=1, showlegend=True)
+        add_bar_traces(methods_bottom, within_bounds_bottom, too_short_bottom, too_long_bottom, row=2, showlegend=False)
 
-        # Add target range lines to box plot
-        for _y in [self.min_words, self.max_words]:
-            fig.add_hline(
-                y=_y,
-                line_dash="dash",
-                line_color="red",
-                row=2, col=1
-            )
 
+        # final layout
         fig.update_layout(
-            title_text=f"Summary Length Analysis (Target: {self.min_words}-{self.max_words} words)",
+            title_text=f"Summary Length Compliance (Target: {self.min_words}-{self.max_words} words)",
             title_x=0.5,
             hovermode='closest',
             barmode='stack',
-            xaxis_title="Methods",
-            xaxis2_title="Methods",
+            height=950,
+            margin=dict(t=120, b=100)
         )
 
+        # axis labels
         fig.update_yaxes(title_text="Percentage (%)", row=1, col=1)
-        fig.update_yaxes(title_text="Length (Words)", row=2, col=1)
+        fig.update_xaxes(title_text="Methods", row=2, col=1)
+
+        # fontsize and angle for model names
+        fig.update_xaxes(tickfont=dict(size=10), tickangle=30)
+        fig.update_yaxes(range=[0, 105])
 
         output_path = self.out_dir / "length_analysis.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
@@ -669,7 +672,14 @@ class SummarizationVisualizer:
     def _create_execution_time_boxplot(self):
         """Create boxplot for execution time distribution per method."""
         fig = go.Figure()
-        for i, method in enumerate(self.methods):
+
+        # exclude non-LLM methods as they are obviously way faster
+        plot_methods = [
+            m for m in self.methods
+            if not (m.startswith("huggingface") or m in ["local:frequency", "local:textrank"])
+        ]
+
+        for i, method in enumerate(plot_methods):
             times = self.results[method].execution_times
             fig.add_trace(go.Box(
                 y=times,
@@ -679,18 +689,39 @@ class SummarizationVisualizer:
                 hovertemplate=f'<b>{method}</b><br>Time: %{{y:.2f}} sec<extra></extra>'
             ))
 
+        # vertical guidelines for each boxplot
+        shapes = []
+        for i in range(len(plot_methods)):
+            shapes.append(dict(
+                type="line",
+                xref="x",
+                yref="paper",
+                x0=plot_methods[i],
+                x1=plot_methods[i],
+                y0=0,
+                y1=1,
+                line=dict(
+                    color="rgba(0, 0, 0, 0.1)",
+                    width=1,
+                    dash="dot"
+                ),
+                layer="below"
+            ))
+
         fig.update_layout(
-            title="Execution Time Distribution per Method",
+            title="Execution Time Distribution per Method (only LLM-based methods)",
             yaxis_title="Time (seconds, log scale)",
             xaxis_title="Methods",
             boxmode="group",
             boxgap=0.3,
             boxgroupgap=0.2,
+            showlegend=False,
             yaxis=dict(
                 type="log",
                 tickvals=[1, 2, 5, 10, 20, 50, 100, 200, 500, 1000],
                 ticktext=["1s", "2s", "5s", "10s", "20s", "50s", "100s", "200s", "500s", "1000s"]
-            )
+            ),
+            shapes=shapes
         )
 
         fig.update_traces(
@@ -699,38 +730,6 @@ class SummarizationVisualizer:
         )
 
         output_path = self.out_dir / "execution_time_distribution.html"
-        pyo.plot(fig, filename=str(output_path), auto_open=False)
-
-    def _create_insufficient_findings_bar(self):
-        """Create bar chart for insufficient findings per method."""
-        fig = go.Figure()
-
-        for i, method in enumerate(self.methods):
-            insufficient = [
-                _ for _ in self.results[method].summaries
-                if _ == "INSUFFICIENT_FINDINGS"
-                or _.startswith("INSUFFICIENT")
-                or _ == "'**'"
-                or len(_) < 10
-            ]
-            ratio = len(insufficient) / self.max_publications * 100
-
-            fig.add_trace(go.Bar(
-                x=[method],
-                y=[ratio],
-                marker_color=self.colors[i % len(self.colors)],
-                name=method,
-                hovertemplate=f"<b>{method}</b><br>Insufficient Rate: {ratio:.1f}%<extra></extra>"
-            ))
-        
-        fig.update_layout(
-            title="Rate of INSUFFICIENT Findings per Method",
-            xaxis_title="Method",
-            yaxis_title="Percentage (%)",
-            yaxis=dict(range=[0, 12.5], tick0=0, dtick=2.5),
-        )
-
-        output_path = self.out_dir / "insufficient_findings_bar.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
     
     def _create_metric_correlation_matrix(self):
@@ -836,7 +835,7 @@ class SummarizationVisualizer:
                 x=metric_labels,
                 y=self.methods,
                 colorbar=dict(title="Rank (1=best)"),
-                colorscale="Viridis",
+                colorscale="tempo",
                 reversescale=True,
                 zauto=False
             )
