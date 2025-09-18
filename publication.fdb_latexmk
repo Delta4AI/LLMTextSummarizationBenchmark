@@ -1,13 +1,13 @@
 # Fdb version 4
-["bibtex publication"] 1758182089.28071 "publication.aux" "publication.bbl" "publication" 1758182804.51369 0
+["bibtex publication"] 1758188813.46293 "publication.aux" "publication.bbl" "publication" 1758188815.71218 0
   "./Definitions/mdpi.bst" 1754468536 23683 4afe8e0b352a18c39ff91c43fd26f4b2 ""
   "./bibliography.bib" 1754470103 8423 7d4f0eca57a10580d16eff2df3b353c0 ""
-  "publication.aux" 1758182803 7471 74bb0f7562a653b297ae3084ad01a736 "pdflatex"
+  "publication.aux" 1758188815 7471 a9f554c8208292b6598fc8cc4c2e67b2 "pdflatex"
   (generated)
   "publication.bbl"
   "publication.blg"
   (rewritten before read)
-["pdflatex"] 1758182802.36283 "c:/Users/Fabio/repos/summarization_publication/publication.tex" "publication.pdf" "publication" 1758182804.51414 0
+["pdflatex"] 1758188813.70614 "c:/Users/Fabio/repos/summarization_publication/publication.tex" "publication.pdf" "publication" 1758188815.71262 0
   "C:/Users/Fabio/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1754469166 82507 a9eef8696c92627b87e9975edea03b2a ""
   "C:/Users/Fabio/AppData/Local/MiKTeX/fonts/pk/ljfour/jknappen/ec/dpi375/ecss0800.pk" 1754469169 10028 cafbe6b2a870805533d84ed959c6c295 ""
   "C:/Users/Fabio/AppData/Local/MiKTeX/miktex/data/le/pdftex/pdflatex.fmt" 1754468065 13254312 2e9dccef1b71de3c28801ffc9d37f86a ""
@@ -244,11 +244,12 @@
   "Definitions/logo-mdpi.eps" 1754468536 563678 5cdc8f4064e4e6cc8ec19e9f9b0d5b7c ""
   "Definitions/logo-orcid.pdf" 1754468536 12671 39a20ba789123aa897c7efc569fb5270 ""
   "Definitions/mdpi.cls" 1754468536 63307 07479eb61cfef5915cb23b125e7a1447 ""
-  "c:/Users/Fabio/repos/summarization_publication/publication.tex" 1758182801 38450 0ca0f47f4b3543face08ae63eac9b383 ""
-  "publication.aux" 1758182803 7471 74bb0f7562a653b297ae3084ad01a736 "pdflatex"
-  "publication.bbl" 1758182089 454 3b604b616a93a454fc18db48273785fc "bibtex publication"
-  "publication.out" 1758182803 3460 69ac65114c4e0cc1096c011d136948aa "pdflatex"
-  "publication.tex" 1758182801 38450 0ca0f47f4b3543face08ae63eac9b383 ""
+  "Sections/materials_methods.tex" 1758188810 8748 423df7e9e7209ba5a8a96f56ef08aa75 ""
+  "c:/Users/Fabio/repos/summarization_publication/publication.tex" 1758188789 29467 787c5d20dc1a40f2d9651cc7b07d872f ""
+  "publication.aux" 1758188815 7471 a9f554c8208292b6598fc8cc4c2e67b2 "pdflatex"
+  "publication.bbl" 1758188813 454 3b604b616a93a454fc18db48273785fc "bibtex publication"
+  "publication.out" 1758188815 3460 69ac65114c4e0cc1096c011d136948aa "pdflatex"
+  "publication.tex" 1758188789 29467 787c5d20dc1a40f2d9651cc7b07d872f ""
   (generated)
   "publication.aux"
   "publication.log"
