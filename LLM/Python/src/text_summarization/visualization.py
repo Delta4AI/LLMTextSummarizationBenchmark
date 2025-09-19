@@ -250,6 +250,26 @@ class SummarizationVisualizer:
                 "std": 0.0
             }
 
+    @staticmethod
+    def _add_mean_min_max_std_and_handle_none(tokens: list, method: str, target_dict: dict):
+        valid_tokens = [t for t in tokens if t is not None]
+
+        if not valid_tokens:
+            target_dict[method] = {
+                "mean": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "std": 0.0
+            }
+        else:
+            target_dict[method] = {
+                "mean": np.mean(valid_tokens),
+                "min": np.min(valid_tokens),
+                "max": np.max(valid_tokens),
+                "std": np.std(valid_tokens)
+            }
+
+
     def _calculate_token_costs(self):
         """Calculate token costs and normalize to 0-1 where 1 is best (lower cost)."""
         methods = list(self.results.keys())
@@ -258,22 +278,8 @@ class SummarizationVisualizer:
         raw_output_costs = {}
 
         for method in methods:
-            input_tokens = self.results[method].input_tokens
-            output_tokens = self.results[method].output_tokens
-
-            raw_input_costs[method] = {
-                "mean": np.mean(input_tokens),
-                "min": np.min(input_tokens),
-                "max": np.max(input_tokens),
-                "std": np.std(input_tokens)
-            }
-
-            raw_output_costs[method] = {
-                "mean": np.mean(output_tokens),
-                "min": np.min(output_tokens),
-                "max": np.max(output_tokens),
-                "std": np.std(output_tokens)
-            }
+            self._add_mean_min_max_std_and_handle_none(self.results[method].input_tokens, method, raw_input_costs)
+            self._add_mean_min_max_std_and_handle_none(self.results[method].output_tokens, method, raw_output_costs)
 
         output_means = [raw_output_costs[method]["mean"] for method in methods]
         max_output = max(output_means)

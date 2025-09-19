@@ -66,20 +66,27 @@ class Paper:
     abstract: str
     id: str
     summaries: list[str]  # Gold-standard reference summaries
+    formatted_text: str = field(init=False)
+    full_text: str = field(init=False)
+    raw_response: str | None = None
+    extracted_response: str | None = None
+    execution_time: float | None = None
+    input_tokens: int | None = None  # N/A for huggingface pipeline
+    output_tokens: int | None = None  # N/A for huggingface pipeline
+
+    def __post_init__(self):
+        self.formatted_text = f"Title: {self.title}\n\nAbstract: \n{self.abstract}"
+        self.full_text = f"{self.title}\n\n{self.abstract}"
 
 
 @dataclass
-class InterferenceRunParameters:
+class InterferenceRunContainer:
     """Data class for run parameters."""
     platform: str
     model_name: str | None = None
     method_name: str | None = None
     parameter_overrides: dict[str, Any] | None = None
-    texts: list[str] = field(default_factory=list)
-    raw_responses: list[str] = field(default_factory=list)
-    execution_times: list[float] = field(default_factory=list)
-    input_tokens: list[int] = field(default_factory=list)
-    output_tokens: list[int] = field(default_factory=list)
+    papers: list[Paper] = field(default_factory=list)
 
 
 @dataclass
@@ -159,6 +166,9 @@ class SummarizationResult:
 
     def exists(self, method_name: str) -> bool:
         return self.data.get(self.papers_hash, {}).get(method_name, None) is not None
+
+    def same_size_as(self, method_name: str, input_set_size: int) -> bool:
+        return len(self.data.get(self.papers_hash, {}).get(method_name, {}).full_responses) == input_set_size
 
     def add(self, method_name: str, result: EvaluationResult):
         if not self.data.get(self.papers_hash):
@@ -332,117 +342,160 @@ class SummarizationBenchmark:
 
     def run(self):
         logger.info(f"Running benchmark for {len(self.models)} models ..")
-        texts = [f"Title: {p.title}\n\nAbstract: \n{p.abstract}" for p in self.papers]
 
         for idx, (platform, model_name, parameter_overrides) in enumerate(self.models):
             logger.info(f"Running model {idx+1}/{len(self.models)}: {platform} {model_name}")
-            irp = InterferenceRunParameters(
+            irc = InterferenceRunContainer(
                 platform=platform,
                 model_name=model_name,
                 method_name = f"{platform}_{model_name}" if model_name else platform,
                 parameter_overrides=parameter_overrides,
-                texts=texts,
+                papers=self.papers,
             )
 
-            if self.results.exists(irp.method_name):
-                logger.info(f"Skipping interference for existing method: {irp.method_name}")
-                continue
-
-            self._warmup(run_params=irp)
+            self._warmup(run_params=irc)
 
             time.sleep(1.5)
 
             try:
-                self._run_batched_interference(run_params=irp)
+                self._run_batched_interference(run_params=irc)
             except NotImplementedError:
                 try:
-                    self._run_sequential_interference(run_params=irp)
+                    self._run_sequential_interference(run_params=irc)
                 except Exception as e:
-                    logger.error(f"Interference failed for {irp.method_name}: {e}")
+                    logger.error(f"Interference failed for {irc.method_name}: {e}")
                     continue
 
-            summaries = [extract_response(r) for r in irp.raw_responses]
-            references = [p.summaries for p in self.papers]
+            original_count = len(irc.papers)
+            irc.papers = [p for p in irc.papers if p.extracted_response is not None]
+            deleted_count = original_count - len(irc.papers)
 
-            full_text_papers = [f"{p.title}\n\n{p.abstract}" for p in self.papers]
+            if deleted_count > 0:
+                logger.warning(f"Skipping {deleted_count} papers with no response for {irc.method_name}")
+
+            generated_summaries = [p.extracted_response for p in irc.papers]
+            reference_summaries = [p.summaries for p in irc.papers]
 
             result = EvaluationResult(
-                method_name=irp.method_name,
-                execution_times=irp.execution_times,
-                full_responses=irp.raw_responses,
-                summaries=summaries,
-                length_stats=get_length_scores(summaries, self.min_words, self.max_words),
-                input_tokens=irp.input_tokens,
-                output_tokens=irp.output_tokens,
-                rouge_scores=get_rouge_scores(summaries, references),
-                roberta_scores=get_bert_scores(summaries, references, "roberta-large"),
-                deberta_scores=get_bert_scores(summaries, references, "microsoft/deberta-xlarge-mnli"),
-                meteor_scores=get_meteor_scores(summaries, references),
-                bleu_scores=get_bleu_scores(summaries, references),
-                mpnet_content_coverage_scores=get_sentence_transformer_similarity(summaries, full_text_papers,
-                                                                                  "all-mpnet-base-v2")
+                method_name=irc.method_name,
+                execution_times=[p.execution_time for p in irc.papers],
+                full_responses=[p.raw_response for p in irc.papers],
+                summaries=generated_summaries,
+                length_stats=get_length_scores(generated_summaries, self.min_words, self.max_words),
+                input_tokens=[p.input_tokens for p in irc.papers if p.input_tokens is not None],
+                output_tokens=[p.output_tokens for p in irc.papers if p.output_tokens is not None],
+                rouge_scores=get_rouge_scores(generated_summaries, reference_summaries),
+                roberta_scores=get_bert_scores(generated_summaries, reference_summaries, "roberta-large"),
+                deberta_scores=get_bert_scores(generated_summaries, reference_summaries, "microsoft/deberta-xlarge-mnli"),
+                meteor_scores=get_meteor_scores(generated_summaries, reference_summaries),
+                bleu_scores=get_bleu_scores(generated_summaries, reference_summaries),
+                mpnet_content_coverage_scores=get_sentence_transformer_similarity(
+                    generated=generated_summaries,
+                    source_documents=[p.full_text for p in irc.papers],
+                    model_name="all-mpnet-base-v2")
             )
 
             if result:
-                self.results.add(method_name=irp.method_name, result=result)
+                self.results.add(method_name=irc.method_name, result=result)
                 self.results.save()
 
-            self._cleanup(run_params=irp)
-
+            self._cleanup(run_params=irc)
 
             cleanup_metrics_cache()
 
-    def _warmup(self, run_params: InterferenceRunParameters) -> None:
+    def _warmup(self, run_params: InterferenceRunContainer) -> None:
         try:
             self.api_clients[run_params.platform].warmup(
                 model_name=run_params.model_name,
-                train_corpus=run_params.texts
+                train_corpus=[_.formatted_text for _ in run_params.papers]
             )
         except NotImplementedError:
             pass
         except Exception as e:
             logger.error(f"Warmup failed: {e}")
 
-    def _run_batched_interference(self, run_params: InterferenceRunParameters) -> None:
+    def _run_batched_interference(self, run_params: InterferenceRunContainer) -> None:
         logger.info(f"Attempting to run batched interference for {run_params.method_name} ..")
-        start_time = time.time()
+        _system_prompt = self.api_clients[run_params.platform].text_summarization_system_prompt
+        _method = run_params.method_name
 
-        _raw_responses, _input_tokens, _output_tokens = self.api_clients[run_params.platform].summarize_batch(
-            texts=run_params.texts,
-            model_name=run_params.model_name,
-            system_prompt_override=None,
-            parameter_overrides=run_params.parameter_overrides
-        )
+        papers_to_process = []
+        cached_count = 0
 
-        run_params.raw_responses.extend(_raw_responses)
-        run_params.input_tokens.extend(_input_tokens)
-        run_params.output_tokens.extend(_output_tokens)
+        for idx, paper in enumerate(run_params.papers):
+            cache = self.api_clients[run_params.platform].load_cache(
+                method_name=_method,
+                system_prompt=_system_prompt,
+                user_query=paper.formatted_text
+            )
 
-        batch_time = time.time() - start_time
-        run_params.execution_times.extend([batch_time / len(self.papers)] * len(self.papers))
+            if cache:
+                paper.raw_response = cache["response"]
+                paper.extracted_response = extract_response(cache["response"])
+                paper.execution_time = cache["execution_time"]
+                paper.input_tokens = cache["input_tokens"]
+                paper.output_tokens = cache["output_tokens"]
+                cached_count += 1
+                logger.info(f"Using cached response for paper {idx + 1}/{len(run_params.papers)} in {_method}")
+            else:
+                papers_to_process.append((idx, paper))
 
-        logger.info(f"Finished batched interference for {run_params.method_name} in {batch_time:.2f}s")
+        if papers_to_process:
+            logger.info(f"Processing {len(papers_to_process)} uncached papers in batch for {_method}")
+            start_time = time.time()
 
-    def _run_sequential_interference(self, run_params: InterferenceRunParameters) -> None:
+            _responses = self.api_clients[run_params.platform].summarize_batch(
+                texts=[paper.formatted_text for _, paper in papers_to_process],
+                model_name=run_params.model_name,
+                system_prompt_override=None,
+                parameter_overrides=run_params.parameter_overrides
+            )
+
+            batch_completed_time = time.time() - start_time
+            individual_time = batch_completed_time / len(papers_to_process)
+
+            # responses preserve order; different lengths of inputs/responses throw an exception so using zip is safe
+            for (idx, paper), response in zip(papers_to_process, _responses):
+                paper.raw_response = response["summary_text"]
+                paper.extracted_response = extract_response(response["summary_text"])
+                paper.execution_time = individual_time
+                paper.input_tokens = None
+                paper.output_tokens = None
+
+                self.api_clients[run_params.platform].save_cache(
+                    method_name=_method,
+                    system_prompt=_system_prompt,
+                    user_query=paper.formatted_text,
+                    response=paper.raw_response,
+                    execution_time=paper.execution_time,
+                    input_tokens=paper.input_tokens,
+                    output_tokens=paper.output_tokens,
+                )
+
+        logger.info(f"Finished batched interference for {_method}. Cached: {cached_count}, "
+                    f"Processed: {len(papers_to_process)}")
+
+    def _run_sequential_interference(self, run_params: InterferenceRunContainer) -> None:
         model_start_time = time.time()
         _system_prompt = self.api_clients[run_params.platform].text_summarization_system_prompt
         _method = run_params.method_name
 
-        for idx, text in enumerate(run_params.texts):
-            _idx = f"{idx + 1}/{len(run_params.texts)}"
+        for idx, paper in enumerate(run_params.papers):
+            _idx = f"{idx + 1}/{len(run_params.papers)}"
 
             try:
                 cache = self.api_clients[run_params.platform].load_cache(
                     method_name=_method,
                     system_prompt=_system_prompt,
-                    user_query=text
+                    user_query=paper.formatted_text
                 )
 
                 if cache:
-                    run_params.raw_responses.append(cache["response"])
-                    run_params.execution_times.append(cache["execution_time"])
-                    run_params.input_tokens.append(cache["input_tokens"])
-                    run_params.output_tokens.append(cache["output_tokens"])
+                    paper.raw_response = cache["response"]
+                    paper.extracted_response = extract_response(cache["response"])
+                    paper.execution_time = cache["execution_time"]
+                    paper.input_tokens = cache["input_tokens"]
+                    paper.output_tokens = cache["output_tokens"]
                     logger.info(f"Using Cached response {_idx} for {_method}")
                     continue
 
@@ -453,7 +506,7 @@ class SummarizationBenchmark:
                 start_time = time.time()
 
                 _raw_response, _input_tokens, _output_tokens = self.api_clients[run_params.platform].summarize(
-                    text=text,
+                    text=paper.formatted_text,
                     model_name=run_params.model_name,
                     system_prompt_override=None,
                     parameter_overrides=run_params.parameter_overrides
@@ -461,15 +514,16 @@ class SummarizationBenchmark:
 
                 _execution_time = time.time() - start_time
 
-                run_params.raw_responses.append(_raw_response)
-                run_params.input_tokens.append(_input_tokens)
-                run_params.output_tokens.append(_output_tokens)
-                run_params.execution_times.append(_execution_time)
+                paper.raw_response = _raw_response
+                paper.extracted_response = extract_response(_raw_response)
+                paper.execution_time = _execution_time
+                paper.input_tokens = _input_tokens
+                paper.output_tokens = _output_tokens
 
                 self.api_clients[run_params.platform].save_cache(
                     method_name=_method,
                     system_prompt=_system_prompt,
-                    user_query=text,
+                    user_query=paper.formatted_text,
                     response=_raw_response,
                     execution_time=_execution_time,
                     input_tokens=_input_tokens,
@@ -489,7 +543,7 @@ class SummarizationBenchmark:
 
         logger.info(f"Finished sequential interference for {_method} in {time.time() - model_start_time:.2f}s")
 
-    def _cleanup(self, run_params: InterferenceRunParameters) -> None:
+    def _cleanup(self, run_params: InterferenceRunContainer) -> None:
         try:
             self.api_clients[run_params.platform].cleanup(model_name=run_params.model_name)
         except NotImplementedError:
@@ -573,15 +627,17 @@ def main():
     _p17 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.7), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.7)}
 
     # https://huggingface.co/models?pipeline_tag=summarization&language=en&sort=trending
-    benchmark.add("huggingface", "facebook/bart-large-cnn", _p16)
-    benchmark.add("huggingface", "facebook/bart-base", _p16)
-    benchmark.add("huggingface", "google-t5/t5-base", _p17)
-    benchmark.add("huggingface", "google-t5/t5-large", _p17)
-    benchmark.add("huggingface", "csebuetnlp/mT5_multilingual_XLSum", _p16)
-    benchmark.add("huggingface", "google/pegasus-xsum", _p14)
-    benchmark.add("huggingface", "google/pegasus-large", _p14)
-    benchmark.add("huggingface", "google/pegasus-cnn_dailymail", _p14)
-    benchmark.add("huggingface", "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization", _p16)
+    # TODO: delete benchmark.pkl (or save as benchmark.pkl.old)
+    # TODO: remove force_refresh=True after run is finished
+    benchmark.add("huggingface", "facebook/bart-large-cnn", _p16, True)
+    benchmark.add("huggingface", "facebook/bart-base", _p16, True)
+    benchmark.add("huggingface", "google-t5/t5-base", _p17, True)
+    benchmark.add("huggingface", "google-t5/t5-large", _p17, True)
+    benchmark.add("huggingface", "csebuetnlp/mT5_multilingual_XLSum", _p16, True)
+    benchmark.add("huggingface", "google/pegasus-xsum", _p14, True)
+    benchmark.add("huggingface", "google/pegasus-large", _p14, True)
+    benchmark.add("huggingface", "google/pegasus-cnn_dailymail", _p14, True)
+    benchmark.add("huggingface", "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization", _p16, True)
 
     benchmark.add("ollama", "deepseek-r1:1.5b")
     benchmark.add("ollama", "deepseek-r1:7b")
