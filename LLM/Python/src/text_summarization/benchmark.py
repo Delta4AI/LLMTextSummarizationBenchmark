@@ -353,6 +353,10 @@ class SummarizationBenchmark:
                 papers=self.papers,
             )
 
+            if self.results.exists(irc.method_name) and self.results.same_size_as(irc.method_name, self.papers):
+                logger.info(f"Skipping interference for existing method: {irc.method_name}")
+                continue
+
             self._warmup(run_params=irc)
 
             time.sleep(1.5)
@@ -627,22 +631,22 @@ def main():
     _p17 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.7), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.7)}
 
     # https://huggingface.co/models?pipeline_tag=summarization&language=en&sort=trending
-    # TODO: delete benchmark.pkl (or save as benchmark.pkl.old)
-    # TODO: remove force_refresh=True after run is finished
-    benchmark.add("huggingface", "facebook/bart-large-cnn", _p16, True)
-    benchmark.add("huggingface", "facebook/bart-base", _p16, True)
-    benchmark.add("huggingface", "google-t5/t5-base", _p17, True)
-    benchmark.add("huggingface", "google-t5/t5-large", _p17, True)
-    benchmark.add("huggingface", "csebuetnlp/mT5_multilingual_XLSum", _p16, True)
-    benchmark.add("huggingface", "google/pegasus-xsum", _p14, True)
-    benchmark.add("huggingface", "google/pegasus-large", _p14, True)
-    benchmark.add("huggingface", "google/pegasus-cnn_dailymail", _p14, True)
-    benchmark.add("huggingface", "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization", _p16, True)
+    benchmark.add("huggingface", "facebook/bart-large-cnn", _p16)
+    benchmark.add("huggingface", "facebook/bart-base", _p16)
+    benchmark.add("huggingface", "google-t5/t5-base", _p17)
+    benchmark.add("huggingface", "google-t5/t5-large", _p17)
+    benchmark.add("huggingface", "csebuetnlp/mT5_multilingual_XLSum", _p16)
+    benchmark.add("huggingface", "google/pegasus-xsum", _p14)
+    benchmark.add("huggingface", "google/pegasus-large", _p14)
+    benchmark.add("huggingface", "google/pegasus-cnn_dailymail", _p14)
+    benchmark.add("huggingface", "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
+                  _p16)
 
     benchmark.add("ollama", "deepseek-r1:1.5b")
     benchmark.add("ollama", "deepseek-r1:7b")
     benchmark.add("ollama", "deepseek-r1:8b")
     benchmark.add("ollama", "deepseek-r1:14b")
+    benchmark.add("ollama", "gemma3:270M")
     benchmark.add("ollama", "gemma3:1b")
     benchmark.add("ollama", "gemma3:4b")
     benchmark.add("ollama", "gemma3:12b")
