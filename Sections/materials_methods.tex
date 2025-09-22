@@ -11,7 +11,9 @@ Articles were collected systematically across a variety of journals to ensure co
 \caption{Overview of journals and number of articles included in the gold-standard dataset.\label{tab:goldstandard}}
 \begin{tabularx}{\textwidth}{llc}
 \toprule
-\textbf{Publisher} & \textbf{Journal} & \textbf{Articles included} \\
+\textbf{Publisher} & \textbf{Journal} & \texor years.
+
+tbf{Articles included} \\
 \midrule
 ScienceDirect & Drug Discovery Today & 50 \\
 ScienceDirect & Journal of Molecular Biology & 50 \\
@@ -101,7 +103,13 @@ For factual consistency we used AlignScore, a metric designed to assess whether 
 \subsubsection{Performance Metrics}
 
 \subsection{Benchmarking Framework}
-<TBD>
+The benchmark was conducted using Python 3.12. Gold standard data were retrieved from open access publications published by \href{https://www.elsevier.com/}{Elsevier} and \href{https://www.cell.com/}{Cell Press} through manual extraction of titles, abstracts, and highlight sections, along with metadata including publications URLs, identifiers, section types, and article types where available. All data were stored in machine-readable JSON format. 
 
-\subsection{Computational Resources}
-<TBD>
+The framework was implemented using the Python standard library supplemented by several specialized packages: \href{https://pandas.pydata.org/}{pandas} for data import and export, \href{https://scikit-learn.org/stable/index.html}{scikit-learn} for computing cosine similarities of embeddings and TF-IDF vectors, \href{https://networkx.org/}{networkx} for graph construction and PageRank algorithm \cite{INSERT-PAGERANK-CITATION-HERE-https://www.sciencedirect.com/science/article/pii/S016975529800110X}. Additional evaluation metrics were computed using  \href{https://www.nltk.org/}{nltk} for METEOR and BLEU scores, \href{https://pypi.org/project/rouge-score/}{ROUGE-score}, \href{https://pypi.org/project/bert-score/}{BERT-score}, \href{https://pypi.org/project/alignscore-SpeedOfMagic/}{AlignScore}, and \href{https://pypi.org/project/sentence-transformers/}{sentence-transformers} with the \href{https://huggingface.co/sentence-transformers/all-mpnet-base-v2}{all-mpnet-base-v2} model.
+
+Communication with proprietary closed-source LLMs was facilitated through the official Python APIs provided by \href{https://www.anthropic.com/}{Anthropic}, \href{https://mistral.ai/}{Mistral AI}, and \href{https://openai.com/}{OpenAI}. Local LLM execution was performed on a workstation equipped with a NVIDIA RTX A4000 GPU (16GB VRAM) running \href{https://ollama.com/}{ollama} as a backend service, accessed through its Python API along the \href{https://pypi.org/project/transformers/}{transformers} library. 
+
+All LLMs were configured with a temperature parameter of 0.2 to optimize reproducibility while avoiding completely deterministic outputs. For the latest generation of OpenAI models featuring adaptive reasoning capabilities, the configuration was set to \textttt{text.verbosity = low} and \textttt{reasoning.effort = minimal}. The full set of parameters and prompts are documented in the \textttt{config.py} file in the repository.
+
+\subsection{Data Availability}
+The complete source code, documentation, gold standard dataset, and processed results are available at /url{https://www.github.com/Delta4AI/LLMTextSummarizationBenchmark}.
