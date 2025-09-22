@@ -48,3 +48,15 @@ Thumbs.db
 *.mov
 *.wmv
 
+# LaTeX intermediate files
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.out
+*.synctex.gz
+*.toc
+
+# Word temporary files
+~$*.docx
