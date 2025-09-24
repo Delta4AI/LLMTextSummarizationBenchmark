@@ -353,7 +353,7 @@ class SummarizationBenchmark:
                 papers=self.papers,
             )
 
-            if self.results.exists(irc.method_name) and self.results.same_size_as(irc.method_name, self.papers):
+            if self.results.exists(irc.method_name) and self.results.same_size_as(irc.method_name, len(self.papers)):
                 logger.info(f"Skipping interference for existing method: {irc.method_name}")
                 continue
 
@@ -605,6 +605,22 @@ class SummarizationBenchmark:
 
         logger.info(f"Detailed results saved to {results_path}")
 
+    def apply_token_size_hotfix(self):
+        changes = False
+        for model_key, results in self.results.data[self.papers_hash].items():
+            if len(results.input_tokens) > 0 and all(v == 0 or v is None for v in results.input_tokens):
+                results.input_tokens = []
+                changes = True
+            if len(results.output_tokens) > 0 and all(v == 0 or v is None for v in results.output_tokens):
+                results.output_tokens = []
+                changes = True
+
+            if changes:
+                logger.info(f"Applying token size hotfix for model {model_key}")
+                self.results.save()
+
+            changes = False
+
 
 def main():
     """Main execution function with length constraints."""
@@ -664,7 +680,9 @@ def main():
     benchmark.add("ollama", "phi4:14b")
     benchmark.add("ollama", "qwen3:4b")
     benchmark.add("ollama", "qwen3:8b")
-    benchmark.add("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")
+    # benchmark.add("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")  # removed from ollama.com, super bad performance
+    benchmark.add("ollama", "koesn/llama3-openbiollm-8b:q4_K_M")
+    benchmark.add("ollama", "adrienbrault/biomistral-7b:Q4_K_M")
     benchmark.add("ollama", "gpt-oss:20b")
 
     # https://platform.openai.com/docs/models
@@ -704,6 +722,7 @@ def main():
 
     # benchmark.test_token_sizes()
     benchmark.run()
+    benchmark.apply_token_size_hotfix()
     benchmark.export()
 
 
