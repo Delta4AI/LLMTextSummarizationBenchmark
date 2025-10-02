@@ -50,7 +50,8 @@ from llm_apis.ollama_client import OllamaClient
 from llm_apis.mistral_client import MistralClient
 from llm_apis.anthropic_client import AnthropicClient
 from llm_apis.openai_client import OpenAIClient
-from llm_apis.huggingface_client import HuggingFaceClient
+from llm_apis.huggingface_client import (HuggingFacePipelineClient, HuggingFaceCompletionModelClient,
+                                         HuggingFaceChatModelClient, HuggingFaceConversationalModelClient)
 from llm_apis.local_client import TextRankSummarizer, FrequencySummarizer
 from llm_apis.config import SUMMARY_MIN_WORDS, SUMMARY_MAX_WORDS, TOKEN_SIZE_SAMPLE_TEXT
 from text_summarization.metrics import (get_length_scores, get_meteor_scores, ROUGE_TYPES, get_rouge_scores,
@@ -85,7 +86,8 @@ class InterferenceRunContainer:
     platform: str
     model_name: str | None = None
     method_name: str | None = None
-    parameter_overrides: dict[str, Any] | None = None
+    model_param_overrides: dict[str, Any] | None = None
+    tokenizer_param_overrides: dict[str, Any] | None = None
     papers: list[Paper] = field(default_factory=list)
 
 
@@ -217,7 +219,10 @@ class SummarizationBenchmark:
             ("openai", OpenAIClient),
             ("anthropic", AnthropicClient),
             ("mistral", MistralClient),
-            ("huggingface", HuggingFaceClient),
+            ("huggingface", HuggingFacePipelineClient),
+            ("huggingface:completion", HuggingFaceCompletionModelClient),
+            ("huggingface:chat", HuggingFaceChatModelClient),
+            ("huggingface:conversational", HuggingFaceConversationalModelClient),
             ("local:textrank", TextRankSummarizer),
             ("local:frequency", FrequencySummarizer),
         ]:
@@ -319,11 +324,11 @@ class SummarizationBenchmark:
         )
         self.results.load()
 
-    def add(self, platform: str, model_name: str | None = None, parameter_overrides: dict[str, Any] | None = None,
-            force_refresh: bool = False):
+    def add(self, platform: str, model_name: str | None = None, model_param_overrides: dict[str, Any] | None = None,
+            tokenizer_param_overrides: dict[str, Any] | None = None, force_refresh: bool = False):
         if force_refresh or self.force_refresh:
             self._clear_cache(platform=platform, model_name=model_name)
-        self.models.append((platform, model_name, parameter_overrides))
+        self.models.append((platform, model_name, model_param_overrides, tokenizer_param_overrides))
 
     def _clear_cache(self, platform: str, model_name: str) -> None:
         method_name = f"{platform}_{model_name}" if model_name else platform
@@ -343,13 +348,14 @@ class SummarizationBenchmark:
     def run(self):
         logger.info(f"Running benchmark for {len(self.models)} models ..")
 
-        for idx, (platform, model_name, parameter_overrides) in enumerate(self.models):
+        for idx, (platform, model_name, model_param_overrides, tokenizer_param_overrides) in enumerate(self.models):
             logger.info(f"Running model {idx+1}/{len(self.models)}: {platform} {model_name}")
             irc = InterferenceRunContainer(
                 platform=platform,
                 model_name=model_name,
                 method_name = f"{platform}_{model_name}" if model_name else platform,
-                parameter_overrides=parameter_overrides,
+                model_param_overrides=model_param_overrides,
+                tokenizer_param_overrides=tokenizer_param_overrides,
                 papers=self.papers,
             )
 
@@ -452,7 +458,8 @@ class SummarizationBenchmark:
                 texts=[paper.formatted_text for _, paper in papers_to_process],
                 model_name=run_params.model_name,
                 system_prompt_override=None,
-                parameter_overrides=run_params.parameter_overrides
+                parameter_overrides=run_params.model_param_overrides,
+                tokenizer_overrides=run_params.tokenizer_param_overrides,
             )
 
             batch_completed_time = time.time() - start_time
@@ -513,7 +520,8 @@ class SummarizationBenchmark:
                     text=paper.formatted_text,
                     model_name=run_params.model_name,
                     system_prompt_override=None,
-                    parameter_overrides=run_params.parameter_overrides
+                    parameter_overrides=run_params.model_param_overrides,
+                    tokenizer_overrides=run_params.tokenizer_param_overrides,
                 )
 
                 _execution_time = time.time() - start_time
@@ -657,6 +665,17 @@ def main():
     benchmark.add("huggingface", "google/pegasus-cnn_dailymail", _p14)
     benchmark.add("huggingface", "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
                   _p16)
+    benchmark.add("huggingface", "google/pegasus-pubmed", _p14)
+    benchmark.add("huggingface", "google/bigbird-pegasus-large-pubmed", _p14)
+
+    benchmark.add("huggingface:completion", "microsoft/biogpt", {"num_beams": 5, "early_stopping": True})
+    benchmark.add("huggingface:chat", "swiss-ai/Apertus-8B-Instruct-2509",
+                  tokenizer_param_overrides={"add_special_tokens": False, "truncation": False, }
+                  )
+    benchmark.add("huggingface:chat", "Uni-SMART/SciLitLLM1.5-7B", _p14)
+    benchmark.add("huggingface:chat", "Uni-SMART/SciLitLLM1.5-14B", _p14)
+    benchmark.add("huggingface:chat", "aaditya/OpenBioLLM-Llama3-8B", _p14)
+    benchmark.add("huggingface:conversational", "BioMistral/BioMistral-7B", _p14)
 
     benchmark.add("ollama", "deepseek-r1:1.5b")
     benchmark.add("ollama", "deepseek-r1:7b")
@@ -681,8 +700,8 @@ def main():
     benchmark.add("ollama", "qwen3:4b")
     benchmark.add("ollama", "qwen3:8b")
     # benchmark.add("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")  # removed from ollama.com, super bad performance
-    benchmark.add("ollama", "koesn/llama3-openbiollm-8b:q4_K_M")
-    benchmark.add("ollama", "adrienbrault/biomistral-7b:Q4_K_M")
+    # benchmark.add("ollama", "koesn/llama3-openbiollm-8b:q4_K_M")  # moved to HF
+    # benchmark.add("ollama", "adrienbrault/biomistral-7b:Q4_K_M")  # moved to HF
     benchmark.add("ollama", "gpt-oss:20b")
 
     # https://platform.openai.com/docs/models
