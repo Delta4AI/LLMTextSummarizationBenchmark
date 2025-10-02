@@ -16,6 +16,9 @@ def extract_response(response_text: str) -> str:
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r'</?think>', '', text, flags=re.IGNORECASE)
 
+    # Remove AI summary prefix
+    text = re.sub(r'^\s*\(Summary written by AI model\)\s*', '', text, flags=re.IGNORECASE)
+
     # Look for explicit markers
     summary_patterns = [
         r'(?:Summary|Answer|Result):\s*(.+?)(?:\n|$)',
