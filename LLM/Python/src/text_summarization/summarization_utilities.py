@@ -9,6 +9,9 @@ def extract_response(response_text: str) -> str:
 
     text = response_text.strip()
 
+    # Remove the first XML-like tag
+    text = re.sub(r'^<[^>]*>\s*', '', text)
+
     # Remove thinking blocks
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r'</?think>', '', text, flags=re.IGNORECASE)
