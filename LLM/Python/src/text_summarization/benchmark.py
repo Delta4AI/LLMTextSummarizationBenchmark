@@ -703,6 +703,10 @@ def main():
     # benchmark.add("ollama", "koesn/llama3-openbiollm-8b:q4_K_M")  # moved to HF
     # benchmark.add("ollama", "adrienbrault/biomistral-7b:Q4_K_M")  # moved to HF
     benchmark.add("ollama", "gpt-oss:20b")
+    benchmark.add("ollama", "granite4:micro")
+    benchmark.add("ollama", "granite4:micro-h")
+    benchmark.add("ollama", "granite4:tiny-h")
+    benchmark.add("ollama", "granite4:small-h")
 
     # https://platform.openai.com/docs/models
     # "protected" models (gpt-3o, ..) need ID verification and allows openai to freely disclose personal data ..
