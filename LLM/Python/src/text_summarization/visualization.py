@@ -18,9 +18,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 SURFACE_LEVEL = "Metrics: Surface-level"
-REFERENCE_SIMILARITY = "Metrics: Reference Similarity"
-CONTENT_COVERAGE = "Metrics: Content Coverage"
-FACTUALITY = "Metrics: Factuality"
+EMBEDDING_BASED = "Metrics: Embedding-based"
 AGGREGATE = "Metrics: Aggregate"
 PERFORMANCE = "Performance"
 OVERALL = "Overall (70% metrics, 10% speed/accept./cost)"
@@ -53,13 +51,12 @@ class SummarizationVisualizer:
             Metric("ROUGE-1", lambda m: self.results[m].rouge_scores["rouge1"], None, SURFACE_LEVEL),
             Metric("ROUGE-2", lambda m: self.results[m].rouge_scores["rouge2"], None, SURFACE_LEVEL),
             Metric("ROUGE-L", lambda m: self.results[m].rouge_scores["rougeL"], None, SURFACE_LEVEL),
-            Metric("RoBERTa", lambda m: self.results[m].roberta_scores["f1"], None, REFERENCE_SIMILARITY),
-            Metric("DeBERTa", lambda m: self.results[m].deberta_scores["f1"], None, REFERENCE_SIMILARITY),
             Metric("METEOR", lambda m: self.results[m].meteor_scores, None, SURFACE_LEVEL),
             Metric("BLEU", lambda m: self.results[m].bleu_scores, None, SURFACE_LEVEL),
-            Metric("all-mpnet-base-v2", lambda m: self.results[m].mpnet_content_coverage_scores, None, CONTENT_COVERAGE),
-            Metric("AlignScore", lambda m: self.alignscore_scores.get(m, {"mean": -1, "min": 0, "max": 0, "std": 0}), None, FACTUALITY),
-            #Metric("AlignScoreRef", lambda m: self.alignscore_ref_scores.get(m, {"mean": -1, "min": 0, "max": 0, "std": 0}), None, FACTUALITY),
+            Metric("RoBERTa", lambda m: self.results[m].roberta_scores["f1"], None, EMBEDDING_BASED),
+            Metric("DeBERTa", lambda m: self.results[m].deberta_scores["f1"], None, EMBEDDING_BASED),
+            Metric("all-mpnet-base-v2", lambda m: self.results[m].mpnet_content_coverage_scores, None, EMBEDDING_BASED),
+            Metric("AlignScore", lambda m: self.alignscore_scores.get(m, {"mean": -1, "min": 0, "max": 0, "std": 0}), None, EMBEDDING_BASED),
         ]
 
         self.aggregates = [
@@ -100,7 +97,7 @@ class SummarizationVisualizer:
         # https://plotly.com/python/discrete-color/#color-sequences-in-plotly-express
         self.colors = px.colors.qualitative.Vivid
 
-    def _load_alignscore_scores(self, path="alignscore_full_results.json"):
+    def _load_alignscore_scores(self, path="alignscore_full_results_bs16.json"):
         """Load AlignScore stats from JSON and map to {method: {mean,min,max,std}}."""
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -170,7 +167,7 @@ class SummarizationVisualizer:
 
         logger.info("Creating interactive visualizations...")
 
-        self._load_alignscore_scores("alignscore_full_results.json")
+        self._load_alignscore_scores("alignscore_full_results_bs16.json")
         #self._load_alignscore_ref_scores("alignscore_refs_full_results.json")
 
         self._aggregate_metric_scores()
@@ -185,6 +182,7 @@ class SummarizationVisualizer:
         self._create_radar_chart()
 
         self._create_execution_time_boxplot()
+        self._create_grouped_execution_time_boxplot()
         self._create_metric_correlation_matrix()
         self._create_rank_heatmap()
         self._create_tradeoff_3d()
@@ -398,6 +396,51 @@ class SummarizationVisualizer:
 
     def _create_metric_comparison_plot(self):
         """Create ROUGE comparison plot with BERTScore with filled confidence bands."""
+
+        # Override self.methods with custom group order
+        group_map = {
+            "Traditional Methods": [
+                "local:textrank", "local:frequency"
+            ],
+            "Encoder-Decoder Models": [
+                "huggingface_facebook/bart-large-cnn", "huggingface_facebook/bart-base",
+                "huggingface_google-t5/t5-base", "huggingface_google-t5/t5-large",
+                "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+                "huggingface_google/pegasus-xsum", "huggingface_google/pegasus-large",
+                "huggingface_google/pegasus-cnn_dailymail"
+            ],
+            "General-purpose LLMs": [
+                "ollama_gemma3:270M", "ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
+                "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
+                "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
+                "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
+                "ollama_PetrosStav/gemma3-tools:4b", "ollama_phi3:3.8b", "ollama_phi4:14b",
+                "openai_gpt-3.5-turbo", "openai_gpt-4.1", "openai_gpt-4.1-mini",
+                "openai_gpt-4o", "openai_gpt-4o-mini", "anthropic_claude-3-5-haiku-20241022",
+                "mistral_mistral-medium-2505", "mistral_mistral-small-2506", "mistral_mistral-large-2411"
+            ],
+            "Reasoning-oriented LLMs": [
+                "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
+                "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
+                "ollama_gpt-oss:20b", "anthropic_claude-sonnet-4-20250514",
+                "anthropic_claude-opus-4-20250514", "mistral_magistral-medium-2507",
+                "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
+                "openai_gpt-5-2025-08-07", "anthropic_claude-opus-4-1-20250805"
+            ],
+            "Specialized Models": [
+                "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
+                "ollama_medllama2:7b", "ollama_taozhiyuai/openbiollm-llama-3:8b_q8_0",
+                "ollama_koesn/llama3-openbiollm-8b:q4_K_M", "ollama_adrienbrault/biomistral-7b:Q4_K_M"
+            ]
+        }
+
+        # Flatten the groups into the desired order
+        self.methods = []
+        self.group_labels = []  # For drawing brackets
+        for group, models in group_map.items():
+            self.methods.extend(models)
+            self.group_labels.extend([group] * len(models))
+
         best_overall_method = max(self.methods, key=lambda m: self.combined_final_scores[m]["mean"])
 
         fig = go.Figure()
@@ -728,7 +771,7 @@ class SummarizationVisualizer:
                 "huggingface_google/pegasus-cnn_dailymail"
             ],
             "General-purpose LLMs": [
-                "ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
+                "ollama_gemma3:270M","ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
                 "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
                 "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
                 "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
@@ -748,7 +791,8 @@ class SummarizationVisualizer:
             "Specialized Models": [
                 "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
                 "ollama_medllama2:7b",
-                "ollama_taozhiyuai/openbiollm-llama-3:8b_q8_0"
+                "ollama_taozhiyuai/openbiollm-llama-3:8b_q8_0", "ollama_koesn/llama3-openbiollm-8b:q4_K_M",
+                "ollama_adrienbrault/biomistral-7b:Q4_K_M"
             ],
         }
 
@@ -807,7 +851,7 @@ class SummarizationVisualizer:
         group_map = {
             "General-purpose LLMs": {
                 "models": [
-                    "ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
+                    "ollama_gemma3:270M","ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
                     "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
                     "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
                     "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
@@ -1295,11 +1339,86 @@ class SummarizationVisualizer:
 
         output_path = self.out_dir / "execution_time_distribution.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
+
+    def _create_grouped_execution_time_boxplot(self):
+        """Create grouped boxplot comparing execution times across general-purpose vs reasoning-oriented LLMs."""
+
+        group_map = {
+            "General-purpose LLMs": {
+                "models": [
+                    "ollama_gemma3:270M", "ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
+                    "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
+                    "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
+                    "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
+                    "ollama_PetrosStav/gemma3-tools:4b", "ollama_phi3:3.8b", "ollama_phi4:14b",
+                    "openai_gpt-3.5-turbo", "openai_gpt-4.1", "openai_gpt-4.1-mini",
+                    "openai_gpt-4o", "openai_gpt-4o-mini", "anthropic_claude-3-5-haiku-20241022",
+                    "mistral_mistral-medium-2505", "mistral_mistral-small-2506", "mistral_mistral-large-2411"
+                ]
+            },
+            "Reasoning-oriented LLMs": {
+                "models": [
+                    "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
+                    "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
+                    "ollama_gpt-oss:20b", "anthropic_claude-sonnet-4-20250514",
+                    "anthropic_claude-opus-4-20250514", "mistral_magistral-medium-2507",
+                    "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
+                    "openai_gpt-5-2025-08-07", "anthropic_claude-opus-4-1-20250805"
+                ]
+            }
+        }
+
+        fig = go.Figure()
+
+        group_colors = {
+            "General-purpose LLMs": "rgba(66, 135, 245, 0.6)",
+            "Reasoning-oriented LLMs": "rgba(245, 135, 66, 0.6)"
+        }
+
+        for group_name, group_info in group_map.items():
+            all_times = []
+
+            for model in group_info["models"]:
+                if model in self.results and hasattr(self.results[model], "execution_times"):
+                    all_times.extend(self.results[model].execution_times)
+
+            fig.add_trace(go.Box(
+                y=all_times,
+                name=group_name,
+                marker_color=group_colors.get(group_name, "rgba(100,100,100,0.6)"),
+                boxpoints="outliers",
+                hovertemplate=f"<b>{group_name}</b><br>Time: %{{y:.2f}} sec<extra></extra>"
+            ))
+
+        fig.update_layout(
+            title="Execution Time: General-purpose vs Reasoning-oriented LLMs",
+            yaxis_title="Time (seconds, log scale)",
+            xaxis_title="Model Group",
+            boxmode="group",
+            boxgap=0.4,
+            boxgroupgap=0.2,
+            showlegend=False,
+            yaxis=dict(
+                type="log",
+                tickvals=[1, 2, 5, 10, 20, 50, 100, 200, 500, 1000],
+                ticktext=["1s", "2s", "5s", "10s", "20s", "50s", "100s", "200s", "500s", "1000s"]
+            )
+        )
+
+        fig.update_traces(
+            width=0.5,
+            line=dict(width=2)
+        )
+
+        output_path = self.out_dir / "grouped_execution_time_distribution.html"
+        pyo.plot(fig, filename=str(output_path), auto_open=False)
+
     
     def _create_metric_correlation_matrix(self):
         """
         Correlate evaluation metrics across models (each metric is a variable; observations = models).
         Only includes true quality metrics (e.g., ROUGE, BERTScore, METEOR, BLEU, mpnet).
+        Uses Pearson correlation coefficient.
         """
         chosen_metrics = [*self.metrics]  
         labels = [m.label for m in chosen_metrics]
@@ -1474,7 +1593,7 @@ class SummarizationVisualizer:
                 )
 
         fig.update_layout(
-            title="Model Ranks per Metric (lower is better; models sorted by average rank)",
+            title="Model Ranks per Metric (higher is better; models sorted by average rank)",
             annotations=annotations,
             xaxis=dict(tickangle=45),
             margin=dict(l=200, r=40, t=60, b=120),
