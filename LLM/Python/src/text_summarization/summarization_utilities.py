@@ -4,20 +4,42 @@ import numpy as np
 
 
 def extract_response(response_text: str) -> str:
+    # Empty input check
     if not response_text or not response_text.strip():
         return ""
 
+    # Trim whitespaces
     text = response_text.strip()
 
-    # Remove the first XML-like tag
-    text = re.sub(r'^<[^>]*>\s*', '', text)
-
-    # Remove thinking blocks
+    # Remove internal tags (think blocks, XML-like tags, <n> placeholders)
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r'</?think>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'^<[^>]*>\s*', '', text)
+    text = re.sub(r'</?n[^>]*>', ' ', text, flags=re.IGNORECASE)
 
-    # Remove AI summary prefix
-    text = re.sub(r'^\s*\(Summary written by AI model\)\s*', '', text, flags=re.IGNORECASE)
+    # Remove generic AI / abstract summary prefixes in parentheses
+    text = re.sub(
+        r'^\s*\((?:Summary|Abstract)\s*(?:written\s*by\s*AI\s*model|by\s*AAI\s*Researcher|adapted\s*from(?:\s*the)?\s*(?:provided\s*)?abstract|modified\s*from\s*original)?\)\s*',
+        '',
+        text,
+        flags=re.IGNORECASE
+    )
+
+    # Detect insufficient summaries (normalize to "INSUFFICIENT_FINDINGS")
+    if re.search(
+        r'(?:(?<=^)|(?<=\)))\s*INSUFFICIENT(?:[_\s-]*FINDINGS)?\b[:.]?',
+        text
+    ):
+        return "INSUFFICIENT_FINDINGS"
+
+    # Detect dictionary-like responses containing "summary"
+    dict_like_match = re.search(
+        r"""['"{\s]*summary['"\s:]+['"](.+?)['"]\s*[},]*$""",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if dict_like_match:
+        return _clean_text(dict_like_match.group(1))
 
     # Look for explicit markers
     summary_patterns = [
