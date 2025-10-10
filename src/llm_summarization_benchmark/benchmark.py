@@ -39,8 +39,8 @@ from llm_summarization_benchmark.summarization_utilities import extract_response
 OUT_DIR = get_project_root() / "Output" / "llm_summarization_benchmark"
 OUT_DIR.mkdir(exist_ok=True, parents=True)
 
-GOLD_STANDARD_DATA: list[str] = [
-    "Resources/text_summarization_goldstandard_data.json"
+GOLD_STANDARD_DATA: list[Path] = [
+    get_project_root() / "Resources" / "text_summarization_goldstandard_data.json"
 ]
 
 setup_logging(OUT_DIR / "benchmark.log")
@@ -348,7 +348,7 @@ class SummarizationBenchmark:
         except Exception as exc:
             logger.warning(f"Failed to clear results database for {method_name}: {exc}")
 
-    def run(self):
+    def run(self, reset_metrics: bool = False):
         logger.info(f"Running benchmark for {len(self.models)} models ..")
 
         for idx, (platform, model_name, model_param_overrides, tokenizer_param_overrides) in enumerate(self.models):
@@ -362,56 +362,21 @@ class SummarizationBenchmark:
                 papers=self.papers,
             )
 
-            if self.results.exists(irc.method_name) and self.results.same_size_as(irc.method_name, len(self.papers)):
-                logger.info(f"Skipping interference for existing method: {irc.method_name}")
+            skip_inference = self.results.exists(irc.method_name) and self.results.same_size_as(irc.method_name,
+                                                                                                len(self.papers))
+
+            if skip_inference and not reset_metrics:
+                logger.info(f"Skipping interference and metrics for existing method: {irc.method_name}")
                 continue
 
-            self._warmup(run_params=irc)
-
-            time.sleep(1.5)
-
-            try:
-                self._run_batched_interference(run_params=irc)
-            except NotImplementedError:
-                try:
-                    self._run_sequential_interference(run_params=irc)
-                except Exception as e:
-                    logger.error(f"Interference failed for {irc.method_name}: {e}")
+            if skip_inference and reset_metrics:
+                logger.info(f"Recalculating metrics for existing method: {irc.method_name}")
+                result = self._recalculate_metrics_from_cache(irc=irc)
+            else:
+                logger.info(f"Running interference and calculating metrics for method: {irc.method_name}")
+                result = self._run_interference_and_calculate_metrics(irc=irc)
+                if result is None:
                     continue
-
-            original_count = len(irc.papers)
-            irc.papers = [p for p in irc.papers if p.extracted_response is not None]
-            deleted_count = original_count - len(irc.papers)
-
-            if deleted_count > 0:
-                logger.warning(f"Skipping {deleted_count} papers with no response for {irc.method_name}")
-
-            generated_summaries = [p.extracted_response for p in irc.papers]
-            reference_summaries = [p.summaries for p in irc.papers]
-
-            result = EvaluationResult(
-                method_name=irc.method_name,
-                execution_times=[p.execution_time for p in irc.papers],
-                full_responses=[p.raw_response for p in irc.papers],
-                summaries=generated_summaries,
-                length_stats=get_length_scores(generated_summaries, self.min_words, self.max_words),
-                input_tokens=[p.input_tokens for p in irc.papers if p.input_tokens is not None],
-                output_tokens=[p.output_tokens for p in irc.papers if p.output_tokens is not None],
-                rouge_scores=get_rouge_scores(generated_summaries, reference_summaries),
-                roberta_scores=get_bert_scores(generated_summaries, reference_summaries, "roberta-large"),
-                deberta_scores=get_bert_scores(generated_summaries, reference_summaries, "microsoft/deberta-xlarge-mnli"),
-                meteor_scores=get_meteor_scores(generated_summaries, reference_summaries),
-                bleu_scores=get_bleu_scores(generated_summaries, reference_summaries),
-                mpnet_content_coverage_scores=get_sentence_transformer_similarity(
-                    generated=generated_summaries,
-                    source_documents=[p.full_text for p in irc.papers],
-                    model_name="all-mpnet-base-v2"
-                ),
-                alignscore_scores=get_alignscore_scores(
-                    generated=generated_summaries,
-                    references=[p.abstract for p in irc.papers]
-                )
-            )
 
             if result:
                 self.results.add(method_name=irc.method_name, result=result)
@@ -420,6 +385,82 @@ class SummarizationBenchmark:
             self._cleanup(run_params=irc)
 
             cleanup_metrics_cache()
+
+    def _recalculate_metrics_from_cache(self, irc: InterferenceRunContainer) -> EvaluationResult:
+        existing = self.results.data[self.papers_hash][irc.method_name]
+        generated_summaries = [extract_response(r) for r in existing.full_responses]
+        reference_summaries = [p.summaries for p in irc.papers]
+
+        return EvaluationResult(
+            method_name=irc.method_name,
+            execution_times=existing.execution_times,
+            full_responses=existing.full_responses,
+            summaries=generated_summaries,
+            length_stats=get_length_scores(generated_summaries, self.min_words, self.max_words),
+            input_tokens=[_.input_tokens for _ in existing.input_tokens if _.input_tokens is not None],
+            output_tokens=[_.output_tokens for _ in existing.output_tokens if _.output_tokens is not None],
+            rouge_scores=get_rouge_scores(generated_summaries, reference_summaries),
+            roberta_scores=get_bert_scores(generated_summaries, reference_summaries, "roberta-large"),
+            deberta_scores=get_bert_scores(generated_summaries, reference_summaries, "microsoft/deberta-xlarge-mnli"),
+            meteor_scores=get_meteor_scores(generated_summaries, reference_summaries),
+            bleu_scores=get_bleu_scores(generated_summaries, reference_summaries),
+            mpnet_content_coverage_scores=get_sentence_transformer_similarity(
+                generated=generated_summaries,
+                source_documents=[p.full_text for p in irc.papers],
+                model_name="all-mpnet-base-v2"
+            ),
+            alignscore_scores=get_alignscore_scores(
+                generated=generated_summaries,
+                references=[p.abstract for p in irc.papers]
+            )
+        )
+
+    def _run_interference_and_calculate_metrics(self, irc: InterferenceRunContainer) -> EvaluationResult | None:
+        self._warmup(run_params=irc)
+        time.sleep(1.5)
+
+        try:
+            self._run_batched_interference(run_params=irc)
+        except NotImplementedError:
+            try:
+                self._run_sequential_interference(run_params=irc)
+            except Exception as e:
+                logger.error(f"Interference failed for {irc.method_name}: {e}")
+                return None
+
+        original_count = len(irc.papers)
+        irc.papers = [p for p in irc.papers if p.extracted_response is not None]
+        deleted_count = original_count - len(irc.papers)
+
+        if deleted_count > 0:
+            logger.warning(f"Skipping {deleted_count} papers with no response for {irc.method_name}")
+
+        generated_summaries = [p.extracted_response for p in irc.papers]
+        reference_summaries = [p.summaries for p in irc.papers]
+
+        return EvaluationResult(
+            method_name=irc.method_name,
+            execution_times=[p.execution_time for p in irc.papers],
+            full_responses=[p.raw_response for p in irc.papers],
+            summaries=generated_summaries,
+            length_stats=get_length_scores(generated_summaries, self.min_words, self.max_words),
+            input_tokens=[p.input_tokens for p in irc.papers if p.input_tokens is not None],
+            output_tokens=[p.output_tokens for p in irc.papers if p.output_tokens is not None],
+            rouge_scores=get_rouge_scores(generated_summaries, reference_summaries),
+            roberta_scores=get_bert_scores(generated_summaries, reference_summaries, "roberta-large"),
+            deberta_scores=get_bert_scores(generated_summaries, reference_summaries, "microsoft/deberta-xlarge-mnli"),
+            meteor_scores=get_meteor_scores(generated_summaries, reference_summaries),
+            bleu_scores=get_bleu_scores(generated_summaries, reference_summaries),
+            mpnet_content_coverage_scores=get_sentence_transformer_similarity(
+                generated=generated_summaries,
+                source_documents=[p.full_text for p in irc.papers],
+                model_name="all-mpnet-base-v2"
+            ),
+            alignscore_scores=get_alignscore_scores(
+                generated=generated_summaries,
+                references=[p.abstract for p in irc.papers]
+            )
+        )
 
     def _warmup(self, run_params: InterferenceRunContainer) -> None:
         try:
@@ -642,6 +683,8 @@ def main():
     """Main execution function with length constraints."""
     parser = ArgumentParser(description="LLM Text Summarization Benchmark. Set HF_HUB_OFFLINE to 0 on first run.")
     parser.add_argument("--clear", action="store_true", help="Clear existing benchmark results")
+    parser.add_argument("--reset-metrics", action="store_true",
+                        help="Reset metrics while keeping LLM responses")
     parser.add_argument("--gold-standard-data", default=GOLD_STANDARD_DATA, nargs="+",
                         help="Gold standard data files to load (default: %(default)s)")
     args = parser.parse_args()
@@ -752,7 +795,7 @@ def main():
     # benchmark.add("ollama", "oscardp96/medcpt-query:latest")
 
     # benchmark.test_token_sizes()
-    benchmark.run()
+    benchmark.run(reset_metrics=args.reset_metrics)
     benchmark.apply_token_size_hotfix()
     benchmark.export()
 
