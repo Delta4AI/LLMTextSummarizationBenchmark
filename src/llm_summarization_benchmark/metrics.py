@@ -16,8 +16,10 @@ from exploration_utilities import get_project_root
 
 try:
     import torch
+    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 except ImportError:
     torch = None
+    DEVICE = "cpu"
 
 logger = logging.getLogger(__name__)
 
@@ -84,12 +86,7 @@ class ModelCache:
         self.bert_models.clear()
 
         gc.collect()
-        if torch and torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            torch.cuda.synchronize()
-            time.sleep(0.5)
-            torch.cuda.empty_cache()
-
+        empty_cuda_cache(sync=True)
         self._log_memory_usage("After Cleanup")
 
 
@@ -174,12 +171,8 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
 
     try:
         logger.info(f"Calculating BERTScore with model: {model}")
-
-        # Clear cache before BERTScore to free memory
-        if torch and torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
-        batch_size = 2  # Process 2 documents at a time
+        empty_cuda_cache()
+        batch_size = 2
 
         for i in range(0, len(generated), batch_size):
             batch_gen = generated[i:i + batch_size]
@@ -211,9 +204,7 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
 
     except Exception as e:
         logger.error(f"BERTScore calculation failed: {e}")
-        # Force cleanup on error
-        if torch and torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        empty_cuda_cache()
 
     return {
         'precision': get_min_max_mean_std(best_precision),
@@ -243,9 +234,7 @@ def get_sentence_transformer_similarity(generated: list[str], source_documents: 
     try:
         logger.info(f"Calculating SentenceTransformer similarity with model: {model_name}")
         model = _model_cache.get_sentence_transformer(model_name)
-
-        if torch and torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        empty_cuda_cache()
 
         batch_size = 4
 
@@ -264,14 +253,11 @@ def get_sentence_transformer_similarity(generated: list[str], source_documents: 
 
                 # Clean up tensors
                 del embeddings
-
-                if torch and torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+                empty_cuda_cache()
 
     except Exception as e:
         logger.error(f"Sentence Transformer embedding similarity {model_name} failed: {e}")
-        if torch and torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        empty_cuda_cache()
 
     return get_min_max_mean_std(similarities)
 
@@ -282,22 +268,14 @@ def get_alignscore_scores(generated: list[str], references: list[str]) -> dict[s
     scores = []
 
     try:
-        import torch
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    except Exception:
-        device = "cpu"
-
-    try:
-        logger.info(f"Calculating AlignScore on device: {device}")
-
-        if torch and torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        logger.info(f"Calculating AlignScore on device: {DEVICE}")
+        empty_cuda_cache()
 
         aligner = AlignScore(
             model="roberta-large",
             ckpt_path=OUT_DIR / "AlignScore-large.ckpt",
             batch_size=16,
-            device=device,
+            device=DEVICE,
         )
 
         batch_size = 16
@@ -319,10 +297,18 @@ def get_alignscore_scores(generated: list[str], references: list[str]) -> dict[s
 
     except Exception as e:
         logger.error(f"AlignScore calculation failed: {e}")
-        if torch and torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        empty_cuda_cache()
 
     return get_min_max_mean_std(scores)
+
+
+def empty_cuda_cache(sync: bool = False):
+    if DEVICE == "cuda":
+        torch.cuda.empty_cache()
+        if sync:
+            torch.cuda.synchronize()
+            time.sleep(0.5)
+            torch.cuda.empty_cache()
 
 
 def cleanup_metrics_cache():
