@@ -33,7 +33,7 @@ import pandas as pd
 import nltk
 
 from exploration_utilities import get_project_root, get_logger, setup_logging
-from text_summarization.summarization_utilities import extract_response, get_min_max_mean_std
+from llm_summarization_benchmark.summarization_utilities import extract_response, get_min_max_mean_std
 
 
 OUT_DIR = get_project_root() / "Output" / "text_summarization_benchmark"
@@ -54,10 +54,10 @@ from llm_apis.huggingface_client import (HuggingFacePipelineClient, HuggingFaceC
                                          HuggingFaceChatModelClient, HuggingFaceConversationalModelClient)
 from llm_apis.local_client import TextRankSummarizer, FrequencySummarizer
 from llm_apis.config import SUMMARY_MIN_WORDS, SUMMARY_MAX_WORDS, TOKEN_SIZE_SAMPLE_TEXT
-from text_summarization.metrics import (get_length_scores, get_meteor_scores, ROUGE_TYPES, get_rouge_scores,
-                                        get_bert_scores, get_bleu_scores, get_sentence_transformer_similarity,
-                                        get_alignscore_scores, cleanup_metrics_cache)
-from text_summarization.visualization import SummarizationVisualizer
+from llm_summarization_benchmark.metrics import (get_length_scores, get_meteor_scores, ROUGE_TYPES, get_rouge_scores,
+                                                 get_bert_scores, get_bleu_scores, get_sentence_transformer_similarity,
+                                                 get_alignscore_scores, cleanup_metrics_cache)
+from llm_summarization_benchmark.visualization import SummarizationVisualizer
 
 
 @dataclass

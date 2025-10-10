@@ -5,13 +5,21 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
 dependencies = [
+	"alignscore",
+	"bert-score>=0.3.13",
 	"exploration-utilities",
-	"llm-apis"
+	"llm-apis",
+	"pandas>=2.3.3",
+	"pip>=25.2",
+	"plotly>=6.3.1",
+	"rouge-score>=0.1.2",
+	"sentence-transformers>=5.1.1",
 ]
 
 [tool.uv.sources]
 exploration-utilities = { path = "../exploration/ExplorationUtilities" }
 llm-apis = { path = "../llm_apis" }
+alignscore = { path = "../AlignScore" }
 
 [build-system]
 requires = ["hatchling"]
@@ -28,4 +36,4 @@ include = ["src/**"]
 exclude = ["tests", "*.tests", "*.tests.*", "tests.*"]
 
 [project.scripts]
-benchmark = "benchmark:main"
+benchmark = "llm_summarization_benchmark.benchmark:main"

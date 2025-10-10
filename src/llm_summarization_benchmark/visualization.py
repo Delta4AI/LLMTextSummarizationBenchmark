@@ -13,7 +13,7 @@ from scipy.spatial import ConvexHull, QhullError
 from typing import TYPE_CHECKING, NamedTuple, Any, Callable
 
 if TYPE_CHECKING:
-    from text_summarization.benchmark import SummarizationBenchmark
+    from llm_summarization_benchmark.benchmark import SummarizationBenchmark
 
 logger = logging.getLogger(__name__)
 

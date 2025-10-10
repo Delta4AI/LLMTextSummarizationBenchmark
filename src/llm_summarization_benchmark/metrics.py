@@ -11,7 +11,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from alignscore import AlignScore
 
 from llm_apis.huggingface_client import init_hf_cache_dir
-from text_summarization.summarization_utilities import get_min_max_mean_std
+from llm_summarization_benchmark.summarization_utilities import get_min_max_mean_std
 
 try:
     import torch

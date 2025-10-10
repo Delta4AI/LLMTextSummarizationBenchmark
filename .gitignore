@@ -52,3 +52,4 @@ Output/
 *.html
 *.pkl
 *.json
+.env
