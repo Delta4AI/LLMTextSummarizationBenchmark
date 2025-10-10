@@ -4,44 +4,38 @@ Benchmarking tool for evaluating text summarization methods on scientific papers
 
 ## Quick Start
 
-```bash
-# Install dependencies
-uv sync
+1. Clone `llm_apis` repository
+2. Clone `exploration` repository
+3. Clone this repository
+4. Install dependencies
+    ```bash
+    uv sync
+    uv run spacy download en_core_web_sm
+    ```
+5. Copy and adjust `Resources/example.env` to `Resources/.env`
+6. Run
+    ```bash
+   uv run benchmark
+    ```
 
-# In case only text summarization is required, the following dependencies can be installed separately:
-uv add transformers rouge-score bert-score nltk scikit-learn matplotlib seaborn pandas numpy tqdm torch ollama
-
-# Run (from within LLM folder)
-uv run Python/src/text_summarization/benchmark.py
-```
-> Make sure to copy `Resources/example.env` to `Resources/.env` and enter LLM API keys
-
-> Make sure to check and update `config.py`
+> Individual LLM config parameters are stored in `../llm_apis/src/llm_apis/config.py` (separate `llm_apis` repository)
 
 ### Run the visualization only without benchmarking
 
-The following files must exist:    
+The following files must be in place in order to load previous results:    
 - `Output/text_summarization_benchmark/benchmark.pkl`
-- `Resources/text_summarization_goldstandard_data.json`
+- `Output/llm_apis/cache.json`
 
-Usage:
-```bash
-cd /path/to/LLM
-uv run Python/src/text_summarization/visualization.py
-```
-
+Afterwards, simply run the benchmark again - processed results will be skipped.
 
 ---
 
 ## Workflow
-![Workflow](../../../Resources/text_summarization_benchmark_diagram.svg)
+![Workflow](Resources/text_summarization_benchmark_diagram.svg)
 
 ---
 
-## config.py
-Contains configuration parameters for min/max words, paths to gold-standard data following `papers.json` format, system prompt and LLM generation parameters. 
-
-## papers.json
+## text_summarization_goldstandard_data.json
 Document store in `Resources` folder, containing ID, title, abstract and reference summaries.
 1-N reference summaries can be provided per paper. 
 Multiple reference summaries improve evaluation robustness and reduce single-annotator bias.
