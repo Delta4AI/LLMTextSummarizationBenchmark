@@ -36,7 +36,7 @@ from exploration_utilities import get_project_root, get_logger, setup_logging
 from llm_summarization_benchmark.summarization_utilities import extract_response, get_min_max_mean_std
 
 
-OUT_DIR = get_project_root() / "Output" / "text_summarization_benchmark"
+OUT_DIR = get_project_root() / "Output" / "llm_summarization_benchmark"
 OUT_DIR.mkdir(exist_ok=True, parents=True)
 
 GOLD_STANDARD_DATA: list[str] = [

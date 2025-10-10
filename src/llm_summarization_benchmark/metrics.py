@@ -12,6 +12,7 @@ from alignscore import AlignScore
 
 from llm_apis.huggingface_client import init_hf_cache_dir
 from llm_summarization_benchmark.summarization_utilities import get_min_max_mean_std
+from exploration_utilities import get_project_root
 
 try:
     import torch
@@ -19,8 +20,11 @@ except ImportError:
     torch = None
 
 logger = logging.getLogger(__name__)
+
 ROUGE_TYPES = ['rouge1', 'rouge2', 'rougeL']
 ROUGE_SCORER = RougeScorer(ROUGE_TYPES, use_stemmer=True)
+OUT_DIR = get_project_root() / "Output" / "llm_summarization_benchmark"
+
 init_hf_cache_dir()
 
 
@@ -291,7 +295,7 @@ def get_alignscore_scores(generated: list[str], references: list[str]) -> dict[s
 
         aligner = AlignScore(
             model="roberta-large",
-            ckpt_path="text_summarization/model_ckpt/AlignScore-large.ckpt",
+            ckpt_path=OUT_DIR / "AlignScore-large.ckpt",
             batch_size=16,
             device=device,
         )

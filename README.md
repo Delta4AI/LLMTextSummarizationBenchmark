@@ -23,7 +23,7 @@ Benchmarking tool for evaluating text summarization methods on scientific papers
 ### Run the visualization only without benchmarking
 
 The following files must be in place in order to load previous results:    
-- `Output/text_summarization_benchmark/benchmark.pkl`
+- `Output/llm_summarization_benchmark/benchmark.pkl`
 - `Output/llm_apis/cache.json`
 
 Afterwards, simply run the benchmark again - processed results will be skipped.
