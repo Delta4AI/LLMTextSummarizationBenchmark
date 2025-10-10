@@ -1,0 +1,31 @@
+[project]
+name = "llm-summarization-benchmark"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+dependencies = [
+	"exploration-utilities",
+	"llm-apis"
+]
+
+[tool.uv.sources]
+exploration-utilities = { path = "../exploration/ExplorationUtilities" }
+llm-apis = { path = "../llm_apis" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = true
+
+[tool.hatch.build.targets.wheel]
+sources = ["src"]
+
+[tool.hatch.build]
+include = ["src/**"]
+exclude = ["tests", "*.tests", "*.tests.*", "tests.*"]
+
+[project.scripts]
+benchmark = "benchmark:main"
