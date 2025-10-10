@@ -159,6 +159,7 @@ def get_meteor_scores(generated: list[str], references: list[list[str]]) -> dict
 
     except Exception as e:
         logger.error(f"METEOR calculation failed: {str(e)}")
+        raise
 
     return get_min_max_mean_std(meteor_scores)
 
@@ -205,6 +206,7 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
     except Exception as e:
         logger.error(f"BERTScore calculation failed: {e}")
         empty_cuda_cache()
+        raise
 
     return {
         'precision': get_min_max_mean_std(best_precision),
@@ -222,6 +224,7 @@ def get_bleu_scores(generated: list[str], references: list[list[str]]) -> dict[s
             bleu_scores.append(scores)
     except Exception as e:
         logger.error(f"BLEU calculation failed: {e}")
+        raise
 
     return get_min_max_mean_std(bleu_scores)
 
@@ -258,6 +261,7 @@ def get_sentence_transformer_similarity(generated: list[str], source_documents: 
     except Exception as e:
         logger.error(f"Sentence Transformer embedding similarity {model_name} failed: {e}")
         empty_cuda_cache()
+        raise
 
     return get_min_max_mean_std(similarities)
 
@@ -266,6 +270,7 @@ def get_alignscore_scores(generated: list[str], references: list[str]) -> dict[s
     Calculate AlignScore between generated summaries and abstracts.
     """
     scores = []
+    ckpt_path = OUT_DIR / "AlignScore-large.ckpt"
 
     try:
         logger.info(f"Calculating AlignScore on device: {DEVICE}")
@@ -273,7 +278,7 @@ def get_alignscore_scores(generated: list[str], references: list[str]) -> dict[s
 
         aligner = AlignScore(
             model="roberta-large",
-            ckpt_path=OUT_DIR / "AlignScore-large.ckpt",
+            ckpt_path=ckpt_path,
             batch_size=16,
             device=DEVICE,
         )
@@ -297,7 +302,9 @@ def get_alignscore_scores(generated: list[str], references: list[str]) -> dict[s
 
     except Exception as e:
         logger.error(f"AlignScore calculation failed: {e}")
+        logger.error(f"Make sure this file exists: {ckpt_path}")
         empty_cuda_cache()
+        raise
 
     return get_min_max_mean_std(scores)
 
