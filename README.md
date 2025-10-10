@@ -9,11 +9,18 @@ Benchmarking tool for evaluating text summarization methods on scientific papers
 3. Clone this repository
 4. Install dependencies
     ```bash
+    cd llm_summarization_benchmark  
     uv sync
     uv run spacy download en_core_web_sm
     ```
-5. Copy and adjust `Resources/example.env` to `Resources/.env`
-6. Run
+5. Install AlignScore-large
+    ```bash
+    mkdir -p Output/llm_summarization_benchmark
+    cd Output/llm_summarization_benchmark
+    wget https://huggingface.co/yzha/AlignScore/resolve/main/AlignScore-large.ckpt
+    ```
+6. Copy `Resources/example.env` to `Resources/.env` and adjust
+7. Run
     ```bash
    uv run benchmark
     ```
