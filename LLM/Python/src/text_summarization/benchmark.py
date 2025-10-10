@@ -56,7 +56,7 @@ from llm_apis.local_client import TextRankSummarizer, FrequencySummarizer
 from llm_apis.config import SUMMARY_MIN_WORDS, SUMMARY_MAX_WORDS, TOKEN_SIZE_SAMPLE_TEXT
 from text_summarization.metrics import (get_length_scores, get_meteor_scores, ROUGE_TYPES, get_rouge_scores,
                                         get_bert_scores, get_bleu_scores, get_sentence_transformer_similarity,
-                                        cleanup_metrics_cache)
+                                        get_alignscore_scores, cleanup_metrics_cache)
 from text_summarization.visualization import SummarizationVisualizer
 
 
@@ -107,6 +107,7 @@ class EvaluationResult:
     meteor_scores: dict[str, float]
     bleu_scores: dict[str, float]
     mpnet_content_coverage_scores: dict[str, float]
+    alignscore_scores: dict[str, float]
 
     def as_json(self, detailed: bool = False) -> dict[str, Any]:
         rouge = {f"{k}_{kk}": vv for k, v in self.rouge_scores.items() for kk, vv in v.items()}
@@ -115,6 +116,7 @@ class EvaluationResult:
         meteor = {f"meteor_{k}": v for k, v in self.meteor_scores.items()}
         bleu = {f"bleu_{k}": v for k, v in self.bleu_scores.items()}
         mpnet_content_coverage = {f"content_coverage_{k}": v for k, v in self.mpnet_content_coverage_scores.items()}
+        alignscore = {f"alignscore_{k}": v for k, v in self.alignscore_scores.items()}
         _exec_times = get_min_max_mean_std(self.execution_times)
         exec_times = {f"exec_time_{k}": v for k, v in _exec_times.items()}
         _lengths = get_min_max_mean_std(self.length_stats["all_lengths"])
@@ -139,6 +141,7 @@ class EvaluationResult:
             **meteor,
             **bleu,
             **mpnet_content_coverage,
+            **alignscore,
             **exec_times,
             **_variable_results
         }
@@ -402,7 +405,12 @@ class SummarizationBenchmark:
                 mpnet_content_coverage_scores=get_sentence_transformer_similarity(
                     generated=generated_summaries,
                     source_documents=[p.full_text for p in irc.papers],
-                    model_name="all-mpnet-base-v2")
+                    model_name="all-mpnet-base-v2"
+                ),
+                alignscore_scores=get_alignscore_scores(
+                    generated=generated_summaries,
+                    references=[p.abstract for p in irc.papers]
+                )
             )
 
             if result:

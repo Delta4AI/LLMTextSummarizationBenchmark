@@ -8,6 +8,7 @@ from rouge_score.rouge_scorer import RougeScorer
 from bert_score import score as bert_score
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
+from alignscore import AlignScore
 
 from llm_apis.huggingface_client import init_hf_cache_dir
 from text_summarization.summarization_utilities import get_min_max_mean_std
@@ -269,6 +270,55 @@ def get_sentence_transformer_similarity(generated: list[str], source_documents: 
             torch.cuda.empty_cache()
 
     return get_min_max_mean_std(similarities)
+
+def get_alignscore_scores(generated: list[str], references: list[str]) -> dict[str, float]:
+    """
+    Calculate AlignScore between generated summaries and abstracts.
+    """
+    scores = []
+
+    try:
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    except Exception:
+        device = "cpu"
+
+    try:
+        logger.info(f"Calculating AlignScore on device: {device}")
+
+        if torch and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        aligner = AlignScore(
+            model="roberta-large",
+            ckpt_path="text_summarization/model_ckpt/AlignScore-large.ckpt",
+            batch_size=16,
+            device=device,
+        )
+
+        batch_size = 16
+        for i in range(0, len(generated), batch_size):
+            batch_gen = generated[i:i + batch_size]
+            batch_ref = references[i:i + batch_size]
+
+            try:
+                batch_scores = aligner.score(batch_ref, batch_gen)
+                scores.extend(batch_scores)
+            except Exception as e:
+                logger.warning(f"AlignScore batch {i // batch_size + 1} failed: {e}")
+                continue
+
+            if torch and torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+        logger.info(f"AlignScore computed for {len(scores)} pairs")
+
+    except Exception as e:
+        logger.error(f"AlignScore calculation failed: {e}")
+        if torch and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    return get_min_max_mean_std(scores)
 
 
 def cleanup_metrics_cache():
