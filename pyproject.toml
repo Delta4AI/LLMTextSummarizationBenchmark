@@ -19,7 +19,7 @@ dependencies = [
 [tool.uv.sources]
 exploration-utilities = { path = "../exploration/ExplorationUtilities" }
 llm-apis = { path = "../llm_apis" }
-alignscore = { path = "../AlignScore" }
+alignscore = { git = "https://github.com/MNikley/AlignScore" }
 
 [build-system]
 requires = ["hatchling"]
