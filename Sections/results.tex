@@ -1,0 +1,33 @@
+\section{Results}
+
+Our benchmark results offer a comparative view of summarization performance across all evaluated models. We first present overall rankings, followed by comparisons between the main model groups. Additionally, we examine results on individual metrics, runtime performance, and correlations between the evaluation metrics used.
+
+\subsection{Overall Model Performance}
+
+- include something like the metric comparison plot or/and the rank heatmap to give an overall ranking across the models
+
+\subsection{Group Comparisons}
+
+- include comparisons with a focus on the model category (especially between general-purpose LLMs and reasoning-oriented LLMs)
+
+- also include the groups for traditional methods and encoder-decoder models but maybe not use the specialized category as it is small and not at all competitive 
+
+\subsection{Metric Correlations}
+
+- show correlation between metrics to justify the use of an aggregated score (Metrics Mean Score)
+
+\subsection{Performance by Metric Category}
+
+- show the performance when using only subsets of the metrics (only surface-level metrics vs only embedding-based metrics)
+
+\subsection{Compliance with Summary Length}
+
+- not sure if this is worth its own subsection but it is interesting to see as it also gives a good feeling for how well a model follows the given instructions.
+
+\subsection{Runtime Performance}
+
+- present the execution time across models, including distribution and outliers to give more context on execution time than just the average time for each model.
+
+\subsection{Other things to possibly include}
+
+- maybe show a handpicked example of good generated summary (good scores across all/most metrics, coming from a top-performing model) and a bad summary (bad scores across all/most metrics, coming from a low-performing model)

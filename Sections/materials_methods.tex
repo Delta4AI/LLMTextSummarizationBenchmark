@@ -47,7 +47,7 @@ The models were grouped into five categories:
 
 \begin{enumerate}
 	\item Traditional methods: As a foundation for comparison, we included two traditional extractive methods: a simple frequency-based approach and TextRank \cite{mihalcea-tarau-2004-textrank}. These methods provide a simple baseline to compare the more complex approaches with.
-	\item Encoder-Decoder models: We included a set of pre-trained encoder-decoder models, which are available through the HuggingFace library: BART (base and large) \cite{DBLP:journals/corr/abs-1910-13461}, T5 (base and large) \cite{2020t5}, mT5 \cite{hasan-etal-2021-xl}, and a variety of PEGASUS models \cite{zhang2019pegasus}. These models are often applied for abstractive summarization and represent well-established neural systems within our benchmark.
+	\item Encoder-Decoder models: We included a set of pre-trained encoder-decoder models, which are available through the HuggingFace library: BART (base and large) \cite{DBLP:journals/corr/abs-1910-13461}, T5 (base and large) \cite{2020t5}, mT5 \cite{hasan-etal-2021-xl}, and a variety of PEGASUS models \cite{zhang2020pegasuspretrainingextractedgapsentences}. These models are often applied for abstractive summarization and represent well-established neural systems within our benchmark.
 	\item General-purpose LLMs: We also evaluated a range of widely used large language models designed for broad application. This group includes models such as Gemma \cite{gemmateam2025gemma3technicalreport}, Granite \cite{mishra2024granitecodemodelsfamily}, LLaMA \cite{grattafiori2024llama3herdmodels}, Mistral \cite{jiang2023mistral7b}, Phi \cite{abdin2024phi3technicalreporthighly,abdin2024phi4technicalreport}, GPT \cite{brown2020languagemodelsfewshotlearners,openai2024gpt4technicalreport}, and Claude \cite{anthropic2025claude}, which represent the current landscape of general-purpose systems.
 	\item Reasoning-oriented LLMs: We further included several models developed with a focus on advanced reasoning capabilities. This group includes models from the DeepSeek-R1 family \cite{deepseekai2025deepseekr1incentivizingreasoningcapability}, Qwen \cite{qwen3technicalreport}, more GPT models such as GPT-oss \cite{gptoss2025} and GPT-5 \cite{openai2025gpt5}, Magistral \cite{mistralai2025magistral}, and some additional Claude models. Their design emphasizes multi-step problem solving and allowed us to explore whether reasoning affects summarization performance.
 	\item Specialized models: To assess whether domain adaptation improves summarization quality, we included MedLLaMA2 \cite{touvron2023llama2openfoundation} (a medical adaptation of LLaMA-2) and LED \cite{Beltagy2020Longformer} (arXiv-tuned), which are trained on medical/biomedical data or on summarization tasks themselves.
@@ -101,6 +101,7 @@ In addition to summary quality, we also considered practical aspects of model pe
 These measures complement the quality metrics by addressing whether a method is not only accurate but also feasible to use in practice.
 
 \subsection{Benchmarking Framework}
+
 The benchmark was conducted using Python 3.12. Gold standard data were retrieved from open-access publications published by ScienceDirect and Cell Press through manual extraction of titles, abstracts, and highlight sections, along with metadata including publication URLs, identifiers, section types, and article types where available. All data were stored in machine-readable JSON format. 
 
 The framework was implemented using the Python standard library supplemented by several specialized packages: pandas \cite{mckinney-proc-scipy-2010} for data import and export, scikit-learn \cite{scikit-learn} for computing cosine similarities of embeddings and TF-IDF vectors, networkx \cite{hagberg2008exploring} for graph construction and PageRank algorithm \cite{BRIN1998107}. Additional evaluation metrics were computed using NLTK \cite{bird2009natural} for METEOR and BLEU scores, ROUGE-score, BERT-score \cite{zhang2020bertscoreevaluatingtextgeneration}, AlignScore, and sentence-transformers \cite{reimers2019sentencebertsentenceembeddingsusing} with the all-mpnet-base-v2 model.
@@ -110,6 +111,7 @@ Communication with proprietary closed-source LLMs was facilitated through the of
 All LLMs were configured with a temperature parameter of 0.2 to optimize reproducibility while avoiding completely deterministic outputs. For the latest generation of OpenAI models featuring adaptive reasoning capabilities, the configuration was set to \texttt{text.verbosity = low} and \texttt{reasoning.effort = minimal}. The full set of parameters and prompts are documented in the \texttt{config.py} file in the repository.
 
 \subsection{Data Availability}
+
 The complete source code, documentation, gold standard dataset, and processed results are available at:
 
 \url{https://www.github.com/Delta4AI/LLMTextSummarizationBenchmark}.
