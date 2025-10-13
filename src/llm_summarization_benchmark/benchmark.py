@@ -369,14 +369,19 @@ class SummarizationBenchmark:
                 logger.info(f"Skipping interference and metrics for existing method: {irc.method_name}")
                 continue
 
-            if skip_inference and reset_metrics:
-                logger.info(f"Recalculating metrics for existing method: {irc.method_name}")
-                result = self._recalculate_metrics_from_cache(irc=irc)
-            else:
-                logger.info(f"Running interference and calculating metrics for method: {irc.method_name}")
-                result = self._run_interference_and_calculate_metrics(irc=irc)
-                if result is None:
-                    continue
+            try:
+                if skip_inference and reset_metrics:
+                    logger.info(f"Recalculating metrics for existing method: {irc.method_name}")
+                    result = self._recalculate_metrics_from_cache(irc=irc)
+                else:
+                    logger.info(f"Running interference and calculating metrics for method: {irc.method_name}")
+                    result = self._run_interference_and_calculate_metrics(irc=irc)
+                    if result is None:
+                        continue
+            except Exception as e:
+                logger.error(f"Failed to run interference and calculating metrics for method: {irc.method_name}: {e}")
+                logger.error("Re-run the benchmark to retry. Pipeline will continue now.")
+                continue
 
             if result:
                 self.results.add(method_name=irc.method_name, result=result)
