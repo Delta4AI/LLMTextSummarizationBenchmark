@@ -325,10 +325,13 @@ def get_alignscore_scores(generated: list[str], references: list[str]) -> dict[s
 
 def empty_cuda_cache(sync: bool = False):
     if DEVICE == "cuda":
+        logger.info("Clearing CUDA cache ..")
         torch.cuda.empty_cache()
         if sync:
+            logger.info("Syncing CUDA cache ..")
             torch.cuda.synchronize()
             time.sleep(5)
+            logger.info("Clearing CUDA cache after sync ..")
             torch.cuda.empty_cache()
     time.sleep(5)
 
