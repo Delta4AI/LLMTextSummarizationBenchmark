@@ -422,7 +422,6 @@ class SummarizationBenchmark:
 
     def _run_interference_and_calculate_metrics(self, irc: InterferenceRunContainer) -> EvaluationResult | None:
         self._warmup(run_params=irc)
-        time.sleep(1.5)
 
         try:
             self._run_batched_interference(run_params=irc)
@@ -468,11 +467,13 @@ class SummarizationBenchmark:
         )
 
     def _warmup(self, run_params: InterferenceRunContainer) -> None:
+        time.sleep(5)
         try:
             self.api_clients[run_params.platform].warmup(
                 model_name=run_params.model_name,
                 train_corpus=[_.formatted_text for _ in run_params.papers]
             )
+            time.sleep(5)
         except NotImplementedError:
             pass
         except Exception as e:

@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 ROUGE_TYPES = ['rouge1', 'rouge2', 'rougeL']
 ROUGE_SCORER = RougeScorer(ROUGE_TYPES, use_stemmer=True)
 OUT_DIR = get_project_root() / "Output" / "llm_summarization_benchmark"
+USE_MODEL_CACHE = False
 
 init_hf_cache_dir()
 
@@ -33,12 +34,15 @@ init_hf_cache_dir()
 class ModelCache:
     """Cache for reusing models to avoid reloading"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.sentence_transformers = {}
         self.bert_models = {}
 
     def get_sentence_transformer(self, model_name: str) -> SentenceTransformer:
         """Get or create a SentenceTransformer model"""
+        if not USE_MODEL_CACHE:
+            return SentenceTransformer(model_name, device=self._get_best_device())
+
         if model_name not in self.sentence_transformers:
             logger.info(f"Loading SentenceTransformer model: {model_name}")
 
@@ -88,6 +92,7 @@ class ModelCache:
         gc.collect()
         empty_cuda_cache(sync=True)
         self._log_memory_usage("After Cleanup")
+        time.sleep(5)
 
 
 _model_cache = ModelCache()
@@ -131,6 +136,8 @@ def get_rouge_scores(generated: list[str], references: list[list[str]]) -> dict[
         for rouge_type in ROUGE_TYPES:
             rouge_scores[rouge_type].append(max_scores[rouge_type])
 
+    time.sleep(5)
+
     return {
         rouge_type: get_min_max_mean_std(rouge_scores[rouge_type])
         for rouge_type in ROUGE_TYPES
@@ -160,6 +167,8 @@ def get_meteor_scores(generated: list[str], references: list[list[str]]) -> dict
     except Exception as e:
         logger.error(f"METEOR calculation failed: {str(e)}")
         raise
+
+    time.sleep(5)
 
     return get_min_max_mean_std(meteor_scores)
 
@@ -205,8 +214,9 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
 
     except Exception as e:
         logger.error(f"BERTScore calculation failed: {e}")
-        empty_cuda_cache()
         raise
+    finally:
+        empty_cuda_cache()
 
     return {
         'precision': get_min_max_mean_std(best_precision),
@@ -225,6 +235,8 @@ def get_bleu_scores(generated: list[str], references: list[list[str]]) -> dict[s
     except Exception as e:
         logger.error(f"BLEU calculation failed: {e}")
         raise
+
+    time.sleep(5)
 
     return get_min_max_mean_std(bleu_scores)
 
@@ -260,8 +272,9 @@ def get_sentence_transformer_similarity(generated: list[str], source_documents: 
 
     except Exception as e:
         logger.error(f"Sentence Transformer embedding similarity {model_name} failed: {e}")
-        empty_cuda_cache()
         raise
+    finally:
+        empty_cuda_cache()
 
     return get_min_max_mean_std(similarities)
 
@@ -303,8 +316,9 @@ def get_alignscore_scores(generated: list[str], references: list[str]) -> dict[s
     except Exception as e:
         logger.error(f"AlignScore calculation failed: {e}")
         logger.error(f"Make sure this file exists: {ckpt_path}")
-        empty_cuda_cache()
         raise
+    finally:
+        empty_cuda_cache()
 
     return get_min_max_mean_std(scores)
 
@@ -314,8 +328,9 @@ def empty_cuda_cache(sync: bool = False):
         torch.cuda.empty_cache()
         if sync:
             torch.cuda.synchronize()
-            time.sleep(0.5)
+            time.sleep(5)
             torch.cuda.empty_cache()
+    time.sleep(5)
 
 
 def cleanup_metrics_cache():
