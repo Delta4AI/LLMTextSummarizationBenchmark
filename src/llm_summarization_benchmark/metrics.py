@@ -183,7 +183,7 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
         logger.info(f"Calculating BERTScore with model: {model}")
         empty_cuda_cache()
 
-        for gen, ref_list in zip(generated, references):
+        for idx, (gen, ref_list) in enumerate(zip(generated, references)):
             with torch.no_grad():
                 P, R, F1 = bert_score(
                     cands=[gen] * len(ref_list),
@@ -200,7 +200,10 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
             best_f1.append(F1.max().item())
 
             del P, R, F1
-            empty_cuda_cache()
+
+            if (idx + 1) % 100 == 0:
+                logger.info(f"Processed {idx + 1}/{len(generated)} documents for {model}")
+
 
     except Exception as e:
         logger.error(f"BERTScore calculation failed: {e}")
