@@ -5,7 +5,7 @@ import time
 from nltk.translate.meteor_score import meteor_score
 from nltk.translate.bleu_score import sentence_bleu
 from rouge_score.rouge_scorer import RougeScorer
-from bert_score import score as bert_score
+from bert_score import score as bert_score, BERTScorer
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from alignscore import AlignScore
@@ -182,48 +182,41 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
     try:
         logger.info(f"Calculating BERTScore with model: {model}")
         empty_cuda_cache()
-        batch_size = 2
 
-        for i in range(0, len(generated), batch_size):
-            batch_gen = generated[i:i + batch_size]
-            batch_ref = references[i:i + batch_size]
+        for gen, ref_list in zip(generated, references):
+            with torch.no_grad():
+                P, R, F1 = bert_score(
+                    cands=[gen] * len(ref_list),
+                    refs=ref_list,
+                    model_type=model,
+                    lang="en",
+                    verbose=False,
+                    device='cuda' if torch and torch.cuda.is_available() else 'cpu',
+                    batch_size=8,
+                )
 
-            for gen, ref_list in zip(batch_gen, batch_ref):
-                # Calculate BERTScore against all references for this summary
-                with torch.no_grad():  # Disable gradient computation
-                    P, R, F1 = bert_score(
-                        cands=[gen] * len(ref_list),
-                        refs=ref_list,
-                        model_type=model,
-                        lang="en",
-                        verbose=False,
-                        device='cuda' if torch and torch.cuda.is_available() else 'cpu'
-                    )
+            best_precision.append(P.max().item())
+            best_recall.append(R.max().item())
+            best_f1.append(F1.max().item())
 
-                # Take the maximum scores
-                best_precision.append(P.max().item())
-                best_recall.append(R.max().item())
-                best_f1.append(F1.max().item())
-
-                # Clean up tensors
-                del P, R, F1
-
-                # Clear cache after each document
-                if torch and torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+            del P, R, F1
+            empty_cuda_cache()
 
     except Exception as e:
         logger.error(f"BERTScore calculation failed: {e}")
         raise
     finally:
-        empty_cuda_cache()
+        if hasattr(BERTScorer, '_model'):
+            BERTScorer._model = None
+
+        gc.collect()
+        empty_cuda_cache(sync=True)
 
     return {
         'precision': get_min_max_mean_std(best_precision),
         'recall': get_min_max_mean_std(best_recall),
         'f1': get_min_max_mean_std(best_f1)
     }
-
 
 def get_bleu_scores(generated: list[str], references: list[list[str]]) -> dict[str, float]:
     """Calculate BLEU score using best reference for each generated summary."""
@@ -235,8 +228,6 @@ def get_bleu_scores(generated: list[str], references: list[list[str]]) -> dict[s
     except Exception as e:
         logger.error(f"BLEU calculation failed: {e}")
         raise
-
-    time.sleep(5)
 
     return get_min_max_mean_std(bleu_scores)
 
@@ -326,14 +317,11 @@ def get_alignscore_scores(generated: list[str], references: list[str]) -> dict[s
 def empty_cuda_cache(sync: bool = False):
     if DEVICE == "cuda":
         logger.info("Clearing CUDA cache ..")
+        gc.collect()
         torch.cuda.empty_cache()
         if sync:
             logger.info("Syncing CUDA cache ..")
             torch.cuda.synchronize()
-            time.sleep(5)
-            logger.info("Clearing CUDA cache after sync ..")
-            torch.cuda.empty_cache()
-    time.sleep(5)
 
 
 def cleanup_metrics_cache():

@@ -56,7 +56,7 @@ from llm_apis.local_client import TextRankSummarizer, FrequencySummarizer
 from llm_apis.config import SUMMARY_MIN_WORDS, SUMMARY_MAX_WORDS, TOKEN_SIZE_SAMPLE_TEXT
 from llm_summarization_benchmark.metrics import (get_length_scores, get_meteor_scores, ROUGE_TYPES, get_rouge_scores,
                                                  get_bert_scores, get_bleu_scores, get_sentence_transformer_similarity,
-                                                 get_alignscore_scores, cleanup_metrics_cache)
+                                                 get_alignscore_scores, cleanup_metrics_cache, empty_cuda_cache)
 from llm_summarization_benchmark.visualization import SummarizationVisualizer
 
 
@@ -396,28 +396,11 @@ class SummarizationBenchmark:
         generated_summaries = [extract_response(r) for r in existing.full_responses]
         reference_summaries = [p.summaries for p in irc.papers]
 
-        return EvaluationResult(
-            method_name=irc.method_name,
-            execution_times=existing.execution_times,
-            full_responses=existing.full_responses,
-            summaries=generated_summaries,
-            length_stats=get_length_scores(generated_summaries, self.min_words, self.max_words),
-            input_tokens=[_.input_tokens for _ in existing.input_tokens if _.input_tokens is not None],
-            output_tokens=[_.output_tokens for _ in existing.output_tokens if _.output_tokens is not None],
-            rouge_scores=get_rouge_scores(generated_summaries, reference_summaries),
-            roberta_scores=get_bert_scores(generated_summaries, reference_summaries, "roberta-large"),
-            deberta_scores=get_bert_scores(generated_summaries, reference_summaries, "microsoft/deberta-xlarge-mnli"),
-            meteor_scores=get_meteor_scores(generated_summaries, reference_summaries),
-            bleu_scores=get_bleu_scores(generated_summaries, reference_summaries),
-            mpnet_content_coverage_scores=get_sentence_transformer_similarity(
-                generated=generated_summaries,
-                source_documents=[p.full_text for p in irc.papers],
-                model_name="all-mpnet-base-v2"
-            ),
-            alignscore_scores=get_alignscore_scores(
-                generated=generated_summaries,
-                references=[p.abstract for p in irc.papers]
-            )
+        return self._get_evaluation_result(
+            irc=irc,
+            generated_summaries=generated_summaries,
+            reference_summaries=reference_summaries,
+            existing_data=existing
         )
 
     def _run_interference_and_calculate_metrics(self, irc: InterferenceRunContainer) -> EvaluationResult | None:
@@ -442,28 +425,76 @@ class SummarizationBenchmark:
         generated_summaries = [p.extracted_response for p in irc.papers]
         reference_summaries = [p.summaries for p in irc.papers]
 
+        return self._get_evaluation_result(
+            irc=irc,
+            generated_summaries=generated_summaries,
+            reference_summaries=reference_summaries,
+            existing_data=None
+        )
+
+    def _get_evaluation_result(
+            self, irc: InterferenceRunContainer,
+            generated_summaries: list[str],
+            reference_summaries: list[list[str]],
+            existing_data: EvaluationResult | None
+    ) -> EvaluationResult:
+
+        if existing_data:
+            _execution_times = existing_data.execution_times
+            _full_responses = existing_data.full_responses
+            _input_tokens = [_ for _ in existing_data.input_tokens if _ is not None]
+            _output_tokens = [_ for _ in existing_data.output_tokens if _ is not None]
+        else:
+            _execution_times = [p.execution_time for p in irc.papers]
+            _full_responses = [p.raw_response for p in irc.papers]
+            _input_tokens = [p.input_tokens for p in irc.papers if p.input_tokens is not None]
+            _output_tokens = [p.output_tokens for p in irc.papers if p.output_tokens is not None]
+
+        _length_stats = get_length_scores(generated_summaries, self.min_words, self.max_words)
+        _rouge_scores = get_rouge_scores(generated_summaries, reference_summaries)
+
+        empty_cuda_cache(sync=True)
+        _roberta_scores = get_bert_scores(generated_summaries, reference_summaries, "roberta-large")
+
+        empty_cuda_cache(sync=True)
+        _deberta_scores = get_bert_scores(generated_summaries, reference_summaries, "microsoft/deberta-xlarge-mnli")
+
+        empty_cuda_cache(sync=True)
+        _meteor_scores = get_meteor_scores(generated_summaries, reference_summaries)
+
+        empty_cuda_cache(sync=True)
+        _bleu_scores = get_bleu_scores(generated_summaries, reference_summaries)
+
+        empty_cuda_cache(sync=True)
+        _mpnet_content_coverage_scores = get_sentence_transformer_similarity(
+            generated=generated_summaries,
+            source_documents=[p.full_text for p in irc.papers],
+            model_name="all-mpnet-base-v2"
+        )
+
+        empty_cuda_cache(sync=True)
+        _alignscore_scores = get_alignscore_scores(
+            generated=generated_summaries,
+            references=[p.abstract for p in irc.papers]
+        )
+
+        empty_cuda_cache(sync=True)
+
         return EvaluationResult(
             method_name=irc.method_name,
-            execution_times=[p.execution_time for p in irc.papers],
-            full_responses=[p.raw_response for p in irc.papers],
+            execution_times=_execution_times,
+            full_responses=_full_responses,
             summaries=generated_summaries,
-            length_stats=get_length_scores(generated_summaries, self.min_words, self.max_words),
-            input_tokens=[p.input_tokens for p in irc.papers if p.input_tokens is not None],
-            output_tokens=[p.output_tokens for p in irc.papers if p.output_tokens is not None],
-            rouge_scores=get_rouge_scores(generated_summaries, reference_summaries),
-            roberta_scores=get_bert_scores(generated_summaries, reference_summaries, "roberta-large"),
-            deberta_scores=get_bert_scores(generated_summaries, reference_summaries, "microsoft/deberta-xlarge-mnli"),
-            meteor_scores=get_meteor_scores(generated_summaries, reference_summaries),
-            bleu_scores=get_bleu_scores(generated_summaries, reference_summaries),
-            mpnet_content_coverage_scores=get_sentence_transformer_similarity(
-                generated=generated_summaries,
-                source_documents=[p.full_text for p in irc.papers],
-                model_name="all-mpnet-base-v2"
-            ),
-            alignscore_scores=get_alignscore_scores(
-                generated=generated_summaries,
-                references=[p.abstract for p in irc.papers]
-            )
+            length_stats=_length_stats,
+            input_tokens=_input_tokens,
+            output_tokens=_output_tokens,
+            rouge_scores=_rouge_scores,
+            roberta_scores=_roberta_scores,
+            deberta_scores=_deberta_scores,
+            meteor_scores=_meteor_scores,
+            bleu_scores=_bleu_scores,
+            mpnet_content_coverage_scores=_mpnet_content_coverage_scores,
+            alignscore_scores=_alignscore_scores
         )
 
     def _warmup(self, run_params: InterferenceRunContainer) -> None:
