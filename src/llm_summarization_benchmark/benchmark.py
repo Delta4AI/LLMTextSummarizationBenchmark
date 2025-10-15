@@ -602,13 +602,18 @@ class SummarizationBenchmark:
 
                 start_time = time.time()
 
-                _raw_response, _input_tokens, _output_tokens = self.api_clients[run_params.platform].summarize(
-                    text=paper.formatted_text,
-                    model_name=run_params.model_name,
-                    system_prompt_override=None,
-                    parameter_overrides=run_params.model_param_overrides,
-                    tokenizer_overrides=run_params.tokenizer_param_overrides,
-                )
+                try:
+                    _raw_response, _input_tokens, _output_tokens = self.api_clients[run_params.platform].summarize(
+                        text=paper.formatted_text,
+                        model_name=run_params.model_name,
+                        system_prompt_override=None,
+                        parameter_overrides=run_params.model_param_overrides,
+                        tokenizer_overrides=run_params.tokenizer_param_overrides,
+                    )
+                except RefusalError:
+                    _raw_response = "INSUFFICIENT_FINDINGS"
+                    _input_tokens = None
+                    _output_tokens = None
 
                 _execution_time = time.time() - start_time
 
@@ -715,6 +720,17 @@ class SummarizationBenchmark:
 
             changes = False
 
+    def submit_batch(self, platform: str, model: str):
+        if platform not in ["mistral"]:
+            logger.error("Not supported model for batch submission.")
+            return
+
+        logger.error("BATCH REQUESTS NOT IMPLEMENTED YET - ADD CACHING OF JOB IDs")
+        return
+        self.api_clients[platform].submit_batch(
+            model_name=model, system_prompt_override=None, parameter_overrides=None,
+            prompts=[_.formatted_text for _ in self.papers], papers_hash=self.papers_hash)
+
 
 def main():
     """Main execution function with length constraints."""
@@ -816,7 +832,7 @@ def main():
 
     # https://docs.mistral.ai/getting-started/models/models_overview/
     benchmark.add("mistral", "mistral-medium-2505")  # frontier-class multimodal model
-    benchmark.add("mistral", "magistral-medium-2507")  # frontier-class reasoning
+    # benchmark.add("mistral", "magistral-medium-2507")  # frontier-class reasoning
     benchmark.add("mistral", "mistral-large-2411")  # top-tier large model, high complexity tasks
     benchmark.add("mistral", "mistral-small-2506")
 
@@ -832,6 +848,8 @@ def main():
     # benchmark.add("ollama", "oscardp96/medcpt-query:latest")
 
     # benchmark.test_token_sizes()
+    benchmark.submit_batch("mistral", "magistral-medium-2509")
+
     benchmark.run(reset_metrics=args.reset_metrics)
     benchmark.apply_token_size_hotfix()
     benchmark.export()
