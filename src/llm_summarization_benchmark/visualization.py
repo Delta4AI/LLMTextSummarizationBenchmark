@@ -41,8 +41,6 @@ class SummarizationVisualizer:
         self.min_words = benchmark_ref.min_words
         self.max_words = benchmark_ref.max_words
         self.results = {}
-        self.alignscore_scores = {}
-        #self.alignscore_ref_scores = {}
         self.methods = None
         self.out_dir = None
         self.max_publications = None
@@ -56,7 +54,7 @@ class SummarizationVisualizer:
             Metric("RoBERTa", lambda m: self.results[m].roberta_scores["f1"], None, EMBEDDING_BASED),
             Metric("DeBERTa", lambda m: self.results[m].deberta_scores["f1"], None, EMBEDDING_BASED),
             Metric("all-mpnet-base-v2", lambda m: self.results[m].mpnet_content_coverage_scores, None, EMBEDDING_BASED),
-            Metric("AlignScore", lambda m: self.alignscore_scores.get(m, {"mean": -1, "min": 0, "max": 0, "std": 0}), None, EMBEDDING_BASED),
+            Metric("AlignScore", lambda m: self.results[m].alignscore_scores, None, EMBEDDING_BASED),
         ]
 
         self.aggregates = [
@@ -97,67 +95,6 @@ class SummarizationVisualizer:
         # https://plotly.com/python/discrete-color/#color-sequences-in-plotly-express
         self.colors = px.colors.qualitative.Vivid
 
-    def _load_alignscore_scores(self, path="alignscore_full_results_bs16.json"):
-        """Load AlignScore stats from JSON and map to {method: {mean,min,max,std}}."""
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                payload = json.load(f)
-            raw = payload.get("results", {})
-        except FileNotFoundError:
-            logger.warning("AlignScore file not found: %s (skipping AlignScore metric)", path)
-            self.alignscore_scores = {}
-            return
-        except Exception as e:
-            logger.warning("Failed to read AlignScore file: %s (skipping). Error: %s", path, e)
-            self.alignscore_scores = {}
-            return
-        
-        out = {}
-        for method, entry in raw.items():
-            mean = entry.get("AlignScore")
-            mn   = entry.get("Min")
-            mx   = entry.get("Max")
-            std  = entry.get("Std")
-
-            if mean is None:
-                continue
-
-            out[method] = {"mean": float(mean), "min": float(mn), "max": float(mx), "std": float(std)}
-        self.alignscore_scores = out
-    
-    # def _load_alignscore_ref_scores(self, path="alignscore_refs_full_results.json"):
-    #     try:
-    #         with open(path, "r", encoding="utf-8") as f:
-    #             payload = json.load(f)
-    #         raw = payload.get("results", {})
-    #     except FileNotFoundError:
-    #         logger.warning("AlignScore_refSum file not found: %s (skipping AlignScore_refSum metric)", path)
-    #         self.alignscore_ref_scores = {}
-    #         return
-    #     except Exception as e:
-    #         logger.warning("Failed to read AlignScore_refSum file: %s (skipping). Error: %s", path, e)
-    #         self.alignscore_ref_scores = {}
-    #         return
-        
-    #     out = {}
-    #     for method, entry in raw.items():
-    #         mean = entry.get("AlignScore_refSum")
-    #         mn   = entry.get("Min")
-    #         mx   = entry.get("Max")
-    #         std  = entry.get("Std")
-
-    #         if mean is None:
-    #             continue
-
-    #         out[method] = {
-    #             "mean": float(mean),
-    #             "min": float(mn),
-    #             "max": float(mx),
-    #             "std": float(std)
-    #         }
-
-    #     self.alignscore_ref_scores = out
-
     def create_all_visualizations(self):
         """Create all visualization plots as separate HTML files."""
         self.results = self.benchmark_ref.results.data[self.benchmark_ref.papers_hash]
@@ -166,9 +103,6 @@ class SummarizationVisualizer:
         self.out_dir = self.benchmark_ref.hashed_and_dated_output_dir
 
         logger.info("Creating interactive visualizations...")
-
-        self._load_alignscore_scores("alignscore_full_results_bs16.json")
-        #self._load_alignscore_ref_scores("alignscore_refs_full_results.json")
 
         self._aggregate_metric_scores()
         self._aggregate_execution_times()
@@ -188,8 +122,6 @@ class SummarizationVisualizer:
         self._create_tradeoff_3d()
         self._create_pareto_bubble()
         self._create_alignscore_only_plot()
-        #self._create_alignscore_ref_only_plot()
-        #self._create_grouped_metric_comparison_plot()
         self._create_group_bar_chart()
         self._create_llm_comparison_plot()
 
@@ -641,120 +573,6 @@ class SummarizationVisualizer:
 
         return shapes, annotations
 
-    # def _create_grouped_metric_comparison_plot(self):
-    #     """Compare metrics across predefined model groups."""
-    #     fig = go.Figure()
-
-    #     group_map = {
-    #         "local": ["local:textrank", "local:frequency"],
-    #         "huggingface": [m for m in self.methods if m.startswith("huggingface_")],
-    #         "specialized": ["ollama_medllama2:7b", "ollama_taozhiyuai/openbiollm-llama-3:8b_q8_0"],
-    #         "non-reasoning": [
-    #             "ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
-    #             "ollama_granite3.3:2b", "ollama_granite3.3:8b",
-    #             "ollama_llama3.1:8b", "ollama_llama3.2:1b", "ollama_llama3.2:3b",
-    #             "ollama_mistral:7b", "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
-    #             "ollama_PetrosStav/gemma3-tools:4b", "ollama_phi3:3.8b", "ollama_phi4:14b",
-    #             "ollama_qwen3:4b", "ollama_qwen3:8b", "openai_gpt-3.5-turbo", "openai_gpt-4.1",
-    #             "openai_gpt-4.1-mini", "openai_gpt-4o", "openai_gpt-4o-mini",
-    #             "anthropic_claude-3-5-haiku-20241022", "anthropic_claude-sonnet-4-20250514",
-    #             "mistral_mistral-medium-2505", "mistral_mistral-small-2506",
-    #             "mistral_mistral-large-2411", "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07"
-    #         ],
-    #         "reasoning": [
-    #             "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
-    #             "ollama_deepseek-r1:14b", "ollama_gpt-oss:20b", "anthropic_claude-opus-4-20250514",
-    #             "openai_gpt-5-2025-08-07", "mistral_magistral-medium-2507", "anthropic_claude-opus-4-1-20250805"
-    #         ],
-    #     }
-
-    #     group_names = list(group_map.keys())
-    #     metrics = [*self.metrics, *self.aggregates]
-
-    #     for i, metric in enumerate(metrics):
-    #         color = self.colors[i % len(self.colors)] if metric.line_override is None else metric.line_override["color"]
-    #         low_opacity_color = color.replace("rgb(", "rgba(").replace(")", ", 0.2)")
-
-    #         means, mins, maxs, stds = [], [], [], []
-
-    #         for group in group_names:
-    #             group_scores = []
-    #             for method in group_map[group]:
-    #                 try:
-    #                     score = metric.getter(method)
-    #                     if score["mean"] >= 0:
-    #                         group_scores.append(score)
-    #                 except:
-    #                     continue
-
-    #             if group_scores:
-    #                 means.append(np.mean([s["mean"] for s in group_scores]))
-    #                 mins.append(np.min([s["min"] for s in group_scores]))
-    #                 maxs.append(np.max([s["max"] for s in group_scores]))
-    #                 stds.append(np.mean([s["std"] for s in group_scores]))
-    #             else:
-    #                 means.append(0)
-    #                 mins.append(0)
-    #                 maxs.append(0)
-    #                 stds.append(0)
-
-    #         fig.add_trace(
-    #             go.Scatter(
-    #                 x=group_names,
-    #                 y=means,
-    #                 mode="lines+markers",
-    #                 name=metric.label,
-    #                 line={"color": color, "width": 2} if metric.line_override is None else metric.line_override,
-    #                 marker={"size": 8},
-    #                 opacity=1.0,
-    #                 customdata=[[min_, max_, std_] for min_, max_, std_ in zip(mins, maxs, stds)],
-    #                 hovertemplate=(
-    #                     f"<b>%{{x}}</b><br>{metric.label}: %{{y:.3f}}"
-    #                     "<br>Min: %{customdata[0]:.3f}<br>Max: %{customdata[1]:.3f}<br>Std: %{customdata[2]:.3f}<extra></extra>"
-    #                 )
-    #             )
-    #         )
-
-    #         if not metric.error_bars:
-    #             continue
-
-    #         fig.add_trace(go.Scatter(
-    #             x=group_names,
-    #             y=maxs,
-    #             mode='lines',
-    #             line={'width': 0},
-    #             showlegend=False,
-    #             hoverinfo='skip'
-    #         ))
-
-    #         fig.add_trace(go.Scatter(
-    #             x=group_names,
-    #             y=mins,
-    #             mode='lines',
-    #             fill='tonexty',
-    #             fillcolor=low_opacity_color,
-    #             line={'width': 0},
-    #             showlegend=False,
-    #             hoverinfo='skip'
-    #         ))
-
-    #     fig.update_layout(
-    #         title="Metric Comparison Between Model Groups",
-    #         xaxis_title="Model Groups",
-    #         yaxis_title="Score",
-    #         yaxis={"range": [0, 1.01]},
-    #         hovermode='closest',
-    #         margin={"b": 10},
-    #         xaxis={
-    #             "tickangle": -25,
-    #             "tickfont": {"size": 12},
-    #         },
-    #         legend={"groupclick": "togglegroup"},
-    #     )
-
-    #     output_path = self.out_dir / "grouped_metric_comparison.html"
-    #     pyo.plot(fig, filename=str(output_path), auto_open=False)
-
     def _create_group_bar_chart(self):
         """Grouped bar chart showing Metric Mean Score and Overall Score for each model group."""
 
@@ -887,7 +705,7 @@ class SummarizationVisualizer:
                 self.results[m].roberta_scores["f1"]["mean"],
                 self.results[m].deberta_scores["f1"]["mean"],
                 self.results[m].mpnet_content_coverage_scores["mean"],
-                self.alignscore_scores.get(m, {}).get("mean", 0)
+                self.results[m].alignscore_scores["mean"]
             ]),
             "Execution Time": lambda m: self.normalized_exec_times.get(m, {}).get("mean"),
             "% Within Bounds": lambda m: self.results[m].length_stats["within_bounds_pct"] / 100
@@ -932,13 +750,9 @@ class SummarizationVisualizer:
 
     def _create_alignscore_only_plot(self, out_name="alignscore_only.html"):
         """Bar chart of AlignScore per model with asymmetric error bars (min/max)."""
-        if not self.alignscore_scores:
-            logger.warning("No AlignScore scores loaded; skipping AlignScore-only plot.")
-            return
-
         rows = []
         for m in self.methods:
-            s = self.alignscore_scores.get(m)
+            s = getattr(self.results[m], "alignscore_scores", None)
             if not s or s.get("mean") is None:
                 continue
             rows.append({
@@ -1024,106 +838,6 @@ class SummarizationVisualizer:
 
         output_path = self.out_dir / out_name
         pyo.plot(fig, filename=str(output_path), auto_open=False)
-
-    # def _create_alignscore_ref_only_plot(self, out_name="alignscore_ref_only.html"):
-    #     """Bar chart of AlignScore_refSum (vs reference summaries) per model with asymmetric error bars."""
-    #     if not getattr(self, "alignscore_ref_scores", None):
-    #         logger.warning("No AlignScore_refSum scores loaded; skipping AlignScore-ref-only plot.")
-    #         return
-
-    #     rows = []
-    #     for m in self.methods:
-    #         s = self.alignscore_ref_scores.get(m)
-    #         if not s or s.get("mean") is None:
-    #             continue
-    #         rows.append({
-    #             "method": m,
-    #             "mean": float(s["mean"]),
-    #             "min": float(s["min"]),
-    #             "max": float(s["max"]),
-    #             "std": float(s["std"])
-    #         })
-
-    #     if not rows:
-    #         logger.warning("No overlapping methods between results and AlignScore_refSum; skipping plot.")
-    #         return
-
-    #     rows.sort(key=lambda r: r["mean"], reverse=True)
-
-    #     def short_name(name: str) -> str:
-    #         return name.replace("huggingface_", "hf_") if name.startswith("huggingface_") else name
-
-    #     x = [short_name(r["method"]) for r in rows]
-    #     y = [r["mean"] for r in rows]
-    #     err_plus  = [max(0.0, r["max"] - r["mean"]) for r in rows]
-    #     err_minus = [max(0.0, r["mean"] - r["min"]) for r in rows]
-
-    #     def family(name: str) -> str:
-    #         if name.startswith("local:"): return "Local"
-    #         if name.startswith("huggingface_"): return "HuggingFace"
-    #         if name.startswith("ollama_"): return "Ollama"
-    #         if name.startswith("openai_"): return "OpenAI"
-    #         if name.startswith("anthropic_"): return "Anthropic"
-    #         if name.startswith("mistral_"): return "Mistral"
-    #         return "Other"
-
-    #     families = [family(r["method"]) for r in rows]
-    #     fam_set = list(dict.fromkeys(families))
-    #     color_map = {fam: self.colors[i % len(self.colors)] for i, fam in enumerate(fam_set)}
-    #     bar_colors = [color_map[f] for f in families]
-
-    #     fig = go.Figure(
-    #         data=[
-    #             go.Bar(
-    #                 x=x,
-    #                 y=y,
-    #                 marker={"color": bar_colors},
-    #                 error_y=dict(
-    #                     type="data",
-    #                     symmetric=False,
-    #                     array=err_plus,
-    #                     arrayminus=err_minus,
-    #                     thickness=1.5,
-    #                     width=2,
-    #                     visible=True
-    #                 ),
-    #                 hovertemplate=(
-    #                     "<b>%{x}</b><br>"
-    #                     "AlignScore_refSum (mean): %{y:.4f}<br>"
-    #                     "min–max: %{customdata[0]:.4f} – %{customdata[1]:.4f}<br>"
-    #                     "std: %{customdata[2]:.4f}<extra></extra>"
-    #                 ),
-    #                 customdata=[[r["min"], r["max"], r["std"]] for r in rows],
-    #                 name="AlignScore_refSum",
-    #                 showlegend=False,
-    #             )
-    #         ]
-    #     )
-
-    #     for fam, color in color_map.items():
-    #         fig.add_trace(
-    #             go.Bar(
-    #                 x=[None], y=[None],
-    #                 marker={"color": color},
-    #                 name=fam,
-    #                 showlegend=True
-    #             )
-    #         )
-
-    #     fig.update_layout(
-    #         title=f"AlignScore vs Reference Summaries (AlignScore_refSum) by Model (n={len(rows)})",
-    #         xaxis_title="Model",
-    #         yaxis_title="AlignScore_refSum",
-    #         yaxis=dict(range=[0, 1.01]),
-    #         bargap=0.2,
-    #         hovermode="closest",
-    #         legend_title_text="Family",
-    #         xaxis=dict(tickangle=-45, tickfont={"size": 10}),
-    #         margin={"b": 40}
-    #     )
-
-    #     output_path = self.out_dir / out_name
-    #     pyo.plot(fig, filename=str(output_path), auto_open=False)
 
     def _create_length_analysis_plot(self):
         """Create length analysis plot with compliance breakdown."""
