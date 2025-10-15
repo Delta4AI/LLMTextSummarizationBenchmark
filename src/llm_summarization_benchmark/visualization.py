@@ -1420,8 +1420,9 @@ class SummarizationVisualizer:
         Only includes true quality metrics (e.g., ROUGE, BERTScore, METEOR, BLEU, mpnet).
         Uses Pearson correlation coefficient.
         """
-        chosen_metrics = [*self.metrics]  
+        chosen_metrics = [*self.metrics]
         labels = [m.label for m in chosen_metrics]
+        categories = [m.category for m in chosen_metrics]
 
         data = []
         for metric in chosen_metrics:
@@ -1433,7 +1434,7 @@ class SummarizationVisualizer:
                     val = np.nan
                 row.append(val)
             data.append(row)
-        
+
         A = np.array(data, dtype=float)
 
         with np.errstate(invalid="ignore"):
@@ -1442,6 +1443,69 @@ class SummarizationVisualizer:
         corr_filled = np.array(corr.filled(np.nan))
         np.fill_diagonal(corr_filled, 1.0)
         corr_filled = np.nan_to_num(corr_filled, nan=0.0)
+
+        def get_category_range(cat_name):
+            idxs = [i for i, c in enumerate(categories) if c == cat_name]
+            return (min(idxs), max(idxs)) if idxs else (None, None)
+
+        surf_start, surf_end = get_category_range(SURFACE_LEVEL)
+        emb_start, emb_end = get_category_range(EMBEDDING_BASED)
+
+        category_colors = {
+            SURFACE_LEVEL: "rgba(65, 105, 225, 0.4)",
+            EMBEDDING_BASED: "rgba(34, 139, 34, 0.4)",
+        }
+
+        shapes = []
+        annotations = []
+
+        def add_category_band(start, end, color, label_text, text_color):
+            if start is None:
+                return
+
+            shapes.append(dict(
+                type="rect",
+                xref="x", yref="paper",
+                x0=start - 0.5, x1=end + 0.5,
+                y0=1.02, y1=1.07,
+                fillcolor=color,
+                line=dict(width=0)
+            ))
+
+            shapes.append(dict(
+                type="rect",
+                xref="paper", yref="y",
+                x0=1.01, x1=1.06,
+                y0=start - 0.5, y1=end + 0.5,
+                fillcolor=color,
+                line=dict(width=0)
+            ))
+
+            annotations.append(dict(
+                x=(start + end) / 2,
+                y=1.045,
+                xref="x",
+                yref="paper",
+                text=label_text,
+                showarrow=False,
+                font=dict(size=13, color=text_color, family="Arial", weight="bold"),
+                yanchor="middle"
+            ))
+
+            annotations.append(dict(
+                x=1.050,
+                y=(start + end) / 2,
+                xref="paper",
+                yref="y",
+                text=label_text,
+                showarrow=False,
+                font=dict(size=13, color=text_color, family="Arial", weight="bold"),
+                textangle=90,
+                yanchor="middle"
+            ))
+
+        add_category_band(surf_start, surf_end, category_colors[SURFACE_LEVEL], "Surface-level", "royalblue")
+        add_category_band(emb_start, emb_end, category_colors[EMBEDDING_BASED], "Embedding-based", "forestgreen")
 
         # heatmap
         fig = go.Figure(
@@ -1452,12 +1516,10 @@ class SummarizationVisualizer:
                 zmin=-1, zmax=1,
                 colorscale="RdBu",
                 reversescale=True,
-                colorbar=dict(title="ρ")
+                colorbar=dict(title="ρ", x=1.12)
             )
         )
 
-        # annotate only upper triangle and correlations above 0.5
-        annotations = []
         for i in range(len(labels)):
             for j in range(len(labels)):
                 if j >= i and abs(corr_filled[i, j]) >= 0.5:
@@ -1467,15 +1529,16 @@ class SummarizationVisualizer:
                         showarrow=False,
                         font=dict(size=11, color="black")
                     ))
-        
+
         fig.update_layout(
             title="Correlation Between Metrics (across models)",
             xaxis=dict(tickangle=60),
             yaxis=dict(autorange="reversed"),
             annotations=annotations,
-            margin=dict(l=120, r=40, t=60, b=120),
-            height=700,
-            width=700
+            shapes=shapes,
+            margin=dict(l=140, r=200, t=100, b=140),
+            height=750,
+            width=880
         )
 
         output_path = self.out_dir / "metric_correlation_matrix.html"
@@ -1794,7 +1857,7 @@ if __name__ == "__main__":
         cd /path/to/Repositories/exploration/LLM
         uv run Python/src/text_summarization/visualization.py
     """
-    from text_summarization.benchmark import SummarizationBenchmark, GOLD_STANDARD_DATA, EvaluationResult
+    from llm_summarization_benchmark.benchmark import SummarizationBenchmark, GOLD_STANDARD_DATA, EvaluationResult
     benchmark = SummarizationBenchmark()
     benchmark.load_papers(GOLD_STANDARD_DATA)
     benchmark.load_results()
