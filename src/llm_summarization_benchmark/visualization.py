@@ -98,7 +98,7 @@ class SummarizationVisualizer:
     def create_all_visualizations(self):
         """Create all visualization plots as separate HTML files."""
         self.results = self.benchmark_ref.results.data[self.benchmark_ref.papers_hash]
-        self.methods = list(self.results.keys())
+        self.methods = [f"{_[0]}_{_[1]}" if _[1] else f"{_[0]}" for _ in self.benchmark_ref.models]
         self._sort_methods()
         self.out_dir = self.benchmark_ref.hashed_and_dated_output_dir
 
@@ -123,7 +123,10 @@ class SummarizationVisualizer:
         self._create_pareto_bubble()
         self._create_alignscore_only_plot()
         self._create_group_bar_chart()
-        self._create_llm_comparison_plot()
+        try:
+            self._create_llm_comparison_plot()
+        except Exception as exc:
+            logger.error("Failed to create llm comparison plot: %s", exc)
 
         logger.info(f"Interactive visualizations saved to {self.out_dir}")
 
@@ -141,7 +144,8 @@ class SummarizationVisualizer:
         self.methods.sort(key=sort_key)
 
     def _aggregate_metric_scores(self):
-        for _m in self.results.values():
+        for method in self.methods:
+            _m = self.results[method]
             valid_metrics = []
 
             for metric in self.metrics:
@@ -162,15 +166,13 @@ class SummarizationVisualizer:
 
     def _aggregate_execution_times(self):
         """Calculate normalized execution times (inverted: faster = higher score)."""
-        methods = self.results.keys()
-
-        mean_times = {m: np.mean(self.results[m].execution_times) for m in methods}
+        mean_times = {m: np.mean(self.results[m].execution_times) for m in self.methods}
 
         max_exec_time = max(mean_times.values())
         min_exec_time = min(mean_times.values())
 
         if max_exec_time == min_exec_time:
-            self.normalized_exec_times = dict.fromkeys(methods, 1.0)
+            self.normalized_exec_times = dict.fromkeys(self.methods, 1.0)
             return
 
         self.normalized_exec_times = {
@@ -179,16 +181,14 @@ class SummarizationVisualizer:
                 "max": np.max(self.results[m].execution_times),
                 "mean": 1 - (mean_times[m] - min_exec_time) / (max_exec_time - min_exec_time),
                 "std": np.std(self.results[m].execution_times),
-            } for m in methods
+            } for m in self.methods
         }
 
     def _calculate_acceptance_rates(self):
         """Calculate acceptance rates based on how many responses are present."""
-        methods = self.results.keys()
+        self.max_publications = max(len(self.results[m].execution_times) for m in self.methods)
 
-        self.max_publications = max(len(self.results[m].execution_times) for m in methods)
-
-        for method in methods:
+        for method in self.methods:
             publications_processed = len(self.results[method].execution_times)
             coverage_ratio = publications_processed / self.max_publications if self.max_publications > 0 else 0
 
@@ -201,7 +201,7 @@ class SummarizationVisualizer:
 
     def _calculate_insufficient_findings_rates(self):
         """Calculate summary rates and normalize to 0-1 where 1 is best (fewer insufficient findings)."""
-        for method in self.results.keys():
+        for method in self.methods:
             insufficient_findings = [
                 _ for _ in self.results[method].summaries
                 if _ == "INSUFFICIENT_FINDINGS"
@@ -242,21 +242,19 @@ class SummarizationVisualizer:
 
     def _calculate_token_costs(self):
         """Calculate token costs and normalize to 0-1 where 1 is best (lower cost)."""
-        methods = list(self.results.keys())
-
         raw_input_costs = {}
         raw_output_costs = {}
 
-        for method in methods:
+        for method in self.methods:
             self._add_mean_min_max_std_and_handle_none(self.results[method].input_tokens, method, raw_input_costs)
             self._add_mean_min_max_std_and_handle_none(self.results[method].output_tokens, method, raw_output_costs)
 
-        output_means = [raw_output_costs[method]["mean"] for method in methods]
+        output_means = [raw_output_costs[method]["mean"] for method in self.methods]
         max_output = max(output_means)
         min_output = min(output_means)
 
         if max_output != min_output:
-            for method in methods:
+            for method in self.methods:
                 raw_mean = raw_output_costs[method]["mean"]
                 normalized_mean = 1 - (raw_mean - min_output) / (max_output - min_output)
 
@@ -267,7 +265,7 @@ class SummarizationVisualizer:
                     "std": 0.0
                 }
         else:
-            for method in methods:
+            for method in self.methods:
                 self.output_token_costs[method] = {
                     "mean": 1.0,
                     "min": 1.0,
@@ -279,10 +277,8 @@ class SummarizationVisualizer:
 
     def _calculate_final_combined_scores(self):
         """Calculate final combined score from all normalized metrics."""
-        methods = self.results.keys()
-
         # check whether to include costs
-        output_token_means = {method: self.output_token_costs[method]["mean"] for method in methods}
+        output_token_means = {method: self.output_token_costs[method]["mean"] for method in self.methods}
         include_cost = any(tokens > 0 for tokens in output_token_means.values())
 
         if include_cost:
@@ -296,7 +292,7 @@ class SummarizationVisualizer:
             acceptance_weight = 0.15 # 0.075
             cost_weight = 0.0
 
-        for method in methods:
+        for method in self.methods:
             metric_sum_score = self.metric_scores.get(method, {}).get("mean", 0)
             speed_score = self.normalized_exec_times.get(method, {}).get("mean", 0)
             acceptance_score = self.acceptance_scores.get(method, {}).get("mean", 0)
@@ -366,12 +362,9 @@ class SummarizationVisualizer:
             ]
         }
 
-        # Flatten the groups into the desired order
-        self.methods = []
-        self.group_labels = []  # For drawing brackets
-        for group, models in group_map.items():
-            self.methods.extend(models)
-            self.group_labels.extend([group] * len(models))
+        model_to_group = {model: group for group, models in group_map.items() for model in models}
+        # For drawing brackets
+        self.group_labels = [model_to_group.get(model, "UNCATEGORIZED") for model in self.methods]
 
         best_overall_method = max(self.methods, key=lambda m: self.combined_final_scores[m]["mean"])
 
