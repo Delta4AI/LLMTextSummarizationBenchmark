@@ -2,6 +2,7 @@ import argparse
 import logging
 import math
 import json
+from copy import deepcopy
 
 import plotly.graph_objects as go
 import plotly.express as px
@@ -23,6 +24,46 @@ AGGREGATE = "Metrics: Aggregate"
 PERFORMANCE = "Performance"
 OVERALL = "Overall (70% metrics, 10% speed/accept./cost)"
 
+# model grouping
+MODEL_GROUPS = {
+    "Traditional Methods": [
+        "local:textrank", "local:frequency"
+    ],
+    "Encoder-Decoder Models": [
+        "huggingface_facebook/bart-large-cnn", "huggingface_facebook/bart-base",
+        "huggingface_google-t5/t5-base", "huggingface_google-t5/t5-large",
+        "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+        "huggingface_google/pegasus-xsum", "huggingface_google/pegasus-large",
+        "huggingface_google/pegasus-cnn_dailymail"
+    ],
+    "General-purpose LLMs": [
+        "ollama_gemma3:270M","ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
+        "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
+        "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
+        "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
+        "ollama_PetrosStav/gemma3-tools:4b", "ollama_phi3:3.8b", "ollama_phi4:14b",
+        "openai_gpt-3.5-turbo", "openai_gpt-4.1", "openai_gpt-4.1-mini",
+        "openai_gpt-4o", "openai_gpt-4o-mini", "anthropic_claude-3-5-haiku-20241022",
+        "mistral_mistral-medium-2505", "mistral_mistral-small-2506", "mistral_mistral-large-2411",
+        "huggingface:chat_swiss-ai/Apertus-8B-Instruct-2509", "ollama_granite4:tiny-h",
+        "ollama_granite4:small-h", "ollama_granite4:micro", "ollama_granite4:micro-h",
+
+    ],
+    "Reasoning-oriented LLMs": [
+        "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
+        "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
+        "ollama_gpt-oss:20b", "anthropic_claude-sonnet-4-20250514",
+        "anthropic_claude-opus-4-20250514", "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
+        "openai_gpt-5-2025-08-07", "anthropic_claude-opus-4-1-20250805"
+    ],
+    "Specialized Models": [
+        "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
+        "ollama_medllama2:7b", "huggingface_google/pegasus-pubmed",
+        "huggingface_google/bigbird-pegasus-large-pubmed", "huggingface:completion_microsoft/biogpt",
+        "huggingface:chat_Uni-SMART/SciLitLLM1.5-7B", "huggingface:chat_Uni-SMART/SciLitLLM1.5-14B",
+        "huggingface:chat_aaditya/OpenBioLLM-Llama3-8B", "huggingface:conversational_BioMistral/BioMistral-7B"
+    ],
+}
 
 class Metric(NamedTuple):
     label: str
@@ -99,6 +140,8 @@ class SummarizationVisualizer:
         """Create all visualization plots as separate HTML files."""
         self.results = self.benchmark_ref.results.data[self.benchmark_ref.papers_hash]
         self.methods = [f"{_[0]}_{_[1]}" if _[1] else f"{_[0]}" for _ in self.benchmark_ref.models]
+        # temporarily pull methods from pkl file again
+        self.methods = list(self.results.keys())
         self._sort_methods()
         self.out_dir = self.benchmark_ref.hashed_and_dated_output_dir
 
@@ -325,42 +368,7 @@ class SummarizationVisualizer:
     def _create_metric_comparison_plot(self):
         """Create ROUGE comparison plot with BERTScore with filled confidence bands."""
 
-        # Override self.methods with custom group order
-        group_map = {
-            "Traditional Methods": [
-                "local:textrank", "local:frequency"
-            ],
-            "Encoder-Decoder Models": [
-                "huggingface_facebook/bart-large-cnn", "huggingface_facebook/bart-base",
-                "huggingface_google-t5/t5-base", "huggingface_google-t5/t5-large",
-                "huggingface_csebuetnlp/mT5_multilingual_XLSum",
-                "huggingface_google/pegasus-xsum", "huggingface_google/pegasus-large",
-                "huggingface_google/pegasus-cnn_dailymail"
-            ],
-            "General-purpose LLMs": [
-                "ollama_gemma3:270M", "ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
-                "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
-                "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
-                "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
-                "ollama_PetrosStav/gemma3-tools:4b", "ollama_phi3:3.8b", "ollama_phi4:14b",
-                "openai_gpt-3.5-turbo", "openai_gpt-4.1", "openai_gpt-4.1-mini",
-                "openai_gpt-4o", "openai_gpt-4o-mini", "anthropic_claude-3-5-haiku-20241022",
-                "mistral_mistral-medium-2505", "mistral_mistral-small-2506", "mistral_mistral-large-2411"
-            ],
-            "Reasoning-oriented LLMs": [
-                "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
-                "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
-                "ollama_gpt-oss:20b", "anthropic_claude-sonnet-4-20250514",
-                "anthropic_claude-opus-4-20250514", "mistral_magistral-medium-2507",
-                "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
-                "openai_gpt-5-2025-08-07", "anthropic_claude-opus-4-1-20250805"
-            ],
-            "Specialized Models": [
-                "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
-                "ollama_medllama2:7b", "ollama_taozhiyuai/openbiollm-llama-3:8b_q8_0",
-                "ollama_koesn/llama3-openbiollm-8b:q4_K_M", "ollama_adrienbrault/biomistral-7b:Q4_K_M"
-            ]
-        }
+        group_map = MODEL_GROUPS
 
         model_to_group = {model: group for group, models in group_map.items() for model in models}
         # For drawing brackets
@@ -567,58 +575,18 @@ class SummarizationVisualizer:
         return shapes, annotations
 
     def _create_group_bar_chart(self):
-        """Grouped bar chart showing Metric Mean Score and Overall Score for each model group."""
+        """Bar chart showing Metric Mean Score for each model group."""
 
-        # group definitions
-        group_map = {
-            "Traditional Methods": [
-                "local:textrank", "local:frequency"
-            ],
-            "Encoder-Decoder Models": [
-                "huggingface_facebook/bart-large-cnn", "huggingface_facebook/bart-base",
-                "huggingface_google-t5/t5-base", "huggingface_google-t5/t5-large",
-                "huggingface_csebuetnlp/mT5_multilingual_XLSum",
-                "huggingface_google/pegasus-xsum", "huggingface_google/pegasus-large",
-                "huggingface_google/pegasus-cnn_dailymail"
-            ],
-            "General-purpose LLMs": [
-                "ollama_gemma3:270M","ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
-                "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
-                "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
-                "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
-                "ollama_PetrosStav/gemma3-tools:4b", "ollama_phi3:3.8b", "ollama_phi4:14b",
-                "openai_gpt-3.5-turbo", "openai_gpt-4.1", "openai_gpt-4.1-mini",
-                "openai_gpt-4o", "openai_gpt-4o-mini", "anthropic_claude-3-5-haiku-20241022",
-                "mistral_mistral-medium-2505", "mistral_mistral-small-2506", "mistral_mistral-large-2411"
-            ],
-            "Reasoning-oriented LLMs": [
-                "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
-                "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
-                "ollama_gpt-oss:20b", "anthropic_claude-sonnet-4-20250514",
-                "anthropic_claude-opus-4-20250514", "mistral_magistral-medium-2507",
-                "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
-                "openai_gpt-5-2025-08-07", "anthropic_claude-opus-4-1-20250805"
-            ],
-            "Specialized Models": [
-                "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
-                "ollama_medllama2:7b",
-                "ollama_taozhiyuai/openbiollm-llama-3:8b_q8_0", "ollama_koesn/llama3-openbiollm-8b:q4_K_M",
-                "ollama_adrienbrault/biomistral-7b:Q4_K_M"
-            ],
-        }
+        group_map = MODEL_GROUPS
 
         group_names = list(group_map.keys())
 
         metric_means = []
-        overall_means = []
 
         for group in group_names:
             models = group_map[group]
             metric_scores = [self.metric_scores[m]["mean"] for m in models if m in self.metric_scores]
-            overall_scores = [self.combined_final_scores[m]["mean"] for m in models if m in self.combined_final_scores]
-
             metric_means.append(np.mean(metric_scores) if metric_scores else 0)
-            overall_means.append(np.mean(overall_scores) if overall_scores else 0)
 
         # create grouped bar chart
         fig = go.Figure()
@@ -632,26 +600,16 @@ class SummarizationVisualizer:
             textposition="auto"
         ))
 
-        fig.add_trace(go.Bar(
-            x=group_names,
-            y=overall_means,
-            name="Overall Score (incl. performance)",
-            marker_color="rgb(55, 83, 109)",
-            text=[f"{v:.3f}" for v in overall_means],
-            textposition="auto"
-        ))
-
         fig.update_layout(
-            title="Comparison of Model Groups by Metric Mean and Overall Score",
+            title="Comparison of Model Groups by Metric Mean Score",
             xaxis_title="Model Groups",
-            yaxis_title="Score",
+            yaxis_title="Metric Mean Score",
             yaxis=dict(range=[0, 1.0]),
             barmode="group",
-            bargap=0.25,
-            bargroupgap=0.15,
+            bargap=0.3,
             legend=dict(x=0.5, y=1.1, orientation="h", xanchor="center"),
             margin=dict(l=60, r=40, t=80, b=100),
-            height=550
+            height=500
         )
 
         output_path = self.out_dir / "group_bar_chart.html"
@@ -660,33 +618,12 @@ class SummarizationVisualizer:
     def _create_llm_comparison_plot(self):
         """Compare General-purpose vs Reasoning-oriented LLMs across key metrics."""
         group_map = {
-            "General-purpose LLMs": {
-                "models": [
-                    "ollama_gemma3:270M","ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
-                    "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
-                    "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
-                    "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
-                    "ollama_PetrosStav/gemma3-tools:4b", "ollama_phi3:3.8b", "ollama_phi4:14b",
-                    "openai_gpt-3.5-turbo", "openai_gpt-4.1", "openai_gpt-4.1-mini",
-                    "openai_gpt-4o", "openai_gpt-4o-mini", "anthropic_claude-3-5-haiku-20241022",
-                    "mistral_mistral-medium-2505", "mistral_mistral-small-2506", "mistral_mistral-large-2411"
-                ]
-            },
-            "Reasoning-oriented LLMs": {
-                "models": [
-                    "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
-                    "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
-                    "ollama_gpt-oss:20b", "anthropic_claude-sonnet-4-20250514",
-                    "anthropic_claude-opus-4-20250514", "mistral_magistral-medium-2507",
-                    "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
-                    "openai_gpt-5-2025-08-07", "anthropic_claude-opus-4-1-20250805"
-                ]
-            }
+            "General-purpose LLMs": {"models": deepcopy(MODEL_GROUPS["General-purpose LLMs"])},
+            "Reasoning-oriented LLMs": {"models": deepcopy(MODEL_GROUPS["Reasoning-oriented LLMs"])},
         }
 
         metrics = {
             "Metric Mean Score": lambda m: self.metric_scores.get(m, {}).get("mean"),
-            "Overall Score": lambda m: self.combined_final_scores.get(m, {}).get("mean"),
             "Surface-Level Metrics": lambda m: np.mean([
                 self.results[m].rouge_scores["rouge1"]["mean"],
                 self.results[m].rouge_scores["rouge2"]["mean"],
@@ -1051,28 +988,8 @@ class SummarizationVisualizer:
         """Create grouped boxplot comparing execution times across general-purpose vs reasoning-oriented LLMs."""
 
         group_map = {
-            "General-purpose LLMs": {
-                "models": [
-                    "ollama_gemma3:270M", "ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
-                    "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
-                    "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
-                    "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
-                    "ollama_PetrosStav/gemma3-tools:4b", "ollama_phi3:3.8b", "ollama_phi4:14b",
-                    "openai_gpt-3.5-turbo", "openai_gpt-4.1", "openai_gpt-4.1-mini",
-                    "openai_gpt-4o", "openai_gpt-4o-mini", "anthropic_claude-3-5-haiku-20241022",
-                    "mistral_mistral-medium-2505", "mistral_mistral-small-2506", "mistral_mistral-large-2411"
-                ]
-            },
-            "Reasoning-oriented LLMs": {
-                "models": [
-                    "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
-                    "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
-                    "ollama_gpt-oss:20b", "anthropic_claude-sonnet-4-20250514",
-                    "anthropic_claude-opus-4-20250514", "mistral_magistral-medium-2507",
-                    "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
-                    "openai_gpt-5-2025-08-07", "anthropic_claude-opus-4-1-20250805"
-                ]
-            }
+            "General-purpose LLMs": {"models": deepcopy(MODEL_GROUPS["General-purpose LLMs"])},
+            "Reasoning-oriented LLMs": {"models": deepcopy(MODEL_GROUPS["Reasoning-oriented LLMs"])},
         }
 
         fig = go.Figure()
