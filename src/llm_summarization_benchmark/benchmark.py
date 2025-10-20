@@ -308,9 +308,9 @@ class SummarizationBenchmark:
                     )
                     papers.append(paper)
 
-                    # TODO: remove when done with dev
-                    if i == 5:
-                        break
+                    # # TODO: remove when done with dev
+                    # if i == 5:
+                    #     break
 
                 logger.info(f"Successfully loaded {len(papers)} papers from {json_file_path}. "
                             f"Average number of reference summaries per paper: {self._get_avg_summaries(papers):.2f}")
@@ -837,92 +837,92 @@ def main():
 
     benchmark.load_results()
 
-    # benchmark.add("local:textrank")
-    # benchmark.add("local:frequency")
-    #
-    # _p14 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.3), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.3)}
-    # _p16 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.6), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.6)}
-    # _p15 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.5), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.5)}
-    # _p17 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.7), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.7)}
-    #
-    # # https://huggingface.co/models?pipeline_tag=summarization&language=en&sort=trending
-    # benchmark.add("huggingface", "facebook/bart-large-cnn", _p16)
-    # benchmark.add("huggingface", "facebook/bart-base", _p16)
-    # benchmark.add("huggingface", "google-t5/t5-base", _p17)
-    # benchmark.add("huggingface", "google-t5/t5-large", _p17)
-    # benchmark.add("huggingface", "csebuetnlp/mT5_multilingual_XLSum", _p16)
-    # benchmark.add("huggingface", "google/pegasus-xsum", _p14)
-    # benchmark.add("huggingface", "google/pegasus-large", _p14)
-    # benchmark.add("huggingface", "google/pegasus-cnn_dailymail", _p14)
-    # benchmark.add("huggingface", "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
-    #               _p16)
-    # benchmark.add("huggingface", "google/pegasus-pubmed", _p14)
-    # benchmark.add("huggingface", "google/bigbird-pegasus-large-pubmed", _p14)
-    #
-    # benchmark.add("huggingface:completion", "microsoft/biogpt", {"num_beams": 5, "early_stopping": True})
-    # benchmark.add("huggingface:chat", "swiss-ai/Apertus-8B-Instruct-2509",
-    #               tokenizer_param_overrides={"add_special_tokens": False, "truncation": False, }
-    #               )
-    # benchmark.add("huggingface:chat", "Uni-SMART/SciLitLLM1.5-7B", _p14)
-    # benchmark.add("huggingface:chat", "Uni-SMART/SciLitLLM1.5-14B", _p14)
-    # benchmark.add("huggingface:chat", "aaditya/OpenBioLLM-Llama3-8B", _p14)
-    # benchmark.add("huggingface:conversational", "BioMistral/BioMistral-7B", _p14)
-    #
-    # benchmark.add("ollama", "deepseek-r1:1.5b")
-    # benchmark.add("ollama", "deepseek-r1:7b")
-    # benchmark.add("ollama", "deepseek-r1:8b")
-    # benchmark.add("ollama", "deepseek-r1:14b")
-    # benchmark.add("ollama", "gemma3:270M")
-    # benchmark.add("ollama", "gemma3:1b")
-    # benchmark.add("ollama", "gemma3:4b")
-    # benchmark.add("ollama", "gemma3:12b")
-    # benchmark.add("ollama", "granite3.3:2b")
-    # benchmark.add("ollama", "granite3.3:8b")
-    # benchmark.add("ollama", "llama3.1:8b")
-    # benchmark.add("ollama", "llama3.2:1b")
-    # benchmark.add("ollama", "llama3.2:3b")
-    # benchmark.add("ollama", "medllama2:7b")
-    # benchmark.add("ollama", "mistral:7b")
-    # benchmark.add("ollama", "mistral-nemo:12b")
-    # benchmark.add("ollama", "mistral-small3.2:24b")
-    # benchmark.add("ollama", "PetrosStav/gemma3-tools:4b")
-    # benchmark.add("ollama", "phi3:3.8b")
-    # benchmark.add("ollama", "phi4:14b")
-    # benchmark.add("ollama", "qwen3:4b")
-    # benchmark.add("ollama", "qwen3:8b")
-    # # benchmark.add("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")  # removed from ollama.com, super bad performance
-    # # benchmark.add("ollama", "koesn/llama3-openbiollm-8b:q4_K_M")  # moved to HF
-    # # benchmark.add("ollama", "adrienbrault/biomistral-7b:Q4_K_M")  # moved to HF
-    # benchmark.add("ollama", "gpt-oss:20b")
-    # benchmark.add("ollama", "granite4:micro")
-    # benchmark.add("ollama", "granite4:micro-h")
-    # benchmark.add("ollama", "granite4:tiny-h")
-    # benchmark.add("ollama", "granite4:small-h")
-    #
-    # # https://platform.openai.com/docs/models
-    # # "protected" models (gpt-3o, ..) need ID verification and allows openai to freely disclose personal data ..
-    # # https://community.openai.com/t/openai-non-announcement-requiring-identity-card-verification-for-access-to-new-api-models-and-capabilities/1230004/32
-    # benchmark.add("openai", "gpt-3.5-turbo")  # gpt-3.5-turbo-0125
-    # benchmark.add("openai", "gpt-4.1")  # gpt-4.1-2025-04-14
-    # benchmark.add("openai", "gpt-4.1-mini")  # gpt-4.1-mini-2025-04-14
-    # benchmark.add("openai", "gpt-4o")  # gpt-4o-2024-08-06
-    # benchmark.add("openai", "gpt-4o-mini")  # gpt-4o-mini-2024-07-18
-    # benchmark.add("openai", "gpt-5-nano-2025-08-07")
-    # benchmark.add("openai", "gpt-5-mini-2025-08-07")
-    # benchmark.add("openai", "gpt-5-2025-08-07")
-    #
-    # # https://docs.anthropic.com/en/docs/about-claude/models/overview
-    # benchmark.add("anthropic", "claude-3-5-haiku-20241022")  # fastest
-    # benchmark.add("anthropic", "claude-sonnet-4-20250514")  # high intelligence, balanced performance
-    # # benchmark.add("anthropic", "claude-opus-4-20250514")  # most capable
-    # # benchmark.add("anthropic", "claude-opus-4-1-20250805")
-    #
-    # # https://docs.mistral.ai/getting-started/models/models_overview/
-    # benchmark.add("mistral", "mistral-medium-2505")  # frontier-class multimodal model
-    # # benchmark.add("mistral", "magistral-medium-2507")  # frontier-class reasoning
-    # benchmark.add("mistral", "magistral-medium-2509", batch=True)
-    # benchmark.add("mistral", "mistral-large-2411")  # top-tier large model, high complexity tasks
-    # benchmark.add("mistral", "mistral-small-2506")
+    benchmark.add("local:textrank")
+    benchmark.add("local:frequency")
+
+    _p14 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.3), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.3)}
+    _p16 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.6), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.6)}
+    _p15 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.5), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.5)}
+    _p17 = {"max_new_tokens": int(SUMMARY_MAX_WORDS * 1.7), "min_new_tokens": int(SUMMARY_MIN_WORDS * 1.7)}
+
+    # https://huggingface.co/models?pipeline_tag=summarization&language=en&sort=trending
+    benchmark.add("huggingface", "facebook/bart-large-cnn", _p16)
+    benchmark.add("huggingface", "facebook/bart-base", _p16)
+    benchmark.add("huggingface", "google-t5/t5-base", _p17)
+    benchmark.add("huggingface", "google-t5/t5-large", _p17)
+    benchmark.add("huggingface", "csebuetnlp/mT5_multilingual_XLSum", _p16)
+    benchmark.add("huggingface", "google/pegasus-xsum", _p14)
+    benchmark.add("huggingface", "google/pegasus-large", _p14)
+    benchmark.add("huggingface", "google/pegasus-cnn_dailymail", _p14)
+    benchmark.add("huggingface", "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
+                  _p16)
+    benchmark.add("huggingface", "google/pegasus-pubmed", _p14)
+    benchmark.add("huggingface", "google/bigbird-pegasus-large-pubmed", _p14)
+
+    benchmark.add("huggingface:completion", "microsoft/biogpt", {"num_beams": 5, "early_stopping": True})
+    benchmark.add("huggingface:chat", "swiss-ai/Apertus-8B-Instruct-2509",
+                  tokenizer_param_overrides={"add_special_tokens": False, "truncation": False, }
+                  )
+    benchmark.add("huggingface:chat", "Uni-SMART/SciLitLLM1.5-7B", _p14)
+    benchmark.add("huggingface:chat", "Uni-SMART/SciLitLLM1.5-14B", _p14)
+    benchmark.add("huggingface:chat", "aaditya/OpenBioLLM-Llama3-8B", _p14)
+    benchmark.add("huggingface:conversational", "BioMistral/BioMistral-7B", _p14)
+
+    benchmark.add("ollama", "deepseek-r1:1.5b")
+    benchmark.add("ollama", "deepseek-r1:7b")
+    benchmark.add("ollama", "deepseek-r1:8b")
+    benchmark.add("ollama", "deepseek-r1:14b")
+    benchmark.add("ollama", "gemma3:270M")
+    benchmark.add("ollama", "gemma3:1b")
+    benchmark.add("ollama", "gemma3:4b")
+    benchmark.add("ollama", "gemma3:12b")
+    benchmark.add("ollama", "granite3.3:2b")
+    benchmark.add("ollama", "granite3.3:8b")
+    benchmark.add("ollama", "llama3.1:8b")
+    benchmark.add("ollama", "llama3.2:1b")
+    benchmark.add("ollama", "llama3.2:3b")
+    benchmark.add("ollama", "medllama2:7b")
+    benchmark.add("ollama", "mistral:7b")
+    benchmark.add("ollama", "mistral-nemo:12b")
+    benchmark.add("ollama", "mistral-small3.2:24b")
+    benchmark.add("ollama", "PetrosStav/gemma3-tools:4b")
+    benchmark.add("ollama", "phi3:3.8b")
+    benchmark.add("ollama", "phi4:14b")
+    benchmark.add("ollama", "qwen3:4b")
+    benchmark.add("ollama", "qwen3:8b")
+    # benchmark.add("ollama", "taozhiyuai/openbiollm-llama-3:8b_q8_0")  # removed from ollama.com, super bad performance
+    # benchmark.add("ollama", "koesn/llama3-openbiollm-8b:q4_K_M")  # moved to HF
+    # benchmark.add("ollama", "adrienbrault/biomistral-7b:Q4_K_M")  # moved to HF
+    benchmark.add("ollama", "gpt-oss:20b")
+    benchmark.add("ollama", "granite4:micro")
+    benchmark.add("ollama", "granite4:micro-h")
+    benchmark.add("ollama", "granite4:tiny-h")
+    benchmark.add("ollama", "granite4:small-h")
+
+    # https://platform.openai.com/docs/models
+    # "protected" models (gpt-3o, ..) need ID verification and allows openai to freely disclose personal data ..
+    # https://community.openai.com/t/openai-non-announcement-requiring-identity-card-verification-for-access-to-new-api-models-and-capabilities/1230004/32
+    benchmark.add("openai", "gpt-3.5-turbo")  # gpt-3.5-turbo-0125
+    benchmark.add("openai", "gpt-4.1")  # gpt-4.1-2025-04-14
+    benchmark.add("openai", "gpt-4.1-mini")  # gpt-4.1-mini-2025-04-14
+    benchmark.add("openai", "gpt-4o")  # gpt-4o-2024-08-06
+    benchmark.add("openai", "gpt-4o-mini")  # gpt-4o-mini-2024-07-18
+    benchmark.add("openai", "gpt-5-nano-2025-08-07")
+    benchmark.add("openai", "gpt-5-mini-2025-08-07")
+    benchmark.add("openai", "gpt-5-2025-08-07")
+
+    # https://docs.anthropic.com/en/docs/about-claude/models/overview
+    benchmark.add("anthropic", "claude-3-5-haiku-20241022")  # fastest
+    benchmark.add("anthropic", "claude-sonnet-4-20250514")  # high intelligence, balanced performance
+    # benchmark.add("anthropic", "claude-opus-4-20250514")  # most capable
+    # benchmark.add("anthropic", "claude-opus-4-1-20250805")
+
+    # https://docs.mistral.ai/getting-started/models/models_overview/
+    benchmark.add("mistral", "mistral-medium-2505")  # frontier-class multimodal model
+    # benchmark.add("mistral", "magistral-medium-2507")  # frontier-class reasoning
+    benchmark.add("mistral", "magistral-medium-2509", batch=True)
+    benchmark.add("mistral", "mistral-large-2411")  # top-tier large model, high complexity tasks
+    benchmark.add("mistral", "mistral-small-2506")
     benchmark.add("mistral", "mistral-medium-2508", batch=True)
 
     # expensive
