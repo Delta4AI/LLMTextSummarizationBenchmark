@@ -623,7 +623,6 @@ class SummarizationVisualizer:
         }
 
         metrics = {
-            "Metric Mean Score": lambda m: self.metric_scores.get(m, {}).get("mean"),
             "Surface-Level Metrics": lambda m: np.mean([
                 self.results[m].rouge_scores["rouge1"]["mean"],
                 self.results[m].rouge_scores["rouge2"]["mean"],
@@ -638,7 +637,8 @@ class SummarizationVisualizer:
                 self.results[m].alignscore_scores["mean"]
             ]),
             "Execution Time": lambda m: self.normalized_exec_times.get(m, {}).get("mean"),
-            "% Within Bounds": lambda m: self.results[m].length_stats["within_bounds_pct"] / 100
+            "% Within Bounds": lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
+            "Metric Mean Score": lambda m: self.metric_scores.get(m, {}).get("mean")  # moved to end
         }
 
         categories = list(metrics.keys())
@@ -657,13 +657,23 @@ class SummarizationVisualizer:
         }
 
         for group, values in group_values.items():
+            outlines = [
+                3 if category == "Metric Mean Score" else 1 for category in categories
+            ]
+
             fig.add_trace(go.Bar(
                 x=categories,
                 y=values,
                 name=group,
-                marker_color=colors.get(group),
+                marker=dict(
+                    color=colors.get(group),
+                    line=dict(
+                        color="black",
+                        width=outlines
+                    )
+                ),
                 text=[f"{v:.3f}" for v in values],
-                textposition='auto'
+                textposition="auto"
             ))
 
         fig.update_layout(
@@ -925,10 +935,14 @@ class SummarizationVisualizer:
         """Create boxplot for execution time distribution per method."""
         fig = go.Figure()
 
-        # exclude non-LLM methods as they are obviously way faster
+        # exclude Traditional Methods and Encoder-Decoder Models
+        excluded_models = set(
+            MODEL_GROUPS["Traditional Methods"] + MODEL_GROUPS["Encoder-Decoder Models"]
+        )
+
         plot_methods = [
             m for m in self.methods
-            if not (m.startswith("huggingface") or m in ["local:frequency", "local:textrank"])
+            if m in self.results and m not in excluded_models
         ]
 
         for i, method in enumerate(plot_methods):
@@ -961,7 +975,7 @@ class SummarizationVisualizer:
             ))
 
         fig.update_layout(
-            title="Execution Time Distribution per Method (only LLM-based methods)",
+            title="Execution Time Distribution per Method (excluding 'Traditional Methods' & 'Encoder-Decoder Models')",
             yaxis_title="Time (seconds, log scale)",
             xaxis_title="Methods",
             boxmode="group",
@@ -1146,7 +1160,7 @@ class SummarizationVisualizer:
 
         for i in range(len(labels)):
             for j in range(len(labels)):
-                if j >= i and abs(corr_filled[i, j]) >= 0.5:
+                if j >= i:
                     annotations.append(dict(
                         x=labels[j], y=labels[i],
                         text=f"{corr_filled[i, j]:.2f}",
