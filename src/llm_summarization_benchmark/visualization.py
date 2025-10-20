@@ -2,6 +2,7 @@ import argparse
 import logging
 import math
 import json
+from copy import deepcopy
 
 import plotly.graph_objects as go
 import plotly.express as px
@@ -23,6 +24,46 @@ AGGREGATE = "Metrics: Aggregate"
 PERFORMANCE = "Performance"
 OVERALL = "Overall (70% metrics, 10% speed/accept./cost)"
 
+# model grouping
+MODEL_GROUPS = {
+    "Traditional Methods": [
+        "local:textrank", "local:frequency"
+    ],
+    "Encoder-Decoder Models": [
+        "huggingface_facebook/bart-large-cnn", "huggingface_facebook/bart-base",
+        "huggingface_google-t5/t5-base", "huggingface_google-t5/t5-large",
+        "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+        "huggingface_google/pegasus-xsum", "huggingface_google/pegasus-large",
+        "huggingface_google/pegasus-cnn_dailymail"
+    ],
+    "General-purpose LLMs": [
+        "ollama_gemma3:270M","ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
+        "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
+        "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
+        "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
+        "ollama_PetrosStav/gemma3-tools:4b", "ollama_phi3:3.8b", "ollama_phi4:14b",
+        "openai_gpt-3.5-turbo", "openai_gpt-4.1", "openai_gpt-4.1-mini",
+        "openai_gpt-4o", "openai_gpt-4o-mini", "anthropic_claude-3-5-haiku-20241022",
+        "mistral_mistral-medium-2505", "mistral_mistral-small-2506", "mistral_mistral-large-2411",
+        "huggingface:chat_swiss-ai/Apertus-8B-Instruct-2509", "ollama_granite4:tiny-h",
+        "ollama_granite4:small-h", "ollama_granite4:micro", "ollama_granite4:micro-h",
+
+    ],
+    "Reasoning-oriented LLMs": [
+        "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
+        "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
+        "ollama_gpt-oss:20b", "anthropic_claude-sonnet-4-20250514",
+        "anthropic_claude-opus-4-20250514", "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
+        "openai_gpt-5-2025-08-07", "anthropic_claude-opus-4-1-20250805"
+    ],
+    "Specialized Models": [
+        "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
+        "ollama_medllama2:7b", "huggingface_google/pegasus-pubmed",
+        "huggingface_google/bigbird-pegasus-large-pubmed", "huggingface:completion_microsoft/biogpt",
+        "huggingface:chat_Uni-SMART/SciLitLLM1.5-7B", "huggingface:chat_Uni-SMART/SciLitLLM1.5-14B",
+        "huggingface:chat_aaditya/OpenBioLLM-Llama3-8B", "huggingface:conversational_BioMistral/BioMistral-7B"
+    ],
+}
 
 class Metric(NamedTuple):
     label: str
@@ -99,6 +140,8 @@ class SummarizationVisualizer:
         """Create all visualization plots as separate HTML files."""
         self.results = self.benchmark_ref.results.data[self.benchmark_ref.papers_hash]
         self.methods = [f"{_[0]}_{_[1]}" if _[1] else f"{_[0]}" for _ in self.benchmark_ref.models]
+        # temporarily pull methods from pkl file again
+        self.methods = list(self.results.keys())
         self._sort_methods()
         self.out_dir = self.benchmark_ref.hashed_and_dated_output_dir
 
@@ -119,9 +162,6 @@ class SummarizationVisualizer:
         self._create_grouped_execution_time_boxplot()
         self._create_metric_correlation_matrix()
         self._create_rank_heatmap()
-        self._create_tradeoff_3d()
-        self._create_pareto_bubble()
-        self._create_alignscore_only_plot()
         self._create_group_bar_chart()
         try:
             self._create_llm_comparison_plot()
@@ -325,42 +365,7 @@ class SummarizationVisualizer:
     def _create_metric_comparison_plot(self):
         """Create ROUGE comparison plot with BERTScore with filled confidence bands."""
 
-        # Override self.methods with custom group order
-        group_map = {
-            "Traditional Methods": [
-                "local:textrank", "local:frequency"
-            ],
-            "Encoder-Decoder Models": [
-                "huggingface_facebook/bart-large-cnn", "huggingface_facebook/bart-base",
-                "huggingface_google-t5/t5-base", "huggingface_google-t5/t5-large",
-                "huggingface_csebuetnlp/mT5_multilingual_XLSum",
-                "huggingface_google/pegasus-xsum", "huggingface_google/pegasus-large",
-                "huggingface_google/pegasus-cnn_dailymail"
-            ],
-            "General-purpose LLMs": [
-                "ollama_gemma3:270M", "ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
-                "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
-                "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
-                "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
-                "ollama_PetrosStav/gemma3-tools:4b", "ollama_phi3:3.8b", "ollama_phi4:14b",
-                "openai_gpt-3.5-turbo", "openai_gpt-4.1", "openai_gpt-4.1-mini",
-                "openai_gpt-4o", "openai_gpt-4o-mini", "anthropic_claude-3-5-haiku-20241022",
-                "mistral_mistral-medium-2505", "mistral_mistral-small-2506", "mistral_mistral-large-2411"
-            ],
-            "Reasoning-oriented LLMs": [
-                "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
-                "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
-                "ollama_gpt-oss:20b", "anthropic_claude-sonnet-4-20250514",
-                "anthropic_claude-opus-4-20250514", "mistral_magistral-medium-2507",
-                "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
-                "openai_gpt-5-2025-08-07", "anthropic_claude-opus-4-1-20250805"
-            ],
-            "Specialized Models": [
-                "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
-                "ollama_medllama2:7b", "ollama_taozhiyuai/openbiollm-llama-3:8b_q8_0",
-                "ollama_koesn/llama3-openbiollm-8b:q4_K_M", "ollama_adrienbrault/biomistral-7b:Q4_K_M"
-            ]
-        }
+        group_map = MODEL_GROUPS
 
         model_to_group = {model: group for group, models in group_map.items() for model in models}
         # For drawing brackets
@@ -567,58 +572,18 @@ class SummarizationVisualizer:
         return shapes, annotations
 
     def _create_group_bar_chart(self):
-        """Grouped bar chart showing Metric Mean Score and Overall Score for each model group."""
+        """Bar chart showing Metric Mean Score for each model group."""
 
-        # group definitions
-        group_map = {
-            "Traditional Methods": [
-                "local:textrank", "local:frequency"
-            ],
-            "Encoder-Decoder Models": [
-                "huggingface_facebook/bart-large-cnn", "huggingface_facebook/bart-base",
-                "huggingface_google-t5/t5-base", "huggingface_google-t5/t5-large",
-                "huggingface_csebuetnlp/mT5_multilingual_XLSum",
-                "huggingface_google/pegasus-xsum", "huggingface_google/pegasus-large",
-                "huggingface_google/pegasus-cnn_dailymail"
-            ],
-            "General-purpose LLMs": [
-                "ollama_gemma3:270M","ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
-                "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
-                "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
-                "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
-                "ollama_PetrosStav/gemma3-tools:4b", "ollama_phi3:3.8b", "ollama_phi4:14b",
-                "openai_gpt-3.5-turbo", "openai_gpt-4.1", "openai_gpt-4.1-mini",
-                "openai_gpt-4o", "openai_gpt-4o-mini", "anthropic_claude-3-5-haiku-20241022",
-                "mistral_mistral-medium-2505", "mistral_mistral-small-2506", "mistral_mistral-large-2411"
-            ],
-            "Reasoning-oriented LLMs": [
-                "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
-                "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
-                "ollama_gpt-oss:20b", "anthropic_claude-sonnet-4-20250514",
-                "anthropic_claude-opus-4-20250514", "mistral_magistral-medium-2507",
-                "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
-                "openai_gpt-5-2025-08-07", "anthropic_claude-opus-4-1-20250805"
-            ],
-            "Specialized Models": [
-                "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
-                "ollama_medllama2:7b",
-                "ollama_taozhiyuai/openbiollm-llama-3:8b_q8_0", "ollama_koesn/llama3-openbiollm-8b:q4_K_M",
-                "ollama_adrienbrault/biomistral-7b:Q4_K_M"
-            ],
-        }
+        group_map = MODEL_GROUPS
 
         group_names = list(group_map.keys())
 
         metric_means = []
-        overall_means = []
 
         for group in group_names:
             models = group_map[group]
             metric_scores = [self.metric_scores[m]["mean"] for m in models if m in self.metric_scores]
-            overall_scores = [self.combined_final_scores[m]["mean"] for m in models if m in self.combined_final_scores]
-
             metric_means.append(np.mean(metric_scores) if metric_scores else 0)
-            overall_means.append(np.mean(overall_scores) if overall_scores else 0)
 
         # create grouped bar chart
         fig = go.Figure()
@@ -632,26 +597,16 @@ class SummarizationVisualizer:
             textposition="auto"
         ))
 
-        fig.add_trace(go.Bar(
-            x=group_names,
-            y=overall_means,
-            name="Overall Score (incl. performance)",
-            marker_color="rgb(55, 83, 109)",
-            text=[f"{v:.3f}" for v in overall_means],
-            textposition="auto"
-        ))
-
         fig.update_layout(
-            title="Comparison of Model Groups by Metric Mean and Overall Score",
+            title="Comparison of Model Groups by Metric Mean Score",
             xaxis_title="Model Groups",
-            yaxis_title="Score",
+            yaxis_title="Metric Mean Score",
             yaxis=dict(range=[0, 1.0]),
             barmode="group",
-            bargap=0.25,
-            bargroupgap=0.15,
+            bargap=0.3,
             legend=dict(x=0.5, y=1.1, orientation="h", xanchor="center"),
             margin=dict(l=60, r=40, t=80, b=100),
-            height=550
+            height=500
         )
 
         output_path = self.out_dir / "group_bar_chart.html"
@@ -660,33 +615,11 @@ class SummarizationVisualizer:
     def _create_llm_comparison_plot(self):
         """Compare General-purpose vs Reasoning-oriented LLMs across key metrics."""
         group_map = {
-            "General-purpose LLMs": {
-                "models": [
-                    "ollama_gemma3:270M","ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
-                    "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
-                    "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
-                    "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
-                    "ollama_PetrosStav/gemma3-tools:4b", "ollama_phi3:3.8b", "ollama_phi4:14b",
-                    "openai_gpt-3.5-turbo", "openai_gpt-4.1", "openai_gpt-4.1-mini",
-                    "openai_gpt-4o", "openai_gpt-4o-mini", "anthropic_claude-3-5-haiku-20241022",
-                    "mistral_mistral-medium-2505", "mistral_mistral-small-2506", "mistral_mistral-large-2411"
-                ]
-            },
-            "Reasoning-oriented LLMs": {
-                "models": [
-                    "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
-                    "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
-                    "ollama_gpt-oss:20b", "anthropic_claude-sonnet-4-20250514",
-                    "anthropic_claude-opus-4-20250514", "mistral_magistral-medium-2507",
-                    "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
-                    "openai_gpt-5-2025-08-07", "anthropic_claude-opus-4-1-20250805"
-                ]
-            }
+            "General-purpose LLMs": {"models": deepcopy(MODEL_GROUPS["General-purpose LLMs"])},
+            "Reasoning-oriented LLMs": {"models": deepcopy(MODEL_GROUPS["Reasoning-oriented LLMs"])},
         }
 
         metrics = {
-            "Metric Mean Score": lambda m: self.metric_scores.get(m, {}).get("mean"),
-            "Overall Score": lambda m: self.combined_final_scores.get(m, {}).get("mean"),
             "Surface-Level Metrics": lambda m: np.mean([
                 self.results[m].rouge_scores["rouge1"]["mean"],
                 self.results[m].rouge_scores["rouge2"]["mean"],
@@ -701,7 +634,8 @@ class SummarizationVisualizer:
                 self.results[m].alignscore_scores["mean"]
             ]),
             "Execution Time": lambda m: self.normalized_exec_times.get(m, {}).get("mean"),
-            "% Within Bounds": lambda m: self.results[m].length_stats["within_bounds_pct"] / 100
+            "% Within Bounds": lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
+            "Metric Mean Score": lambda m: self.metric_scores.get(m, {}).get("mean")  # moved to end
         }
 
         categories = list(metrics.keys())
@@ -720,13 +654,23 @@ class SummarizationVisualizer:
         }
 
         for group, values in group_values.items():
+            outlines = [
+                3 if category == "Metric Mean Score" else 1 for category in categories
+            ]
+
             fig.add_trace(go.Bar(
                 x=categories,
                 y=values,
                 name=group,
-                marker_color=colors.get(group),
+                marker=dict(
+                    color=colors.get(group),
+                    line=dict(
+                        color="black",
+                        width=outlines
+                    )
+                ),
                 text=[f"{v:.3f}" for v in values],
-                textposition='auto'
+                textposition="auto"
             ))
 
         fig.update_layout(
@@ -739,97 +683,6 @@ class SummarizationVisualizer:
         )
 
         output_path = self.out_dir / "llm_comparison.html"
-        pyo.plot(fig, filename=str(output_path), auto_open=False)
-
-    def _create_alignscore_only_plot(self, out_name="alignscore_only.html"):
-        """Bar chart of AlignScore per model with asymmetric error bars (min/max)."""
-        rows = []
-        for m in self.methods:
-            s = getattr(self.results[m], "alignscore_scores", None)
-            if not s or s.get("mean") is None:
-                continue
-            rows.append({
-                "method": m,
-                "mean": float(s["mean"]),
-                "min": float(s["min"]),
-                "max": float(s["max"]),
-                "std": float(s["std"])
-            })
-
-        if not rows:
-            logger.warning("No overlapping methods between results and AlignScore; skipping plot.")
-            return
-
-        rows.sort(key=lambda r: r["mean"], reverse=True)
-
-        x = [r["method"] for r in rows]
-        y = [r["mean"] for r in rows]
-        err_plus  = [max(0.0, r["max"] - r["mean"]) for r in rows]
-        err_minus = [max(0.0, r["mean"] - r["min"]) for r in rows]
-
-        def family(name: str) -> str:
-            if name.startswith("local:"): return "Local"
-            if name.startswith("huggingface_"): return "HuggingFace"
-            if name.startswith("ollama_"): return "Ollama"
-            if name.startswith("openai_"): return "OpenAI"
-            if name.startswith("anthropic_"): return "Anthropic"
-            if name.startswith("mistral_"): return "Mistral"
-            return "Other"
-
-        families = [family(m) for m in x]
-        fam_set = list(dict.fromkeys(families))
-        color_map = {fam: self.colors[i % len(self.colors)] for i, fam in enumerate(fam_set)}
-        bar_colors = [color_map[f] for f in families]
-
-        fig = go.Figure(
-            data=[
-                go.Bar(
-                    x=x,
-                    y=y,
-                    marker={"color": bar_colors},
-                    error_y=dict(
-                        type="data",
-                        symmetric=False,
-                        array=err_plus,
-                        arrayminus=err_minus,
-                        thickness=1.5,
-                        width=2,
-                        visible=True
-                    ),
-                    hovertemplate=(
-                        "<b>%{x}</b><br>"
-                        "AlignScore (mean): %{y:.4f}<br>"
-                        "min–max: %{customdata[0]:.4f} – %{customdata[1]:.4f}<br>"
-                        "std: %{customdata[2]:.4f}<extra></extra>"
-                    ),
-                    customdata=[[r["min"], r["max"], r["std"]] for r in rows],
-                )
-            ]
-        )
-
-        for fam, color in color_map.items():
-            fig.add_trace(
-                go.Bar(
-                    x=[None], y=[None],
-                    marker={"color": color},
-                    name=fam,
-                    showlegend=True
-                )
-            )
-
-        fig.update_layout(
-            title=f"AlignScore by Model (n={len(rows)})",
-            xaxis_title="Model",
-            yaxis_title="AlignScore",
-            yaxis=dict(range=[0, 1.01]),
-            bargap=0.2,
-            hovermode="closest",
-            legend_title_text="Family",
-            xaxis=dict(tickangle=-45, tickfont={"size": 10}),
-            margin={"b": 40}
-        )
-
-        output_path = self.out_dir / out_name
         pyo.plot(fig, filename=str(output_path), auto_open=False)
 
     def _create_length_analysis_plot(self):
@@ -988,10 +841,14 @@ class SummarizationVisualizer:
         """Create boxplot for execution time distribution per method."""
         fig = go.Figure()
 
-        # exclude non-LLM methods as they are obviously way faster
+        # exclude Traditional Methods and Encoder-Decoder Models
+        excluded_models = set(
+            MODEL_GROUPS["Traditional Methods"] + MODEL_GROUPS["Encoder-Decoder Models"]
+        )
+
         plot_methods = [
             m for m in self.methods
-            if not (m.startswith("huggingface") or m in ["local:frequency", "local:textrank"])
+            if m in self.results and m not in excluded_models
         ]
 
         for i, method in enumerate(plot_methods):
@@ -1024,7 +881,7 @@ class SummarizationVisualizer:
             ))
 
         fig.update_layout(
-            title="Execution Time Distribution per Method (only LLM-based methods)",
+            title="Execution Time Distribution per Method (excluding 'Traditional Methods' & 'Encoder-Decoder Models')",
             yaxis_title="Time (seconds, log scale)",
             xaxis_title="Methods",
             boxmode="group",
@@ -1051,28 +908,8 @@ class SummarizationVisualizer:
         """Create grouped boxplot comparing execution times across general-purpose vs reasoning-oriented LLMs."""
 
         group_map = {
-            "General-purpose LLMs": {
-                "models": [
-                    "ollama_gemma3:270M", "ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
-                    "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
-                    "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
-                    "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
-                    "ollama_PetrosStav/gemma3-tools:4b", "ollama_phi3:3.8b", "ollama_phi4:14b",
-                    "openai_gpt-3.5-turbo", "openai_gpt-4.1", "openai_gpt-4.1-mini",
-                    "openai_gpt-4o", "openai_gpt-4o-mini", "anthropic_claude-3-5-haiku-20241022",
-                    "mistral_mistral-medium-2505", "mistral_mistral-small-2506", "mistral_mistral-large-2411"
-                ]
-            },
-            "Reasoning-oriented LLMs": {
-                "models": [
-                    "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
-                    "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
-                    "ollama_gpt-oss:20b", "anthropic_claude-sonnet-4-20250514",
-                    "anthropic_claude-opus-4-20250514", "mistral_magistral-medium-2507",
-                    "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
-                    "openai_gpt-5-2025-08-07", "anthropic_claude-opus-4-1-20250805"
-                ]
-            }
+            "General-purpose LLMs": {"models": deepcopy(MODEL_GROUPS["General-purpose LLMs"])},
+            "Reasoning-oriented LLMs": {"models": deepcopy(MODEL_GROUPS["Reasoning-oriented LLMs"])},
         }
 
         fig = go.Figure()
@@ -1229,7 +1066,7 @@ class SummarizationVisualizer:
 
         for i in range(len(labels)):
             for j in range(len(labels)):
-                if j >= i and abs(corr_filled[i, j]) >= 0.5:
+                if j >= i:
                     annotations.append(dict(
                         x=labels[j], y=labels[i],
                         text=f"{corr_filled[i, j]:.2f}",
@@ -1372,184 +1209,6 @@ class SummarizationVisualizer:
         fig.update_yaxes(autorange="reversed")
         
         output_path = self.out_dir / "rank_heatmap.html"
-        pyo.plot(fig, filename=str(output_path), auto_open=False)
-
-    def _create_tradeoff_3d(self):
-        """
-        3D trade-off: Quality (↑) vs Speed (↑) vs Tokens (↓).
-        All models as points; Pareto frontier shown as a translucent surface.
-        """
-        points = []
-        names = []
-        hover = []
-        for m in self.methods:
-            q = self.metric_scores.get(m, {}).get("mean", None)
-            s = self.normalized_exec_times.get(m, {}).get("mean", None)
-
-            t = self.input_token_costs.get(m, {}).get("mean", None)
-            if q is None or s is None or t is None or np.isnan(q) or np.isnan(s) or np.isnan(t):
-                continue
-            points.append((q, s, t))
-            names.append(m)
-            hover.append(f"<b>{m}</b><br>Quality: {q:.3f}<br>Speed: {s:.3f}<br>Tokens: {t:.1f}")
-
-        if not points:
-            logger.warning("No points available for tradeoff 3D plot.")
-            return
-        
-        P = np.array(points)
-        Q = P[:, 0]
-        S = P[:, 1]
-        T = P[:, 2]
-        
-        def dominates(a, b):
-            # a dominates b if: Q_a>=Q_b, S_a>=S_b, T_a<=T_b and at least one strict
-            return (a[0] >= b[0] and a[1] >= b[1] and a[2] <= b[2] and
-                    ((a[0] > b[0]) or (a[1] > b[1]) or (a[2] < b[2])))
-        
-        pareto_idx = []
-        for i in range(len(P)):
-            dominated = False
-            for j in range(len(P)):
-                if i != j and dominates(P[j], P[i]):
-                    dominated = True
-                    break
-            if not dominated:
-                pareto_idx.append(i)
-        pareto_idx = np.array(pareto_idx, dtype=int)
-        P_pareto = P[pareto_idx]
-        names_pareto = [names[i] for i in pareto_idx]
-
-        fig = go.Figure()
-
-        fig.add_trace(go.Scatter3d(
-            x=Q, y=S, z=T,
-            mode="markers+text",
-            text=names,
-            textposition="top center",
-            marker=dict(size=6, opacity=0.9),
-            hovertext=hover,
-            hoverinfo="text",
-            name="Models"
-        ))
-
-        # highlight pareto points
-        fig.add_trace(go.Scatter3d(
-            x=P_pareto[:, 0], y=P_pareto[:, 1], z=P_pareto[:, 2],
-            mode="markers",
-            marker=dict(size=8, symbol="diamond", color="crimson"),
-            hovertext=[hover[i] for i in pareto_idx],
-            hoverinfo="text",
-            name="Pareto frontier (points)"
-        ))
-
-        mesh_added = False
-        if len(P_pareto) >= 4:
-            try:
-                P_trans = P_pareto.copy()
-                P_trans[:, 2] = -P_trans[:, 2]
-                hull = ConvexHull(P_trans)
-                simplices = hull.simplices
-
-                fig.add_trace(go.Mesh3d(
-                    x=P_pareto[:, 0],
-                    y=P_pareto[:, 1],
-                    z=P_pareto[:, 2],
-                    i=simplices[:, 0],
-                    j=simplices[:, 1],
-                    k=simplices[:, 2],
-                    opacity=0.25,
-                    color="crimson",
-                    name="Pareto frontier (surface)",
-                    hoverinfo="skip"
-                ))
-                mesh_added = True
-            except QhullError:
-                logger.warning("Convex hull failed; plotting Pareto points only.")
-            except Exception as e:
-                logger.warning(f"Pareto surface construction error: {e}")
-        
-        title_suffix = " (with surface)" if mesh_added else " (points only)"
-        fig.update_layout(
-            title="Quality–Speed–Tokens Trade-off" + title_suffix,
-            scene=dict(
-                xaxis_title="Quality (Metric Mean, ↑ better)",
-                yaxis_title="Speed (Normalized, ↑ faster)",
-                zaxis_title="Tokens (Mean input, ↓ better)",
-                xaxis=dict(range=[max(0, float(np.nanmin(Q)) - 0.05),
-                                min(1.0, float(np.nanmax(Q)) + 0.05)]),
-                yaxis=dict(range=[max(0, float(np.nanmin(S)) - 0.05),
-                                min(1.0, float(np.nanmax(S)) + 0.05)]),
-            ),
-            legend=dict(itemsizing="constant")
-        )
-
-        output_path = self.out_dir / "tradeoff_3d.html"
-        pyo.plot(fig, filename=str(output_path), auto_open=False)
-    
-    def _create_pareto_bubble(self):
-        """
-        Pareto View considering Quality (Metric Mean Score) vs Speed (Mean Execution Time).
-        Each model is a bubble; Pareto frontier shown as a thick dashed line.
-        """
-        x_quality = []
-        y_time = []
-        colors = []
-        texts = []
-
-        for m in self.methods:
-            q = self.metric_scores.get(m, {}).get("mean", 0.0)
-            t = float(np.mean(self.results[m].execution_times)) if len(self.results[m].execution_times) else np.nan
-            x_quality.append(q)
-            y_time.append(t)
-            colors.append(m)
-            texts.append(m)
-        
-        fig = px.scatter(
-            x=x_quality,
-            y=y_time,
-            size=[10 for _ in texts],
-            color=colors,
-            hover_name=texts,
-            labels=dict(x="Quality (Metric Mean Score)", y="Mean Execution Time (s)", color="Model"),
-            title="Pareto View: Quality vs Speed"
-        )
-
-        # invert Y axis visually (top = faster)
-        fig.update_yaxes(autorange="reversed")
-
-        # compute Pareto frontier (upper-left: high quality, low time)
-        pts = sorted([(x_quality[i], y_time[i], texts[i]) for i in range(len(texts)) if not np.isnan(y_time[i])],
-                    key=lambda p: (-p[0], p[1]))
-        frontier = []
-        best_time = float("inf")
-        for q, t, name in pts:
-            if t < best_time:
-                frontier.append((q, t, name))
-                best_time = t
-
-        if len(frontier) >= 2:
-            fig.add_trace(go.Scatter(
-                x=[p[0] for p in frontier],
-                y=[p[1] for p in frontier],
-                mode="lines+markers",
-                name="Pareto frontier",
-                line=dict(width=3, dash="dash", color="red"),
-                marker=dict(size=6, color="red")
-            ))
-        
-        # annotate only Pareto frontier models
-        for q, t, name in frontier:
-            fig.add_annotation(
-                x=q,
-                y=t,
-                text=name,
-                showarrow=False,
-                font=dict(size=10, color="black"),
-                yshift=10
-            )
-        
-        output_path = self.out_dir / "pareto_quality_speed_bubble.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
 
 if __name__ == "__main__":
