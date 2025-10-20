@@ -12,9 +12,8 @@ Requirements:
     uv add transformers rouge-score bert-score nltk scikit-learn
     uv add matplotlib seaborn pandas numpy tqdm torch
 """
+from datetime import datetime
 import os
-
-from llm_apis.exceptions import RefusalError, NoContentError, UnknownResponse
 
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 os.environ["HF_HUB_OFFLINE"] = "1"
@@ -46,6 +45,9 @@ GOLD_STANDARD_DATA: list[Path] = [
 setup_logging(OUT_DIR / "benchmark.log")
 logger = get_logger(__name__)
 
+
+from llm_apis.base_client import BatchCache, BatchStatus, OUT_DIR as LLM_APIS_OUT_DIR
+from llm_apis.exceptions import RefusalError, NoContentError, UnknownResponse
 from llm_apis.ollama_client import OllamaClient
 from llm_apis.mistral_client import MistralClient
 from llm_apis.anthropic_client import AnthropicClient
@@ -306,7 +308,6 @@ class SummarizationBenchmark:
                     )
                     papers.append(paper)
 
-
                 logger.info(f"Successfully loaded {len(papers)} papers from {json_file_path}. "
                             f"Average number of reference summaries per paper: {self._get_avg_summaries(papers):.2f}")
 
@@ -328,10 +329,10 @@ class SummarizationBenchmark:
         self.results.load()
 
     def add(self, platform: str, model_name: str | None = None, model_param_overrides: dict[str, Any] | None = None,
-            tokenizer_param_overrides: dict[str, Any] | None = None, force_refresh: bool = False):
+            tokenizer_param_overrides: dict[str, Any] | None = None, force_refresh: bool = False, batch: bool = False):
         if force_refresh or self.force_refresh:
             self._clear_cache(platform=platform, model_name=model_name)
-        self.models.append((platform, model_name, model_param_overrides, tokenizer_param_overrides))
+        self.models.append((platform, model_name, model_param_overrides, tokenizer_param_overrides, batch))
 
     def _clear_cache(self, platform: str, model_name: str) -> None:
         method_name = f"{platform}_{model_name}" if model_name else platform
@@ -351,7 +352,8 @@ class SummarizationBenchmark:
     def run(self, reset_metrics: bool = False):
         logger.info(f"Running benchmark for {len(self.models)} models ..")
 
-        for idx, (platform, model_name, model_param_overrides, tokenizer_param_overrides) in enumerate(self.models):
+        for idx, (platform, model_name, model_param_overrides, tokenizer_param_overrides,
+                  batch) in enumerate(self.models):
             logger.info(f"Running model {idx+1}/{len(self.models)}: {platform} {model_name}")
             irc = InterferenceRunContainer(
                 platform=platform,
@@ -370,14 +372,17 @@ class SummarizationBenchmark:
                 continue
 
             try:
-                if skip_inference and reset_metrics:
-                    logger.info(f"Recalculating metrics for existing method: {irc.method_name}")
-                    result = self._recalculate_metrics_from_cache(irc=irc)
+                if batch:
+                    result = self._check_batch(irc=irc)
                 else:
-                    logger.info(f"Running interference and calculating metrics for method: {irc.method_name}")
-                    result = self._run_interference_and_calculate_metrics(irc=irc)
-                    if result is None:
-                        continue
+                    if skip_inference and reset_metrics:
+                        logger.info(f"Recalculating metrics for existing method: {irc.method_name}")
+                        result = self._recalculate_metrics_from_cache(irc=irc)
+                    else:
+                        logger.info(f"Running interference and calculating metrics for method: {irc.method_name}")
+                        result = self._run_interference_and_calculate_metrics(irc=irc)
+                        if result is None:
+                            continue
             except Exception as e:
                 logger.error(f"Failed to run interference and calculating metrics for method: {irc.method_name}: {e}")
                 logger.error("Re-run the benchmark to retry. Pipeline will continue now.")
@@ -663,7 +668,7 @@ class SummarizationBenchmark:
             text = TOKEN_SIZE_SAMPLE_TEXT
             words = len(text.split())
 
-            for platform, model_name, parameter_overrides in self.models:
+            for platform, model_name, parameter_overrides, *unused in self.models:
                 try:
                     token_size = self.api_clients[platform].test_token_size(model_name=model_name, text=text)
                     ratio = token_size / words
@@ -720,16 +725,97 @@ class SummarizationBenchmark:
 
             changes = False
 
-    def submit_batch(self, platform: str, model: str):
-        if platform not in ["mistral"]:
-            logger.error("Not supported model for batch submission.")
-            return
+    def _check_batch(self, irc: InterferenceRunContainer) -> EvaluationResult | None:
+        if irc.platform not in ["mistral"]:
+            logger.error(f"Model {irc.model_name} is not supported on platform {irc.platform} for batch processing")
+            return None
 
-        logger.error("BATCH REQUESTS NOT IMPLEMENTED YET - ADD CACHING OF JOB IDs")
-        return
-        self.api_clients[platform].submit_batch(
-            model_name=model, system_prompt_override=None, parameter_overrides=None,
-            prompts=[_.formatted_text for _ in self.papers], papers_hash=self.papers_hash)
+        cache: BatchCache = self.api_clients[irc.platform].load_batch_cache(method_name=irc.model_name,
+                                                                            papers_hash=self.papers_hash)
+
+        if cache.status == BatchStatus.NOT_STARTED:
+            logger.info(f"Starting batch job for model {irc.model_name} on platform {irc.platform} ..")
+            job_id = self.api_clients[irc.platform].submit_batch(
+                model_name=irc.model_name,
+                system_prompt_override=None,
+                parameter_overrides=None,
+                prompts=[_.formatted_text for _ in self.papers],
+                custom_ids=[_.id for _ in self.papers],
+                papers_hash=self.papers_hash
+            )
+            cache.status = BatchStatus.PENDING
+            cache.batch_uuid = job_id
+            self.api_clients[irc.platform].save_batch_cache(method_name=irc.model_name, papers_hash=self.papers_hash,
+                                                            batch_cache=cache)
+            return None
+
+        elif cache.status != BatchStatus.COMPLETED or cache.status == BatchStatus.COMPLETED:
+            logger.info(f"Checking batch job {cache.batch_uuid} ..")
+            batch_data = self.api_clients[irc.platform].get_batch(job_id=cache.batch_uuid)
+            _batch_job, _results, _errors = batch_data["batch_job"], batch_data["results"], batch_data["errors"]
+            logger.info(f"Batch {cache.batch_uuid} on platform {irc.platform} returned status: {_batch_job.status}")
+
+            if _batch_job.status == "SUCCESS":
+                logger.info(f"Batch {cache.batch_uuid} completed successfully. Saving to cache.")
+                cache.status = BatchStatus.COMPLETED
+                cache.duration = _batch_job.completed_at - _batch_job.created_at
+                cache.results = _results
+                cache.errors = _errors
+                self.api_clients[irc.platform].save_batch_cache(
+                    method_name=irc.model_name, papers_hash=self.papers_hash, batch_cache=cache)
+            else:
+                return None
+
+        if cache.status == BatchStatus.COMPLETED:
+            self._update_papers_from_batch(irc=irc, cache=cache)
+            return self._get_evaluation_result(
+                irc=irc,
+                generated_summaries=[p.extracted_response for p in self.papers],
+                reference_summaries=[p.summaries for p in irc.papers],
+                existing_data=None
+            )
+
+        return None
+
+    def _update_papers_from_batch(self, irc: InterferenceRunContainer, cache: BatchCache) -> None:
+        _paper_id_to_paper = {v.id: v for v in irc.papers}
+        _execution_time = cache.duration
+        _exec_time_per_paper = _execution_time / len(irc.papers)
+
+        for resp in cache.results or []:
+            _paper = _paper_id_to_paper[resp["custom_id"]]
+            if not _paper:
+                logger.warning(f"Paper {_paper.id} not found in cache.")
+                continue
+
+            _r = resp["response"]
+            if _r["status_code"] != 200:
+                logger.warning(f"Paper {_paper.id} returned invalid status code: {_r['status_code']}")
+                continue
+
+            _body = _r["body"]
+
+            _paper.input_tokens = _body["usage"]["prompt_tokens"]
+            _paper.output_tokens = _body["usage"]["completion_tokens"]
+            _paper.execution_time = _exec_time_per_paper
+
+            # TODO: this seems mistral specific - maybe shift to client ..
+            _raw_responses = _body["choices"][0]["message"]["content"]
+            _paper.raw_response = _raw_responses[0]["thinking"][0]["text"]
+            _paper.extracted_response = extract_response(_raw_responses[1]["text"])
+
+            self.api_clients[irc.platform].save_cache(
+                method_name=irc.model_name,
+                system_prompt=self.api_clients[irc.platform].text_summarization_system_prompt,
+                user_query=_paper.formatted_text,
+                response=_paper.raw_response,
+                execution_time=_paper.execution_time,
+                input_tokens=_paper.input_tokens,
+                output_tokens=_paper.output_tokens,
+            )
+
+        for resp in cache.errors or []:
+            raise NotImplementedError(f"Investigate why errors are thrown and handle accordingly: {resp}")
 
 
 def main():
@@ -827,12 +913,13 @@ def main():
     # https://docs.anthropic.com/en/docs/about-claude/models/overview
     benchmark.add("anthropic", "claude-3-5-haiku-20241022")  # fastest
     benchmark.add("anthropic", "claude-sonnet-4-20250514")  # high intelligence, balanced performance
-    benchmark.add("anthropic", "claude-opus-4-20250514")  # most capable
-    benchmark.add("anthropic", "claude-opus-4-1-20250805")
+    # benchmark.add("anthropic", "claude-opus-4-20250514")  # most capable
+    # benchmark.add("anthropic", "claude-opus-4-1-20250805")
 
     # https://docs.mistral.ai/getting-started/models/models_overview/
     benchmark.add("mistral", "mistral-medium-2505")  # frontier-class multimodal model
     # benchmark.add("mistral", "magistral-medium-2507")  # frontier-class reasoning
+    benchmark.add("mistral", "magistral-medium-2509", batch=True)
     benchmark.add("mistral", "mistral-large-2411")  # top-tier large model, high complexity tasks
     benchmark.add("mistral", "mistral-small-2506")
 
@@ -848,9 +935,13 @@ def main():
     # benchmark.add("ollama", "oscardp96/medcpt-query:latest")
 
     # benchmark.test_token_sizes()
-    benchmark.submit_batch("mistral", "magistral-medium-2509")
 
     benchmark.run(reset_metrics=args.reset_metrics)
+
+    if benchmark.papers_hash not in benchmark.results.data:
+        logger.info("No results available. Exiting")
+        exit(1)
+
     benchmark.apply_token_size_hotfix()
     benchmark.export()
 
