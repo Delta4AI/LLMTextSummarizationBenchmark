@@ -308,9 +308,9 @@ class SummarizationBenchmark:
                     )
                     papers.append(paper)
 
-                    # TODO: remove when done with dev
-                    if i == 5:
-                        break
+                    # # TODO: remove when done with dev
+                    # if i == 5:
+                    #     break
 
                 logger.info(f"Successfully loaded {len(papers)} papers from {json_file_path}. "
                             f"Average number of reference summaries per paper: {self._get_avg_summaries(papers):.2f}")
