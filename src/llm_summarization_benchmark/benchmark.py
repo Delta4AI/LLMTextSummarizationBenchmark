@@ -808,15 +808,15 @@ class SummarizationBenchmark:
             _paper.raw_response = _raw_responses[0]["thinking"][0]["text"]
             _paper.extracted_response = extract_response(_raw_responses[1]["text"])
 
-            self.api_clients[irc.platform].save_cache(
-                method_name=irc.model_name,
-                system_prompt=self.api_clients[irc.platform].text_summarization_system_prompt,
-                user_query=_paper.formatted_text,
-                response=_paper.raw_response,
-                execution_time=_paper.execution_time,
-                input_tokens=_paper.input_tokens,
-                output_tokens=_paper.output_tokens,
-            )
+            # self.api_clients[irc.platform].save_cache(
+            #     method_name=irc.model_name,
+            #     system_prompt=self.api_clients[irc.platform].text_summarization_system_prompt,
+            #     user_query=_paper.formatted_text,
+            #     response=_paper.raw_response,
+            #     execution_time=_paper.execution_time,
+            #     input_tokens=_paper.input_tokens,
+            #     output_tokens=_paper.output_tokens,
+            # )
 
         for resp in cache.errors or []:
             raise NotImplementedError(f"Investigate why errors are thrown and handle accordingly: {resp}")
