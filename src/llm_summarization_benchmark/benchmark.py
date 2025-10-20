@@ -308,6 +308,10 @@ class SummarizationBenchmark:
                     )
                     papers.append(paper)
 
+                    # TODO: remove when done with dev
+                    if i == 5:
+                        break
+
                 logger.info(f"Successfully loaded {len(papers)} papers from {json_file_path}. "
                             f"Average number of reference summaries per paper: {self._get_avg_summaries(papers):.2f}")
 
@@ -749,7 +753,7 @@ class SummarizationBenchmark:
                                                             batch_cache=cache)
             return None
 
-        elif cache.status != BatchStatus.COMPLETED or cache.status == BatchStatus.COMPLETED:
+        elif cache.status != BatchStatus.COMPLETED:
             logger.info(f"Checking batch job {cache.batch_uuid} ..")
             batch_data = self.api_clients[irc.platform].get_batch(job_id=cache.batch_uuid)
             _batch_job, _results, _errors = batch_data["batch_job"], batch_data["results"], batch_data["errors"]
