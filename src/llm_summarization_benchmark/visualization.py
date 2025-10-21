@@ -41,7 +41,7 @@ MODEL_GROUPS = {
         "ollama_granite4:tiny-h", "ollama_granite4:small-h", "ollama_granite4:micro", "ollama_granite4:micro-h",
         "ollama_llama3.1:8b", "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
         "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b", "mistral_mistral-small-2506",
-        "mistral_mistral-medium-2505", "mistral_mistral-large-2411", "mistral_mistral-medium-2505","ollama_phi3:3.8b",
+        "mistral_mistral-medium-2505", "mistral_mistral-large-2411", "mistral_mistral-medium-2508","ollama_phi3:3.8b",
         "ollama_phi4:14b", "openai_gpt-3.5-turbo", "openai_gpt-4o", "openai_gpt-4o-mini", "openai_gpt-4.1", 
         "openai_gpt-4.1-mini", "anthropic_claude-3-5-haiku-20241022", "huggingface:chat_swiss-ai/Apertus-8B-Instruct-2509"
     ],
