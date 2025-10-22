@@ -75,13 +75,56 @@ def extract_response(response_text: str) -> str:
         if len(line) > 20:
             return _clean_text(line)
 
+    # Handle symbol-only outputs (like "**", "..." or "___")
+    if re.fullmatch(r'[\s\*\_\-\.\,\'\"`~!@#$%^&*()+=/\\|<>?\[\]{}:;]+', text):
+        return "INSUFFICIENT_FINDINGS"
+    
+    # Handle BioGPT garbage or prompt echoes
+    if re.search(r'<\s*(?:AbstractText|ns0:|math|mrow|mi|mn|msub)', text, flags=re.IGNORECASE):
+        return "INSUFFICIENT_FINDINGS"
+    if re.match(r'^\s*Summarize\s+the\s+provided\s+publication', text, flags=re.IGNORECASE):
+        return "INSUFFICIENT_FINDINGS"
+    if len(re.findall(r'<[^>]+>', text)) > len(text.split()) * 0.2:
+        return "INSUFFICIENT_FINDINGS"
+
+    # Handle URL-only outputs
+    if re.fullmatch(r'\(?\s*(?:source|abstract\s*from)[:\s-]*https?://\S+\)?', text, flags=re.IGNORECASE):
+        return "INSUFFICIENT_FINDINGS"
+    if re.fullmatch(r'https?://\S+', text.strip(), flags=re.IGNORECASE):
+        return "INSUFFICIENT_FINDINGS"
+    
+    if re.match(r'^\s*\(Summary\s+by[^)]*\)\s*$', text.strip(), flags=re.IGNORECASE):
+        return "INSUFFICIENT_FINDINGS"
+
     return _clean_text(text)
 
 
 def _clean_text(text: str) -> str:
+    # Remove Markdown bold/italic markers
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
+    text = re.sub(r'\*(.*?)\*', r'\1', text)
+    text = re.sub(r'__(.*?)__', r'\1', text)
+    text = re.sub(r'_(.*?)_', r'\1', text)
+
+    # Unescape common escaped quotes and slashes (like: \"word\" -> "word")
+    text = text.replace(r'\"', '"').replace(r"\'", "'").replace(r"\\", "\\")
+
+    # Remove prefixes like "Summary:" or "Answer:"
     text = re.sub(r'^(?:Summary|Answer|Result):\s*', '', text, flags=re.IGNORECASE)
     text = re.sub(r'^["\'](.+)["\']$', r'\1', text)
     text = ' '.join(text.split())
+
+    # Remove spaces before punctuation (like: "word ," -> "word,")
+    text = re.sub(r'\s+([,.;:!?])', r'\1', text)
+
+    # Remove spaces after opening brackets, before closing ones and around slashes
+    text = re.sub(r'\(\s+', '(', text)
+    text = re.sub(r'\s+\)', ')', text)
+    text = re.sub(r'\[\s+', '[', text)
+    text = re.sub(r'\s+\]', ']', text)
+    text = re.sub(r'\s+/', '/', text)
+    text = re.sub(r'/\s+', '/', text)
+
     return text.strip()
 
 
