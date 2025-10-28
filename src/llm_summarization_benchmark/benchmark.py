@@ -52,8 +52,8 @@ from llm_apis.ollama_client import OllamaSummaryClient
 from llm_apis.mistral_client import MistralSummaryClient
 from llm_apis.anthropic_client import AnthropicSummaryClient
 from llm_apis.openai_client import OpenAISummaryClient
-from llm_apis.huggingface_client import (HuggingFacePipelineClient, HuggingFaceCompletionModelClient,
-                                         HuggingFaceChatModelClient, HuggingFaceConversationalModelClient)
+from llm_apis.huggingface_client import (HuggingFacePipelineSummaryClient, HuggingFaceCompletionModelSummaryClient,
+                                         HuggingFaceChatModelSummaryClient, HuggingFaceConversationalModelSummaryClient)
 from llm_apis.local_client import TextRankSummarizer, FrequencySummarizer
 from llm_apis.config import SUMMARY_MIN_WORDS, SUMMARY_MAX_WORDS, TOKEN_SIZE_SAMPLE_TEXT
 from llm_summarization_benchmark.metrics import (get_length_scores, get_meteor_scores, ROUGE_TYPES, get_rouge_scores,
@@ -220,14 +220,14 @@ class SummarizationBenchmark:
         self.api_clients = {}
 
         for _key, _class in [
-            ("ollama", OllamaClient),
-            ("openai", OpenAIClient),
-            ("anthropic", AnthropicClient),
-            ("mistral", MistralClient),
-            ("huggingface", HuggingFacePipelineClient),
-            ("huggingface:completion", HuggingFaceCompletionModelClient),
-            ("huggingface:chat", HuggingFaceChatModelClient),
-            ("huggingface:conversational", HuggingFaceConversationalModelClient),
+            ("ollama", OllamaSummaryClient),
+            ("openai", OpenAISummaryClient),
+            ("anthropic", AnthropicSummaryClient),
+            ("mistral", MistralSummaryClient),
+            ("huggingface", HuggingFacePipelineSummaryClient),
+            ("huggingface:completion", HuggingFaceCompletionModelSummaryClient),
+            ("huggingface:chat", HuggingFaceChatModelSummaryClient),
+            ("huggingface:conversational", HuggingFaceConversationalModelSummaryClient),
             ("local:textrank", TextRankSummarizer),
             ("local:frequency", FrequencySummarizer),
         ]:
