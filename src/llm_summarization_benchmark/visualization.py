@@ -27,41 +27,37 @@ OVERALL = "Overall (70% metrics, 10% speed/accept./cost)"
 # model grouping
 MODEL_GROUPS = {
     "Traditional Methods": [
-        "local:textrank", "local:frequency"
+        "local:frequency", "local:textrank"
     ],
     "Encoder-Decoder Models": [
-        "huggingface_facebook/bart-large-cnn", "huggingface_facebook/bart-base",
+        "huggingface_facebook/bart-base", "huggingface_facebook/bart-large-cnn",
         "huggingface_google-t5/t5-base", "huggingface_google-t5/t5-large",
-        "huggingface_csebuetnlp/mT5_multilingual_XLSum",
-        "huggingface_google/pegasus-xsum", "huggingface_google/pegasus-large",
-        "huggingface_google/pegasus-cnn_dailymail"
+        "huggingface_csebuetnlp/mT5_multilingual_XLSum", "huggingface_google/pegasus-xsum",
+        "huggingface_google/pegasus-cnn_dailymail", "huggingface_google/pegasus-large"
     ],
     "General-purpose LLMs": [
         "ollama_gemma3:270M","ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
-        "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_llama3.1:8b",
-        "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
-        "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b",
-        "ollama_PetrosStav/gemma3-tools:4b", "ollama_phi3:3.8b", "ollama_phi4:14b",
-        "openai_gpt-3.5-turbo", "openai_gpt-4.1", "openai_gpt-4.1-mini",
-        "openai_gpt-4o", "openai_gpt-4o-mini", "anthropic_claude-3-5-haiku-20241022",
-        "mistral_mistral-medium-2505", "mistral_mistral-small-2506", "mistral_mistral-large-2411",
-        "huggingface:chat_swiss-ai/Apertus-8B-Instruct-2509", "ollama_granite4:tiny-h",
-        "ollama_granite4:small-h", "ollama_granite4:micro", "ollama_granite4:micro-h",
-
+        "ollama_PetrosStav/gemma3-tools:4b", "ollama_granite3.3:2b", "ollama_granite3.3:8b", 
+        "ollama_granite4:tiny-h", "ollama_granite4:small-h", "ollama_granite4:micro", "ollama_granite4:micro-h",
+        "ollama_llama3.1:8b", "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
+        "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b", "mistral_mistral-small-2506",
+        "mistral_mistral-medium-2505", "mistral_mistral-large-2411", "mistral_mistral-medium-2508","ollama_phi3:3.8b",
+        "ollama_phi4:14b", "openai_gpt-3.5-turbo", "openai_gpt-4o", "openai_gpt-4o-mini", "openai_gpt-4.1", 
+        "openai_gpt-4.1-mini", "anthropic_claude-3-5-haiku-20241022", "huggingface:chat_swiss-ai/Apertus-8B-Instruct-2509"
     ],
     "Reasoning-oriented LLMs": [
         "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
         "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
-        "ollama_gpt-oss:20b", "anthropic_claude-sonnet-4-20250514",
-        "anthropic_claude-opus-4-20250514", "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
-        "openai_gpt-5-2025-08-07", "anthropic_claude-opus-4-1-20250805"
+        "ollama_gpt-oss:20b", "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
+        "openai_gpt-5-2025-08-07", "anthropic_claude-sonnet-4-20250514",
+        "anthropic_claude-opus-4-20250514", "anthropic_claude-opus-4-1-20250805", "mistral_magistral-medium-2509"
     ],
-    "Specialized Models": [
+    "Scientific/Biomedical Models": [
+        "huggingface_google/pegasus-pubmed", "huggingface_google/bigbird-pegasus-large-pubmed",
         "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
-        "ollama_medllama2:7b", "huggingface_google/pegasus-pubmed",
-        "huggingface_google/bigbird-pegasus-large-pubmed", "huggingface:completion_microsoft/biogpt",
-        "huggingface:chat_Uni-SMART/SciLitLLM1.5-7B", "huggingface:chat_Uni-SMART/SciLitLLM1.5-14B",
-        "huggingface:chat_aaditya/OpenBioLLM-Llama3-8B", "huggingface:conversational_BioMistral/BioMistral-7B"
+        "huggingface:completion_microsoft/biogpt", "ollama_medllama2:7b",
+        "huggingface:chat_aaditya/OpenBioLLM-Llama3-8B", "huggingface:conversational_BioMistral/BioMistral-7B",
+        "huggingface:chat_Uni-SMART/SciLitLLM1.5-7B", "huggingface:chat_Uni-SMART/SciLitLLM1.5-14B"
     ],
 }
 
