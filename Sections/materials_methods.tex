@@ -11,28 +11,28 @@ Articles were collected systematically across a variety of journals to ensure co
 \caption{Overview of journals and number of articles included in the gold-standard dataset.\label{tab:goldstandard}}
 \begin{tabularx}{\textwidth}{llc}
 \toprule
-\textbf{Publisher} & \textbf{Journal} & \textbf{Articles included} \\
+\textbf{Publisher} & \textbf{Journal} \\
 \midrule
-ScienceDirect & Drug Discovery Today & 50 \\
-ScienceDirect & Journal of Molecular Biology & 50 \\
-ScienceDirect & FEBS Letters & 50 \\
-ScienceDirect & Journal of Biotechnology & 50 \\
-ScienceDirect & Gene & 50 \\
-ScienceDirect & Genomics & 50 \\
-ScienceDirect & Journal of Proteomics & 50 \\
-ScienceDirect & The International Journal of Biochemistry \& Cell Biology & 50 \\
-ScienceDirect & Cytokine & 50 \\
-ScienceDirect & Developmental Cell & 50 \\
-Cell & Cell & 50 \\
-Cell & Cancer Cell & 50 \\
-Cell & Cell Chemical Biology & 50 \\
-Cell & Cell Genomics & 50 \\
-Cell & Cell Host \& Microbe & 50 \\
-Cell & Cell Metabolism & 50 \\
-Cell & Cell Reports & 50 \\
-Cell & Cell Reports Medicine & 50 \\
-Cell & Cell Stem Cell & 50 \\
-Cell & Cell Systems & 50 \\
+ScienceDirect & Drug Discovery Today \\
+ScienceDirect & Journal of Molecular Biology \\
+ScienceDirect & FEBS Letters \\
+ScienceDirect & Journal of Biotechnology \\
+ScienceDirect & Gene \\
+ScienceDirect & Genomics \\
+ScienceDirect & Journal of Proteomics \\
+ScienceDirect & The International Journal of Biochemistry \& Cell Biology \\
+ScienceDirect & Cytokine \\
+ScienceDirect & Developmental Cell \\
+Cell & Cell \\
+Cell & Cancer Cell \\
+Cell & Cell Chemical Biology \\
+Cell & Cell Genomics \\
+Cell & Cell Host \& Microbe \\
+Cell & Cell Metabolism \\
+Cell & Cell Reports \\
+Cell & Cell Reports Medicine \\
+Cell & Cell Stem Cell \\
+Cell & Cell Systems \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -41,16 +41,16 @@ This setup provides standardized pairs of abstracts and reference summaries that
 
 \subsection{Summarization Methods}
 
-We evaluated 50 summarization methods, ranging from simple frequency-based algorithms to state-of-the-art large language models (LLMs). By having this extensive coverage of methods, we were able to compare established techniques with the latest transformer-based models under identical conditions.
+We evaluated 63 summarization models, ranging from simple frequency-based algorithms to state-of-the-art large language models (LLMs). By having this extensive coverage of models, we were able to compare established techniques with the latest transformer-based models under identical conditions.
 
 The models were grouped into five categories:
 
 \begin{enumerate}
-	\item Traditional methods: As a foundation for comparison, we included two traditional extractive methods: a simple frequency-based approach and TextRank \cite{mihalcea-tarau-2004-textrank}. These methods provide a simple baseline to compare the more complex approaches with.
+	\item Traditional models: As a foundation for comparison, we included two traditional extractive models: a simple frequency-based approach and TextRank \cite{mihalcea-tarau-2004-textrank}. These models provide a simple baseline to compare the more complex approaches with.
 	\item Encoder-Decoder models: We included a set of pre-trained encoder-decoder models, which are available through the HuggingFace library: BART (base and large) \cite{DBLP:journals/corr/abs-1910-13461}, T5 (base and large) \cite{2020t5}, mT5 \cite{hasan-etal-2021-xl}, and a variety of PEGASUS models \cite{zhang2020pegasuspretrainingextractedgapsentences}. These models are often applied for abstractive summarization and represent well-established neural systems within our benchmark.
-	\item General-purpose LLMs: We also evaluated a range of widely used large language models designed for broad application. This group includes models such as Gemma \cite{gemmateam2025gemma3technicalreport}, Granite \cite{mishra2024granitecodemodelsfamily}, LLaMA \cite{grattafiori2024llama3herdmodels}, Mistral \cite{jiang2023mistral7b}, Phi \cite{abdin2024phi3technicalreporthighly,abdin2024phi4technicalreport}, GPT \cite{brown2020languagemodelsfewshotlearners,openai2024gpt4technicalreport}, and Claude \cite{anthropic2025claude}, which represent the current landscape of general-purpose systems.
+	\item General-purpose LLMs: We also evaluated a range of widely used large language models designed for broad application. This group includes models such as Gemma \cite{gemmateam2025gemma3technicalreport}, Granite \cite{mishra2024granitecodemodelsfamily}, LLaMA \cite{grattafiori2024llama3herdmodels}, Mistral \cite{jiang2023mistral7b}, Phi \cite{abdin2024phi3technicalreporthighly,abdin2024phi4technicalreport}, GPT \cite{brown2020languagemodelsfewshotlearners,openai2024gpt4technicalreport}, Claude \cite{anthropic2025claude}, and Apertus \cite{swissai2025apertus}, which represent the current landscape of general-purpose systems.
 	\item Reasoning-oriented LLMs: We further included several models developed with a focus on advanced reasoning capabilities. This group includes models from the DeepSeek-R1 family \cite{deepseekai2025deepseekr1incentivizingreasoningcapability}, Qwen \cite{qwen3technicalreport}, more GPT models such as GPT-oss \cite{gptoss2025} and GPT-5 \cite{openai2025gpt5}, Magistral \cite{mistralai2025magistral}, and some additional Claude models. Their design emphasizes multi-step problem solving and allowed us to explore whether reasoning affects summarization performance.
-	\item Specialized models: To assess whether domain adaptation improves summarization quality, we included MedLLaMA2 \cite{touvron2023llama2openfoundation} (a medical adaptation of LLaMA-2) and LED \cite{Beltagy2020Longformer} (arXiv-tuned), which are trained on medical/biomedical data or on summarization tasks themselves.
+	\item Scientific/Biomedical models: To assess whether domain adaptation improves summarization quality, we included PEGASUS and BigBird models fine-tuned on PubMed data (pegasus-pubmed \& bigbird-pegasus-large-pubmed), LED \cite{Beltagy2020Longformer} (arXiv-tuned), BioGPT \cite{10.1093/bib/bbac409}, MedLLaMA2 \cite{touvron2023llama2openfoundation}, OpenBioLLM \cite{OpenBioLLMs}, BioMistral \cite{labrak2024biomistral}, and SciLitLLM1.5 models \cite{li2024scilitllmadaptllmsscientific}, which are trained on medical/biomedical data or on summarization tasks themselves.
 \end{enumerate}
 
 The complete list of models included in each category is shown in Table~\ref{tab:models}.
@@ -61,22 +61,22 @@ The complete list of models included in each category is shown in Table~\ref{tab
 \toprule
 \textbf{Group} & \textbf{Methods/Models} \\
 \midrule
-Traditional methods & textrank; frequency \\
+Traditional models & textrank; frequency \\
 \midrule
-Encoder-Decoder models & facebook/bart-large-cnn; facebook/bart-base; google-t5/t5-base; google-t5/t5-large; csebuetnlp/mT5\_multilingual\_XLSum;  google/pegasus-xsum; google/pegasus-large; google/pegasus-cnn\_dailymail \\
+Encoder-Decoder models & facebook/bart-base; facebook/bart-large-cnn; google-t5/t5-base; google-t5/t5-large; csebuetnlp/mT5\_multilingual\_XLSum;  google/pegasus-xsum; google/pegasus-cnn\_dailymail; google/pegasus-large \\
 \midrule
-General-purpose LLMs & gemma3:1b; gemma3:4b; gemma3:12b; granite3.3:2b; granite3.3:8b; llama3.1:8b; llama3.2:1b; llama3.2:3b; mistral:7b; mistral-nemo:12b; mistral-small3.2:24b; PetrosStav/gemma3-tools:4b; phi3:3.8b; phi4:14b; gpt-3.5-turbo; gpt-4.1; gpt-4.1-mini; gpt-4o; gpt-4o-mini; claude-3-5-haiku-20241022; mistral-medium-2505; mistral-small-2506; mistral-large-2411 \\
+General-purpose LLMs & gemma3:270M; gemma3:1b; gemma3:4b; gemma3:12b; PetrosStav/gemma3-tools:4b; granite3.3:2b; granite3.3:8b; granite4:tiny-h; granite4:small-h; granite4:micro; granite4:micro-h; llama3.1:8b; llama3.2:1b; llama3.2:3b; mistral:7b; mistral-nemo:12b; mistral-small3.2:24b; mistral-small-2506; mistral-medium-2505; mistral-large-2411; mistral-medium-2508; phi3:3.8b; phi4:14b; gpt-3.5-turbo; gpt-4o; gpt-4o-mini; gpt-4.1; gpt-4.1-mini; claude-3-5-haiku-20241022; chat\_swiss-ai/Apertus-8B-Instruct-2509 \\
 \midrule
-Reasoning-oriented LLMs & deepseek-r1:1.5b; deepseek-r1:7b; deepseek-r1:8b; deepseek-r1:14b; qwen3:4b; qwen3:8b; gpt-oss:20b; claude-sonnet-4-20250514; claude-opus-4-20250514; magistral-medium-2507; gpt-5-nano-2025-08-07; gpt-5-mini-2025-08-07; gpt-5-2025-08-07; claude-opus-4-1-20250805 \\
+Reasoning-oriented LLMs & deepseek-r1:1.5b; deepseek-r1:7b; deepseek-r1:8b; deepseek-r1:14b; qwen3:4b; qwen3:8b; gpt-oss:20b; gpt-5-nano-2025-08-07; gpt-5-mini-2025-08-07; gpt-5-2025-08-07; claude-sonnet-4-20250514; claude-opus-4-20250514; claude-opus-4-1-20250805; magistral-medium-2509 \\
 \midrule
-Specialized models & led\_large\_16384\_arxiv\_summarization; medllama2:7b \\
+Scientific/Biomedical models & google/pegasus-pubmed; google/bigbird-pegasus-large-pubmed; led\_large\_16384\_arxiv\_summarization; completion\_microsoft/biogpt; medllama2:7b; chat\_aaditya/OpenBioLLM-Llama3-8B; conversational\_BioMistral/BioMistral-7B; chat\_Uni-SMART/SciLitLLM1.5-7B; chat\_Uni-SMART/SciLitLLM1.5-14B \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
 With this selection, we covered models of different sizes and release periods, ensuring that both widely adopted systems and recent architectures were represented. Extraordinarily large models were not considered because their resource demands exceed what is practical for typical summarization pipelines and were beyond the resources available for this study.
 
-These 50 diverse models were all tasked with generating summaries for each of the 1,000 abstracts in the dataset, resulting in 50,000 generated summaries available for evaluation.
+These 63 diverse models were all tasked with generating summaries for each of the 1,000 abstracts in the dataset, resulting in 50,000 generated summaries available for evaluation.
 
 \subsection{Evaluation Metrics}
 

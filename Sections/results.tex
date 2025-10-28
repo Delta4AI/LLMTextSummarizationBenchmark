@@ -4,30 +4,74 @@ Our benchmark results offer a comparative view of summarization performance acro
 
 \subsection{Overall Model Performance}
 
-- include something like the metric comparison plot or/and the rank heatmap to give an overall ranking across the models
+Figure~\ref{fig:rank_heatmap} provides an overview of the performance of all evaluated models across all surface-level and embedding-based metrics. Each row corresponds to one model, and each column to a specific metric, with lower ranks indicating better performance. Models are sorted by their average rank across metrics.
+
+The best-performing models overall were from the Mistral family, with the top positions occupied by \texttt{ollama\_mistral-small-3.2:24b}, \texttt{mistral\_mistral-small-2506}, and \texttt{mistral\_mistral\_medium-2505}. Two OpenAI models (\texttt{gpt-5-nano-2025-08-07} and \texttt{gpt-5-mini-2025-08-07}) followed closely. These models achieved high ranks across nearly all surface-level metrics (ROUGE-1, ROUGE-2, ROUGE-L, METEOR, BLEU) and performed well on most embedding-based measures (RoBERTa, DeBERTa, all-mpnet-base-v2, AlignScore). Several other LLMs also achieved competitive scores and maintained stable rankings across metrics.
+
+At the lower end of the ranking, encoder–decoder architectures such as T5 and PEGASUS, traditional extractive methods (TextRank and the frequency-based approach), and scientific/biomedical models such as MedLLaMA2 and BioGPT, achieved lower scores on most metrics.
+
+\begin{figure}[H]
+\begin{adjustwidth}{-\extralength}{0cm}
+\centering
+\includegraphics[width=1.25\textwidth]{Visualizations/rank_heatmap.png}
+\end{adjustwidth}
+\caption{Model ranks across all surface-level and embedding-based metrics. Each row represents a model and each column a metric, with lower ranks indicating better performance. Models are ordered by their average rank across metrics.\label{fig:rank_heatmap}}
+\end{figure}
 
 \subsection{Group Comparisons}
 
-- include comparisons with a focus on the model category (especially between general-purpose LLMs and reasoning-oriented LLMs)
+Figure~\ref{fig:group_bar_chart} summarizes the average performance of the five model categories based on the overall Metric Mean Score. General-purpose LLMs achieved the highest mean score (0.521), followed closely by reasoning-oriented LLMs (0.508). Encoder–decoder models and traditional extractive methods performed considerably lower, with mean scores of 0.445 and 0.451, respectively. The specialized models group showed the weakest overall performance (0.432).
 
-- also include the groups for traditional methods and encoder-decoder models but maybe not use the specialized category as it is small and not at all competitive 
+Figure~\ref{fig:llm_group_comparison}a compares the two largest and most competitive groups (general-purpose and reasoning-oriented LLMs) across multiple evaluation aspects. General-purpose models outperformed reasoning-oriented models in all measured categories, including surface-level metrics, embedding-based metrics, execution time, compliance with word-length bounds, and overall Metric Mean Score. The largest advantage was observed in execution time, where general-purpose LLMs produced summaries more efficiently on average. Figure~\ref{fig:llm_group_comparison}b provides a more detailed view of execution time differences between the two groups. The difference in quality metrics was smaller but consistent, with slightly higher scores across both surface-level and embedding-based metrics for general-purpose LLMs.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.0\textwidth]{Visualizations/group_bar_chart.png}
+\caption{Average Metric Mean Score across the five model categories. General-purpose LLMs achieved the highest mean score, followed by reasoning-oriented LLMs. Traditional, encoder–decoder, and specialized models performed considerably lower.\label{fig:group_bar_chart}}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\subfloat[\centering Comparison between general-purpose and reasoning-oriented LLMs across multiple evaluation aspects.]{%
+    \includegraphics[width=0.49\textwidth]{Visualizations/llm_comparison.png}
+}
+\hfill
+\subfloat[\centering Distribution of execution times for general-purpose and reasoning-oriented LLMs.]{%
+    \includegraphics[width=0.49\textwidth]{Visualizations/grouped_execution_time_distribution.png}
+}
+\caption{(\textbf{a}) Comparison between general-purpose and reasoning-oriented LLMs across multiple evaluation aspects. (\textbf{b}) Distribution of execution times for the same two groups. General-purpose models outperformed reasoning-oriented models across all measured categories and achieved lower, more stable runtimes.\label{fig:llm_group_comparison}}
+\end{figure}
 
 \subsection{Metric Correlations}
 
-- show correlation between metrics to justify the use of an aggregated score (Metrics Mean Score)
+To examine how the different evaluation metrics relate to each other, we computed pairwise Pearson correlation coefficients across all models (Figure~\ref{fig:metric_correlation}). Each cell in the matrix represents the correlation between two metrics based on their mean scores over all evaluated methods.
 
-\subsection{Performance by Metric Category}
+Strong positive correlations were observed among the surface-level metrics (ROUGE-1, ROUGE-2, ROUGE-L, METEOR, and BLEU). ROUGE variants were almost identical in their behavior ($\rho > 0.9$), while BLEU and METEOR showed slightly weaker but still substantial alignment with the ROUGE measures.
+
+Most embedding-based metrics (RoBERTa, DeBERTa, and all-mpnet-base-v2) also showed very high internal consistency ($\rho > 0.8$), which reflects their shared focus on semantic similarity beyond surface-level overlap. When compared with the surface-level metrics, correlations were moderate to strong ($\rho \approx 0.7$--$1.0$), indicating that the two categories capture related but not identical dimensions of summary quality.
+
+AlignScore correlated only moderately with the other metrics ($\rho \approx 0.4$--$0.7$), which can be attributed to its different point of reference, as it compares generated summaries directly with the source abstracts instead of the reference summaries used by the other metrics.
+
+Overall, these relationships show that the various metrics are broadly consistent while still providing complementary perspectives. This supports the use of an aggregated ``Metrics Mean Score'' as a balanced indicator of overall summarization performance.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{Visualizations/metric_correlation.png}
+\caption{Correlation matrix of all evaluation metrics. Each cell represents the Pearson correlation coefficient ($\rho$) between two metrics based on their mean scores across models. Surface-level and most embedding-based metrics show strong internal consistency, while AlignScore exhibits lower correlations due to its distinct focus on factual consistency with the source abstracts.\label{fig:metric_correlation}}
+\end{figure}
+
+\subsection{Maybe include -> Performance by Metric Category}
 
 - show the performance when using only subsets of the metrics (only surface-level metrics vs only embedding-based metrics)
 
-\subsection{Compliance with Summary Length}
+\subsection{Maybe include -> Compliance with Summary Length}
 
 - not sure if this is worth its own subsection but it is interesting to see as it also gives a good feeling for how well a model follows the given instructions.
 
-\subsection{Runtime Performance}
+\subsection{Maybe include -> Runtime Performance}
 
 - present the execution time across models, including distribution and outliers to give more context on execution time than just the average time for each model.
 
-\subsection{Other things to possibly include}
+\subsection{Maybe include -> Other things to possibly include}
 
-- maybe show a handpicked example of good generated summary (good scores across all/most metrics, coming from a top-performing model) and a bad summary (bad scores across all/most metrics, coming from a low-performing model)
+- maybe show a handpicked example of a good generated summary (good scores across all/most metrics, coming from a top-performing model) and a bad summary (bad scores across all/most metrics, coming from a low-performing model)
