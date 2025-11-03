@@ -12,8 +12,10 @@ Requirements:
     uv add transformers rouge-score bert-score nltk scikit-learn
     uv add matplotlib seaborn pandas numpy tqdm torch
 """
+from collections import defaultdict
 from datetime import datetime
 import os
+from enum import Enum
 
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 os.environ["HF_HUB_OFFLINE"] = "1"
@@ -80,6 +82,14 @@ class Paper:
     def __post_init__(self):
         self.formatted_text = f"Title: {self.title}\n\nAbstract: \n{self.abstract}"
         self.full_text = f"{self.title}\n\n{self.abstract}"
+
+
+class RunStatus(Enum):
+    NOT_STARTED = "not started"
+    SKIPPED = "skipped"
+    OK = "ok"
+    FAILED = "failed"
+    NO_RESULTS = "no results"
 
 
 @dataclass
@@ -204,6 +214,8 @@ class SummarizationBenchmark:
 
         self.papers = []
         self.models = []
+
+        self.run_status: dict[str, RunStatus] = {}
 
         self.visualizer = SummarizationVisualizer(
             benchmark_ref=self
@@ -335,7 +347,21 @@ class SummarizationBenchmark:
             tokenizer_param_overrides: dict[str, Any] | None = None, force_refresh: bool = False, batch: bool = False):
         if force_refresh or self.force_refresh:
             self._clear_cache(platform=platform, model_name=model_name)
+
         self.models.append((platform, model_name, model_param_overrides, tokenizer_param_overrides, batch))
+        self.run_status[f"{platform}_{model_name}" if model_name else platform] = RunStatus.NOT_STARTED
+
+    def get_status(self):
+        run_status_counts = defaultdict(int)
+
+        logger.info(f"{'method_name':<80}{'status':<12}")
+
+        for k, v in self.run_status.items():
+            logger.info(f"{k:<80}{v.value:<12}")
+            run_status_counts[v.value] += 1
+
+        for k, v in run_status_counts.items():
+            logger.info(f"{k:<12}{v:<6}")
 
     def _clear_cache(self, platform: str, model_name: str) -> None:
         method_name = f"{platform}_{model_name}" if model_name else platform
@@ -358,10 +384,12 @@ class SummarizationBenchmark:
         for idx, (platform, model_name, model_param_overrides, tokenizer_param_overrides,
                   batch) in enumerate(self.models):
             logger.info(f"Running model {idx+1}/{len(self.models)}: {platform} {model_name}")
+            _method_name = f"{platform}_{model_name}" if model_name else platform
+
             irc = InterferenceRunContainer(
                 platform=platform,
                 model_name=model_name,
-                method_name = f"{platform}_{model_name}" if model_name else platform,
+                method_name = _method_name,
                 model_param_overrides=model_param_overrides,
                 tokenizer_param_overrides=tokenizer_param_overrides,
                 papers=self.papers,
@@ -372,6 +400,7 @@ class SummarizationBenchmark:
 
             if skip_inference and not reset_metrics:
                 logger.info(f"Skipping interference and metrics for existing method: {irc.method_name}")
+                self.run_status[_method_name] = RunStatus.SKIPPED
                 continue
 
             try:
@@ -385,15 +414,18 @@ class SummarizationBenchmark:
                         logger.info(f"Running interference and calculating metrics for method: {irc.method_name}")
                         result = self._run_interference_and_calculate_metrics(irc=irc)
                         if result is None:
+                            self.run_status[_method_name] = RunStatus.NO_RESULTS
                             continue
             except Exception as e:
                 logger.error(f"Failed to run interference and calculating metrics for method: {irc.method_name}: {e}")
                 logger.error("Re-run the benchmark to retry. Pipeline will continue now.")
+                self.run_status[_method_name] = RunStatus.FAILED
                 continue
 
             if result:
                 self.results.add(method_name=irc.method_name, result=result)
                 self.results.save()
+                self.run_status[_method_name] = RunStatus.OK
 
             self._cleanup(run_params=irc)
 
@@ -915,8 +947,8 @@ def main():
     # https://docs.anthropic.com/en/docs/about-claude/models/overview
     benchmark.add("anthropic", "claude-3-5-haiku-20241022")  # fastest
     benchmark.add("anthropic", "claude-sonnet-4-20250514")  # high intelligence, balanced performance
-    # benchmark.add("anthropic", "claude-opus-4-20250514")  # most capable
-    # benchmark.add("anthropic", "claude-opus-4-1-20250805")
+    benchmark.add("anthropic", "claude-opus-4-20250514")  # most capable
+    benchmark.add("anthropic", "claude-opus-4-1-20250805")
     benchmark.add("anthropic", "claude-haiku-4-5-20251001", batch=True)
     # benchmark.add("anthropic", "claude-sonnet-4-5-20250929", batch=True)
 
