@@ -1,2 +1,34 @@
 \section{Discussion}
 
+\subsection{Overview of Main Findings}
+
+The benchmarking analysis revealed clear performance differences between the evaluated summarization approaches. Overall, general-purpose large language models (LLMs) achieved the highest summarization quality across all surface-level and embedding-based metrics, followed closely by general-purpose small language models (SLMs) and reasoning-oriented LLMs. In contrast, domain-specific scientific/biomedical models, encoder–decoder architectures such as T5 and PEGASUS, and traditional extractive methods like TextRank all reached noticeably lower performance levels. These results highlight the clear progression from extractive and encoder–decoder approaches toward transformer-based models, while also showing that domain-specific fine-tuning alone does not necessarily lead to improved summarization quality.
+
+\subsection{Model Group Comparisons}
+
+To understand the causes of the observed performance differences, the models were compared by architecture, size, and domain focus. This analysis examines how model scale, reasoning ability, and domain specialization influence summarization quality in biomedical texts. The next sections discuss these aspects in detail by comparing large and small language models, general-purpose and scientific/biomedical models, and general-purpose and reasoning-oriented models.
+
+\subsubsection{Large vs. Small Language Models (LLMs vs. SLMs)}
+
+-discuss relationship between model size and summarization performance. https://arxiv.org/html/2501.05465v1
+
+\subsubsection{General-purpose vs. Scientific/Biomedical Models}
+
+-discuss why general-purpose models outperformed scientific/biomedical ones. https://arxiv.org/abs/2408.13833
+
+\subsubsection{General-purpose vs Reasoning-oriented Models}
+
+-discuss why reasoning-oriented models did not surpass general-purpose ones in summarization (primarily needs semantic compression and factual grounding rather than multi-step logical reasoning). https://arxiv.org/abs/2504.08120
+
+\subsection{Evaluation and Metric Considerations}
+
+-reflect how different evaluation metrics capture complementary aspects of summary quality. explain distinction between surface-level and embedding-based metrics. discuss observed correlations
+
+\subsection{Limitations and Future Work}
+
+-state main limitations (focus on single summarization task: abstract -> highlights, rapid evolution, absence of human quality evaluation)
+
+\subsection{Practical Implications and Applications}
+
+-emphasize how the results can guide model selection in biomedical NLP. highlight tradeoff between accuracy and efficiency.
+-conclude with short statement that general-purpose LLMs currently provide the most robust option for scientific summarization.

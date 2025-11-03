@@ -1,45 +1,61 @@
 \section{Results}
 
-Our benchmark results offer a comparative view of summarization performance across all evaluated models. We first present overall rankings, followed by comparisons between the main model groups. Additionally, we examine results on individual metrics, runtime performance, and correlations between the evaluation metrics used.
+Our benchmark results offer a comparative view of summarization performance across all evaluated models. We first present overall rankings, followed by comparisons between the different model groups. Additionally, we examine results on individual metrics, runtime performance, and correlations between the evaluation metrics used.
 
 \subsection{Overall Model Performance}
 
-Figure~\ref{fig:rank_heatmap} provides an overview of the performance of all evaluated models across all surface-level and embedding-based metrics. Each row corresponds to one model, and each column to a specific metric, with lower ranks indicating better performance. Models are sorted by their average rank across metrics.
+Figure~\ref{fig:rank_heatmap} provides an overview of the performance of all evaluated models across all surface-level and embedding-based metrics. Each row corresponds to one model, and each column to a specific metric, with lower ranks indicating better performance. In addition to individual model names, the figure also indicates each model’s family (e.g., GPT, DeepSeek, Gemma, Granite) and its broader category (e.g., encoder–decoder, general-purpose SLMs, reasoning-oriented LLMs). Models are sorted by their average rank across metrics. A hierarchical clustering based on Euclidean distance, which groups together models that exhibit similar ranking patterns across metrics, is shown on the right.
 
-The best-performing models overall were from the Mistral family, with the top positions occupied by \texttt{ollama\_mistral-small-3.2:24b}, \texttt{mistral\_mistral-small-2506}, and \texttt{mistral\_mistral\_medium-2505}. Two OpenAI models (\texttt{gpt-5-nano-2025-08-07} and \texttt{gpt-5-mini-2025-08-07}) followed closely. These models achieved high ranks across nearly all surface-level metrics (ROUGE-1, ROUGE-2, ROUGE-L, METEOR, BLEU) and performed well on most embedding-based measures (RoBERTa, DeBERTa, all-mpnet-base-v2, AlignScore). Several other LLMs also achieved competitive scores and maintained stable rankings across metrics.
+The best-performing models overall were from the Mistral family, with the top positions occupied by \texttt{ollama\_mistral-small-3.2:24b}, \texttt{mistral\_mistral-small-2506}, and \texttt{mistral\_mistral\_medium-2505}. Two OpenAI models (\texttt{gpt-5-nano-2025-08-07} and \texttt{gpt-5-mini-2025-08-07}) followed closely. These models achieved good ranks across nearly all surface-level metrics (ROUGE-1, ROUGE-2, ROUGE-L, METEOR, BLEU) and performed well on most embedding-based measures (RoBERTa, DeBERTa, all-mpnet-base-v2, AlignScore). Several other SLMs and LLMs also achieved competitive scores and maintained stable rankings across metrics.
 
-At the lower end of the ranking, encoder–decoder architectures such as T5 and PEGASUS, traditional extractive methods (TextRank and the frequency-based approach), and scientific/biomedical models such as MedLLaMA2 and BioGPT, achieved lower scores on most metrics.
+At the lower end of the ranking, encoder–decoder architectures such as T5 and PEGASUS, traditional extractive models (TextRank and the frequency-based approach), and scientific/biomedical models such as MedLLaMA2 and BioGPT, achieved lower scores on most metrics.
 
 \begin{figure}[H]
-\begin{adjustwidth}{-\extralength}{0cm}
 \centering
-\includegraphics[width=1.25\textwidth]{Visualizations/rank_heatmap.png}
-\end{adjustwidth}
-\caption{Model ranks across all surface-level and embedding-based metrics. Each row represents a model and each column a metric, with lower ranks indicating better performance. Models are ordered by their average rank across metrics.\label{fig:rank_heatmap}}
+\includegraphics[width=1.00\textwidth]{Visualizations/rank_heatmap.png}
+\caption{Model ranks across all surface-level and embedding-based metrics. Lower ranks indicate better performance. Models are ordered by their average rank and annotated with their family and category. The hierarchical clustering on the right groups models with similar ranking patterns.\label{fig:rank_heatmap}}
 \end{figure}
 
 \subsection{Group Comparisons}
 
-Figure~\ref{fig:group_bar_chart} summarizes the average performance of the five model categories based on the overall Metric Mean Score. General-purpose LLMs achieved the highest mean score (0.521), followed closely by reasoning-oriented LLMs (0.508). Encoder–decoder models and traditional extractive methods performed considerably lower, with mean scores of 0.445 and 0.451, respectively. The specialized models group showed the weakest overall performance (0.432).
-
-Figure~\ref{fig:llm_group_comparison}a compares the two largest and most competitive groups (general-purpose and reasoning-oriented LLMs) across multiple evaluation aspects. General-purpose models outperformed reasoning-oriented models in all measured categories, including surface-level metrics, embedding-based metrics, execution time, compliance with word-length bounds, and overall Metric Mean Score. The largest advantage was observed in execution time, where general-purpose LLMs produced summaries more efficiently on average. Figure~\ref{fig:llm_group_comparison}b provides a more detailed view of execution time differences between the two groups. The difference in quality metrics was smaller but consistent, with slightly higher scores across both surface-level and embedding-based metrics for general-purpose LLMs.
+Figure~\ref{fig:group_bar_chart} summarizes the average performance of the eight model categories based on the overall Metric Mean Score. General-purpose LLMs achieved the highest mean score (0.523), followed closely by general-purpose SLMs (0.519) and reasoning-oriented LLMs (0.515). Traditional extractive models and Encoder–decoder models performed considerably lower, with mean scores of 0.451 and 0.445, respectively. The Scientific/Biomedical SLMs showed the weakest overall performance (0.422), whereas the Scientific/Biomedical LLMs achieved a higher score (0.513; single model).
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{Visualizations/group_bar_chart.png}
-\caption{Average Metric Mean Score across the five model categories. General-purpose LLMs achieved the highest mean score, followed by reasoning-oriented LLMs. Traditional, encoder–decoder, and specialized models performed considerably lower.\label{fig:group_bar_chart}}
+\caption{Average Metric Mean Score across the eight model categories. The figure highlights clear performance differences between categories, with general-purpose LLMs performing best overall, followed by general-purpose SLMs and reasoning-oriented LLMs. Traditional, encoder–decoder, and Scientific/Biomedical SLMs achieved notably lower scores.\label{fig:group_bar_chart}}
 \end{figure}
+
+\subsubsection{SLMs vs. LLMs}
+
+To further analyze differences between small and large language models, we compared the performance of SLMs and LLMs within both the general-purpose and reasoning-oriented groups (Figure~\ref{fig:slm_llm_comparison}). In both categories, LLMs achieved slightly higher overall Metric Mean Scores and generally performed better on surface-level metrics. The results for embedding-based metrics were mixed, with general-purpose SLMs showing a small advantage over LLMs. Differences in execution time were minimal, while compliance with word-length bounds favored LLMs in the general-purpose group but SLMs in the reasoning-oriented group. The comparison for scientific/biomedical models is not shown here, as this category includes only a single LLM, which prevents a meaningful comparison.
 
 \begin{figure}[H]
 \centering
-\subfloat[\centering Comparison between general-purpose and reasoning-oriented LLMs across multiple evaluation aspects.]{%
+\subfloat[\centering General-purpose SLMs vs.\ LLMs.]{%
+    \includegraphics[width=0.49\textwidth]{Visualizations/generalpurpose_comparison.png}
+}
+\hfill
+\subfloat[\centering Reasoning-oriented SLMs vs.\ LLMs.]{%
+    \includegraphics[width=0.49\textwidth]{Visualizations/reasoning_comparison.png}
+}
+\caption{(\textbf{a}) Comparison between general-purpose SLMs and LLMs across key evaluation metrics. (\textbf{b}) Comparison between reasoning-oriented SLMs and LLMs. In both groups, LLMs achieved slightly higher overall Metric Mean Scores, while SLMs occasionally performed better on individual metrics, particularly embedding-based or word-length compliance.\label{fig:slm_llm_comparison}}
+\end{figure}
+
+\subsubsection{General-purpose Models vs. Reasoning-oriented Models}
+
+Figure~\ref{fig:llm_group_comparison}a compares the two largest and most competitive groups—general-purpose and reasoning-oriented models—across multiple evaluation aspects. The comparison includes both SLMs and LLMs within each group. Overall, general-purpose models achieved slightly higher scores in all measured categories, including surface-level metrics, embedding-based metrics, execution time, compliance with word-length bounds, and overall Metric Mean Score. The largest difference was observed in execution time, where general-purpose models produced summaries more efficiently on average. Figure~\ref{fig:llm_group_comparison}b provides a more detailed view of these runtime differences. The performance gap in quality metrics was smaller but consistent, with general-purpose models maintaining a slight advantage across both surface-level and embedding-based evaluations.
+
+\begin{figure}[H]
+\centering
+\subfloat[\centering General-purpose vs.\ reasoning-oriented models across key evaluation aspects.]{%
     \includegraphics[width=0.49\textwidth]{Visualizations/llm_comparison.png}
 }
 \hfill
-\subfloat[\centering Distribution of execution times for general-purpose and reasoning-oriented LLMs.]{%
+\subfloat[\centering Execution time distribution for the same two groups.]{%
     \includegraphics[width=0.49\textwidth]{Visualizations/grouped_execution_time_distribution.png}
 }
-\caption{(\textbf{a}) Comparison between general-purpose and reasoning-oriented LLMs across multiple evaluation aspects. (\textbf{b}) Distribution of execution times for the same two groups. General-purpose models outperformed reasoning-oriented models across all measured categories and achieved lower, more stable runtimes.\label{fig:llm_group_comparison}}
+\caption{(\textbf{a}) Comparison between general-purpose and reasoning-oriented models across key evaluation metrics. General-purpose models achieved higher scores across all categories, including surface-level and embedding-based metrics, execution time, compliance with word-length bounds, and overall Metric Mean Score. (\textbf{b}) Distribution of execution times for the same groups, showing that general-purpose models produced summaries more efficiently and with lower variability.\label{fig:llm_group_comparison}}
 \end{figure}
 
 \subsection{Metric Correlations}
