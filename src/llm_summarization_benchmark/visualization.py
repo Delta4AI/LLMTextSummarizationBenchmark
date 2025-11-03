@@ -25,6 +25,41 @@ PERFORMANCE = "Performance"
 OVERALL = "Overall (70% metrics, 10% speed/accept./cost)"
 
 # model grouping
+# MODEL_GROUPS = {
+#     "Traditional Methods": [
+#         "local:frequency", "local:textrank"
+#     ],
+#     "Encoder-Decoder Models": [
+#         "huggingface_facebook/bart-base", "huggingface_facebook/bart-large-cnn",
+#         "huggingface_google-t5/t5-base", "huggingface_google-t5/t5-large",
+#         "huggingface_csebuetnlp/mT5_multilingual_XLSum", "huggingface_google/pegasus-xsum",
+#         "huggingface_google/pegasus-cnn_dailymail", "huggingface_google/pegasus-large"
+#     ],
+#     "General-purpose LLMs": [
+#         "ollama_gemma3:270M","ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
+#         "ollama_PetrosStav/gemma3-tools:4b", "ollama_granite3.3:2b", "ollama_granite3.3:8b", 
+#         "ollama_granite4:tiny-h", "ollama_granite4:small-h", "ollama_granite4:micro", "ollama_granite4:micro-h",
+#         "ollama_llama3.1:8b", "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
+#         "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b", "mistral_mistral-small-2506",
+#         "mistral_mistral-medium-2505", "mistral_mistral-large-2411", "mistral_mistral-medium-2508","ollama_phi3:3.8b",
+#         "ollama_phi4:14b", "openai_gpt-3.5-turbo", "openai_gpt-4o", "openai_gpt-4o-mini", "openai_gpt-4.1", 
+#         "openai_gpt-4.1-mini", "anthropic_claude-3-5-haiku-20241022", "huggingface:chat_swiss-ai/Apertus-8B-Instruct-2509"
+#     ],
+#     "Reasoning-oriented LLMs": [
+#         "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
+#         "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
+#         "ollama_gpt-oss:20b", "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
+#         "openai_gpt-5-2025-08-07", "anthropic_claude-sonnet-4-20250514",
+#         "anthropic_claude-opus-4-20250514", "anthropic_claude-opus-4-1-20250805", "mistral_magistral-medium-2509"
+#     ],
+#     "Scientific/Biomedical Models": [
+#         "huggingface_google/pegasus-pubmed", "huggingface_google/bigbird-pegasus-large-pubmed",
+#         "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
+#         "huggingface:completion_microsoft/biogpt", "ollama_medllama2:7b",
+#         "huggingface:chat_aaditya/OpenBioLLM-Llama3-8B", "huggingface:conversational_BioMistral/BioMistral-7B",
+#         "huggingface:chat_Uni-SMART/SciLitLLM1.5-7B", "huggingface:chat_Uni-SMART/SciLitLLM1.5-14B"
+#     ],
+# }
 MODEL_GROUPS = {
     "Traditional Methods": [
         "local:frequency", "local:textrank"
@@ -35,29 +70,35 @@ MODEL_GROUPS = {
         "huggingface_csebuetnlp/mT5_multilingual_XLSum", "huggingface_google/pegasus-xsum",
         "huggingface_google/pegasus-cnn_dailymail", "huggingface_google/pegasus-large"
     ],
+    "General-purpose SLMs": [
+        "ollama_gemma3:270M", "ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_PetrosStav/gemma3-tools:4b",
+        "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_granite4:tiny-h", "ollama_granite4:small-h", 
+        "ollama_granite4:micro", "ollama_granite4:micro-h", "ollama_llama3.1:8b", "ollama_llama3.2:1b",
+        "ollama_llama3.2:3b", "ollama_mistral:7b", "ollama_phi3:3.8b", "openai_gpt-4o-mini",
+        "huggingface:chat_swiss-ai/Apertus-8B-Instruct-2509"
+    ],
     "General-purpose LLMs": [
-        "ollama_gemma3:270M","ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
-        "ollama_PetrosStav/gemma3-tools:4b", "ollama_granite3.3:2b", "ollama_granite3.3:8b", 
-        "ollama_granite4:tiny-h", "ollama_granite4:small-h", "ollama_granite4:micro", "ollama_granite4:micro-h",
-        "ollama_llama3.1:8b", "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
-        "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b", "mistral_mistral-small-2506",
-        "mistral_mistral-medium-2505", "mistral_mistral-large-2411", "mistral_mistral-medium-2508","ollama_phi3:3.8b",
-        "ollama_phi4:14b", "openai_gpt-3.5-turbo", "openai_gpt-4o", "openai_gpt-4o-mini", "openai_gpt-4.1", 
-        "openai_gpt-4.1-mini", "anthropic_claude-3-5-haiku-20241022", "huggingface:chat_swiss-ai/Apertus-8B-Instruct-2509"
+        "ollama_gemma3:12b", "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b", "mistral_mistral-small-2506",
+        "mistral_mistral-medium-2505", "mistral_mistral-large-2411", "mistral_mistral-medium-2508", "ollama_phi4:14b",
+        "openai_gpt-3.5-turbo", "openai_gpt-4o", "openai_gpt-4.1", "openai_gpt-4.1-mini", "anthropic_claude-3-5-haiku-20241022"
+    ],
+    "Reasoning-oriented SLMs": [
+        "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b", "ollama_qwen3:4b", "ollama_qwen3:8b"
     ],
     "Reasoning-oriented LLMs": [
-        "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
-        "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
-        "ollama_gpt-oss:20b", "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
-        "openai_gpt-5-2025-08-07", "anthropic_claude-sonnet-4-20250514",
-        "anthropic_claude-opus-4-20250514", "anthropic_claude-opus-4-1-20250805", "mistral_magistral-medium-2509"
+        "ollama_deepseek-r1:14b", "ollama_gpt-oss:20b", "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
+        "openai_gpt-5-2025-08-07", "anthropic_claude-sonnet-4-20250514", "anthropic_claude-opus-4-20250514",
+        "anthropic_claude-opus-4-1-20250805", "mistral_magistral-medium-2509"
     ],
-    "Scientific/Biomedical Models": [
+    "Scientific/Biomedical SLMs": [
         "huggingface_google/pegasus-pubmed", "huggingface_google/bigbird-pegasus-large-pubmed",
         "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
         "huggingface:completion_microsoft/biogpt", "ollama_medllama2:7b",
         "huggingface:chat_aaditya/OpenBioLLM-Llama3-8B", "huggingface:conversational_BioMistral/BioMistral-7B",
-        "huggingface:chat_Uni-SMART/SciLitLLM1.5-7B", "huggingface:chat_Uni-SMART/SciLitLLM1.5-14B"
+        "huggingface:chat_Uni-SMART/SciLitLLM1.5-7B"
+    ],
+    "Scientific/Biomedical LLMs": [
+        "huggingface:chat_Uni-SMART/SciLitLLM1.5-14B"
     ],
 }
 
@@ -159,6 +200,8 @@ class SummarizationVisualizer:
         self._create_metric_correlation_matrix()
         self._create_rank_heatmap()
         self._create_group_bar_chart()
+        self._create_generalpurpose_comparison_plot()
+        self._create_reasoning_comparison_plot()
         try:
             self._create_llm_comparison_plot()
         except Exception as exc:
@@ -581,27 +624,44 @@ class SummarizationVisualizer:
             metric_scores = [self.metric_scores[m]["mean"] for m in models if m in self.metric_scores]
             metric_means.append(np.mean(metric_scores) if metric_scores else 0)
 
-        # create grouped bar chart
+        group_colors = {
+            "Traditional Methods": "#677B96",
+            "Encoder-Decoder Models": "#C27D52",
+            "General-purpose SLMs": "#D9AE78",
+            "General-purpose LLMs": "#B66E5D",
+            "Reasoning-oriented SLMs": "#B7A689",
+            "Reasoning-oriented LLMs": "#83714D",
+            "Scientific/Biomedical SLMs": "#8CB26F",
+            "Scientific/Biomedical LLMs": "#587B5C"
+        }
+
+        bar_colors = [group_colors.get(name, "#888888") for name in group_names]
+
         fig = go.Figure()
 
         fig.add_trace(go.Bar(
             x=group_names,
             y=metric_means,
             name="Metric Mean Score",
-            marker_color="rgb(26, 118, 255)",
+            marker=dict(
+                color=bar_colors,
+                line=dict(color="black", width=1)
+            ),
             text=[f"{v:.3f}" for v in metric_means],
-            textposition="auto"
+            textposition="auto",
+            insidetextfont=dict(color="white", size=13, family="Arial")
         ))
 
         fig.update_layout(
             title="Comparison of Model Groups by Metric Mean Score",
-            xaxis_title="Model Groups",
+            xaxis_title="Model Group",
             yaxis_title="Metric Mean Score",
             yaxis=dict(range=[0, 1.0]),
             barmode="group",
             bargap=0.3,
-            legend=dict(x=0.5, y=1.1, orientation="h", xanchor="center"),
-            margin=dict(l=60, r=40, t=80, b=100),
+            showlegend=False,
+            margin=dict(l=60, r=40, t=80, b=120),
+            width=1240,
             height=500
         )
 
@@ -609,10 +669,19 @@ class SummarizationVisualizer:
         pyo.plot(fig, filename=str(output_path), auto_open=False)
 
     def _create_llm_comparison_plot(self):
-        """Compare General-purpose vs Reasoning-oriented LLMs across key metrics."""
+        """Compare combined General-purpose vs Reasoning-oriented models (SLMs + LLMs) across key metrics."""
+
         group_map = {
-            "General-purpose LLMs": {"models": deepcopy(MODEL_GROUPS["General-purpose LLMs"])},
-            "Reasoning-oriented LLMs": {"models": deepcopy(MODEL_GROUPS["Reasoning-oriented LLMs"])},
+            "General-purpose Models": {
+                "models": deepcopy(
+                    MODEL_GROUPS["General-purpose SLMs"] + MODEL_GROUPS["General-purpose LLMs"]
+                )
+            },
+            "Reasoning-oriented Models": {
+                "models": deepcopy(
+                    MODEL_GROUPS["Reasoning-oriented SLMs"] + MODEL_GROUPS["Reasoning-oriented LLMs"]
+                )
+            },
         }
 
         metrics = {
@@ -631,7 +700,7 @@ class SummarizationVisualizer:
             ]),
             "Execution Time": lambda m: self.normalized_exec_times.get(m, {}).get("mean"),
             "% Within Bounds": lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
-            "Metric Mean Score": lambda m: self.metric_scores.get(m, {}).get("mean")  # moved to end
+            "Metric Mean Score": lambda m: self.metric_scores.get(m, {}).get("mean")
         }
 
         categories = list(metrics.keys())
@@ -642,44 +711,220 @@ class SummarizationVisualizer:
                 vals = [fn(m) for m in info["models"] if fn(m) is not None]
                 group_values[group].append(np.mean(vals) if vals else 0)
 
-        fig = go.Figure()
-
         colors = {
-            "General-purpose LLMs": "rgb(99, 110, 250)",
-            "Reasoning-oriented LLMs": "rgb(239, 85, 59)"
+            "General-purpose Models": "#403C53",
+            "Reasoning-oriented Models": "#C33D35"
         }
 
+        fig = go.Figure()
+
         for group, values in group_values.items():
-            outlines = [
-                3 if category == "Metric Mean Score" else 1 for category in categories
-            ]
+            outlines = [3 if category == "Metric Mean Score" else 1 for category in categories]
 
             fig.add_trace(go.Bar(
                 x=categories,
                 y=values,
                 name=group,
                 marker=dict(
-                    color=colors.get(group),
-                    line=dict(
-                        color="black",
-                        width=outlines
-                    )
+                    color=colors[group],
+                    line=dict(color="black", width=outlines)
                 ),
                 text=[f"{v:.3f}" for v in values],
                 textposition="auto"
             ))
 
         fig.update_layout(
-            title="Detailed Comparison: General-purpose vs Reasoning-oriented LLMs",
+            title="Detailed Comparison: General-purpose vs Reasoning-oriented Models",
             yaxis_title="Score (normalized)",
             barmode="group",
             xaxis_tickangle=-45,
-            legend_title="Model Group",
-            margin=dict(l=40, r=40, t=60, b=120)
+            yaxis=dict(range=[0, 1.0]),
+            legend_title_text=None,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="center",
+                x=0.5,
+                font=dict(size=12)
+            ),
+            margin=dict(l=60, r=20, t=110, b=90),
+            width=620,
+            height=500
         )
 
         output_path = self.out_dir / "llm_comparison.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
+
+
+    def _create_generalpurpose_comparison_plot(self):
+        """Compare General-purpose SLMs vs General-purpose LLMs across key metrics."""
+
+        group_map = {
+            "General-purpose SLMs": {
+                "models": deepcopy(MODEL_GROUPS["General-purpose SLMs"])
+            },
+            "General-purpose LLMs": {
+                "models": deepcopy(MODEL_GROUPS["General-purpose LLMs"])
+            },
+        }
+
+        metrics = {
+            "Surface-Level Metrics": lambda m: np.mean([
+                self.results[m].rouge_scores["rouge1"]["mean"],
+                self.results[m].rouge_scores["rouge2"]["mean"],
+                self.results[m].rouge_scores["rougeL"]["mean"],
+                self.results[m].bleu_scores["mean"],
+                self.results[m].meteor_scores["mean"]
+            ]),
+            "Embedding-Based Metrics": lambda m: np.mean([
+                self.results[m].roberta_scores["f1"]["mean"],
+                self.results[m].deberta_scores["f1"]["mean"],
+                self.results[m].mpnet_content_coverage_scores["mean"],
+                self.results[m].alignscore_scores["mean"]
+            ]),
+            "Execution Time": lambda m: self.normalized_exec_times.get(m, {}).get("mean"),
+            "% Within Bounds": lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
+            "Metric Mean Score": lambda m: self.metric_scores.get(m, {}).get("mean")
+        }
+
+        categories = list(metrics.keys())
+        group_values = {group: [] for group in group_map}
+
+        for group, info in group_map.items():
+            for metric_label, fn in metrics.items():
+                vals = [fn(m) for m in info["models"] if fn(m) is not None]
+                group_values[group].append(np.mean(vals) if vals else 0)
+
+        colors = {
+            "General-purpose SLMs": "#D9AE78",
+            "General-purpose LLMs": "#B66E5D"
+        }
+
+        fig = go.Figure()
+
+        for group, values in group_values.items():
+            outlines = [3 if category == "Metric Mean Score" else 1 for category in categories]
+
+            fig.add_trace(go.Bar(
+                x=categories,
+                y=values,
+                name=group,
+                marker=dict(
+                    color=colors[group],
+                    line=dict(color="black", width=outlines)
+                ),
+                text=[f"{v:.3f}" for v in values],
+                textposition="auto"
+            ))
+
+        fig.update_layout(
+            title="Detailed Comparison: General-purpose SLMs vs General-purpose LLMs",
+            yaxis_title="Score (normalized)",
+            barmode="group",
+            xaxis_tickangle=-45,
+            yaxis=dict(range=[0, 1.0]),
+            legend_title_text=None,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="center",
+                x=0.5,
+                font=dict(size=12)
+            ),
+            margin=dict(l=60, r=20, t=110, b=90),
+            width=620,
+            height=500
+        )
+
+        output_path = self.out_dir / "generalpurpose_comparison.html"
+        pyo.plot(fig, filename=str(output_path), auto_open=False)
+
+    def _create_reasoning_comparison_plot(self):
+        """Compare Reasoning-oriented SLMs vs Reasoning-oriented LLMs across key metrics."""
+
+        group_map = {
+            "Reasoning-oriented SLMs": {
+                "models": deepcopy(MODEL_GROUPS["Reasoning-oriented SLMs"])
+            },
+            "Reasoning-oriented LLMs": {
+                "models": deepcopy(MODEL_GROUPS["Reasoning-oriented LLMs"])
+            },
+        }
+
+        metrics = {
+            "Surface-Level Metrics": lambda m: np.mean([
+                self.results[m].rouge_scores["rouge1"]["mean"],
+                self.results[m].rouge_scores["rouge2"]["mean"],
+                self.results[m].rouge_scores["rougeL"]["mean"],
+                self.results[m].bleu_scores["mean"],
+                self.results[m].meteor_scores["mean"]
+            ]),
+            "Embedding-Based Metrics": lambda m: np.mean([
+                self.results[m].roberta_scores["f1"]["mean"],
+                self.results[m].deberta_scores["f1"]["mean"],
+                self.results[m].mpnet_content_coverage_scores["mean"],
+                self.results[m].alignscore_scores["mean"]
+            ]),
+            "Execution Time": lambda m: self.normalized_exec_times.get(m, {}).get("mean"),
+            "% Within Bounds": lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
+            "Metric Mean Score": lambda m: self.metric_scores.get(m, {}).get("mean")
+        }
+
+        categories = list(metrics.keys())
+        group_values = {group: [] for group in group_map}
+
+        for group, info in group_map.items():
+            for metric_label, fn in metrics.items():
+                vals = [fn(m) for m in info["models"] if fn(m) is not None]
+                group_values[group].append(np.mean(vals) if vals else 0)
+
+        colors = {
+            "Reasoning-oriented SLMs": "#B7A689",
+            "Reasoning-oriented LLMs": "#83714D"
+        }
+
+        fig = go.Figure()
+
+        for group, values in group_values.items():
+            outlines = [3 if category == "Metric Mean Score" else 1 for category in categories]
+
+            fig.add_trace(go.Bar(
+                x=categories,
+                y=values,
+                name=group,
+                marker=dict(
+                    color=colors[group],
+                    line=dict(color="black", width=outlines)
+                ),
+                text=[f"{v:.3f}" for v in values],
+                textposition="auto"
+            ))
+
+        fig.update_layout(
+            title="Detailed Comparison: Reasoning-oriented SLMs vs Reasoning-oriented LLMs",
+            yaxis_title="Score (normalized)",
+            barmode="group",
+            xaxis_tickangle=-45,
+            yaxis=dict(range=[0, 1.0]),
+            legend_title_text=None,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="center",
+                x=0.5,
+                font=dict(size=12)
+            ),
+            margin=dict(l=60, r=20, t=110, b=90),
+            width=620,
+            height=500
+        )
+
+        output_path = self.out_dir / "reasoning_comparison.html"
+        pyo.plot(fig, filename=str(output_path), auto_open=False)
+
 
     def _create_length_analysis_plot(self):
         """Create length analysis plot with compliance breakdown."""
@@ -911,8 +1156,8 @@ class SummarizationVisualizer:
         fig = go.Figure()
 
         group_colors = {
-            "General-purpose LLMs": "rgba(66, 135, 245, 0.6)",
-            "Reasoning-oriented LLMs": "rgba(245, 135, 66, 0.6)"
+            "General-purpose LLMs": "rgba(64, 60, 83, 0.8)",
+            "Reasoning-oriented LLMs": "rgba(195, 61, 53, 0.8)"
         }
 
         for group_name, group_info in group_map.items():
@@ -925,7 +1170,11 @@ class SummarizationVisualizer:
             fig.add_trace(go.Box(
                 y=all_times,
                 name=group_name,
-                marker_color=group_colors.get(group_name, "rgba(100,100,100,0.6)"),
+                marker=dict(
+                    color=group_colors[group_name],
+                    outliercolor=group_colors[group_name],
+                    line=dict(width=2, color=group_colors[group_name])
+                ),
                 boxpoints="outliers",
                 hovertemplate=f"<b>{group_name}</b><br>Time: %{{y:.2f}} sec<extra></extra>"
             ))
@@ -942,13 +1191,13 @@ class SummarizationVisualizer:
                 type="log",
                 tickvals=[1, 2, 5, 10, 20, 50, 100, 200, 500, 1000],
                 ticktext=["1s", "2s", "5s", "10s", "20s", "50s", "100s", "200s", "500s", "1000s"]
-            )
+            ),
+            margin=dict(l=60, r=20, t=60, b=90),
+            width=620,
+            height=500
         )
 
-        fig.update_traces(
-            width=0.5,
-            line=dict(width=2)
-        )
+        fig.update_traces(width=0.4)
 
         output_path = self.out_dir / "grouped_execution_time_distribution.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
