@@ -979,6 +979,7 @@ def main():
         logger.info("No results available. Exiting")
         exit(1)
 
+    benchmark.get_status()
     benchmark.apply_token_size_hotfix()
     benchmark.export()
 
