@@ -834,20 +834,61 @@ class SummarizationBenchmark:
             _paper.output_tokens = _body["usage"]["completion_tokens"]
             _paper.execution_time = _exec_time_per_paper
 
-            # TODO: this seems mistral specific - maybe shift to client ..
-            if len(_body["choices"]) == 2:
-                _raw_responses = _body["choices"][0]["message"]["content"]
-                _paper.raw_response = _raw_responses[0]["thinking"][0]["text"]
-                _paper.extracted_response = extract_response(_raw_responses[1]["text"])
-            elif len(_body["choices"]) == 1:
-                _resp = _body["choices"][0]["message"]["content"]
-                _paper.raw_response = _resp
-                _paper.extracted_response = extract_response(_resp)
-            else:
-                raise NotImplementedError(f"Unsupported amount of choices: {len(_body['choices'])} in response: {resp}")
+            _response = self.normalize_llm_response(response_body=_body)
+
+            _paper.raw_response = _response["raw_response"]
+            _paper.extracted_response = _response["extracted_response"]
 
         for resp in cache.errors or []:
             raise NotImplementedError(f"Investigate why errors are thrown and handle accordingly: {resp}")
+
+    @staticmethod
+    def normalize_llm_response(response_body):
+        choices = response_body.get("choices", [])
+
+        if not choices:
+            raise ValueError("No choices in response")
+
+        first_choice = choices[0]
+        message = first_choice.get("message", {})
+        content = message.get("content", "")
+
+        # mistral with separate thinking/answer (2 choices)
+        if len(choices) == 2:
+            thinking = choices[0]["message"]["content"][0]["thinking"][0]["text"]
+            answer = choices[0]["message"]["content"][1]["text"]
+            return {
+                "raw_response": thinking,
+                "extracted_response": extract_response(answer)
+            }
+
+        # structured content with text field
+        if isinstance(content, list) and len(content) >= 2:
+            last_item = content[-1]
+            if isinstance(last_item, dict) and "text" in last_item:
+                return {
+                    "raw_response": content,
+                    "extracted_response": extract_response(last_item["text"])
+                }
+
+        # standard single string content (OpenAI, Anthropic, etc.)
+        if isinstance(content, str):
+            return {
+                "raw_response": content,
+                "extracted_response": extract_response(content)
+            }
+
+        # fallback
+        if content:
+            return {
+                "raw_response": str(content),
+                "extracted_response": extract_response(str(content))
+            }
+
+        raise NotImplementedError(
+            f"Unsupported response format: {len(choices)} choices, "
+            f"content type: {type(content)}"
+        )
 
 
 def main():
@@ -949,7 +990,7 @@ def main():
     benchmark.add("anthropic", "claude-sonnet-4-20250514")  # high intelligence, balanced performance
     benchmark.add("anthropic", "claude-opus-4-20250514")  # most capable
     benchmark.add("anthropic", "claude-opus-4-1-20250805")
-    benchmark.add("anthropic", "claude-haiku-4-5-20251001", batch=True)
+    # benchmark.add("anthropic", "claude-haiku-4-5-20251001", batch=True)
     # benchmark.add("anthropic", "claude-sonnet-4-5-20250929", batch=True)
 
     # https://docs.mistral.ai/getting-started/models/models_overview/
