@@ -22,7 +22,15 @@ To understand the causes of the observed performance differences, the models wer
 
 \subsection{Evaluation and Metric Considerations}
 
--reflect how different evaluation metrics capture complementary aspects of summary quality. explain distinction between surface-level and embedding-based metrics. discuss observed correlations
+The evaluation framework combined surface-level, embedding-based, and factual consistency metrics to capture complementary aspects of summarization quality. Surface-level metrics such as ROUGE, BLEU, and METEOR primarily measure lexical overlap with the reference summaries, while embedding-based metrics including RoBERTa, DeBERTa, and MPNet assess semantic similarity and paraphrasing ability. AlignScore adds a distinct perspective by evaluating factual consistency between the generated summary and its source abstract. Unlike other metrics, it directly compares the summary with the input rather than with the human-written Highlights section. This design enables AlignScore to evaluate factual faithfulness to the source material instead of measuring the similarity to the reference summary.
+
+While the correlation analysis indicated broad agreement among most metrics, AlignScore showed weaker alignments with the others, which emphasizes that factual consistency represents a distinct dimension of summarization quality. The strong performance of extractive approaches such as the frequency-based and TextRank models illustrates this difference: by retaining sentences from the abstract almost verbatim, these models naturally preserve factual accuracy and therefore achieve high AlignScore values, despite weaker results on other metrics.
+
+Nevertheless, using AlignScore in this benchmark was intentional as factual grounding is an essential requirement in scientific text summarization. Models that generate fluent or semantically similar summaries may still introduce factual inaccuracies or exclude key information. Including AlginScore therefore ensures that the benchmark considers both linguistic quality and factual reliability.
+
+\subsection{Model Access Methods and API Heterogeneity}
+
+Model access methods varied across the evaluation due to differing API capabilities and requirements. HuggingFace models were accessed through their supported interfaces: the pipeline API (task="summarization") where available, or chat/completion formats for models that did not support the pipeline approach. Ollama models required use of the generate endpoint with merged prompts, while OpenAI, Anthropic, and Mistral models each mandated their respective provider-specific APIs (responses.create, messages.create, and chat.complete) with distinct message structures. We applied hyperparameter normalization where possible, though API-level constraints prevented full standardization. For example, GPT-5 does not support temperature control, instead offering only reasoning-specific parameters. Additionally, proprietary middleware layers may transform requests and responses in undocumented ways, potentially affecting outputs independently of the underlying model architectures. These necessary methodological variations warrant consideration when interpreting performance differences across models.
 
 \subsection{Limitations and Future Work}
 

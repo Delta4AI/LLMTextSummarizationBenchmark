@@ -76,18 +76,6 @@ Overall, these relationships show that the various metrics are broadly consisten
 \caption{Correlation matrix of all evaluation metrics. Each cell represents the Pearson correlation coefficient ($\rho$) between two metrics based on their mean scores across models. Surface-level and most embedding-based metrics show strong internal consistency, while AlignScore exhibits lower correlations due to its distinct focus on factual consistency with the source abstracts.\label{fig:metric_correlation}}
 \end{figure}
 
-\subsection{Maybe include -> Performance by Metric Category}
-
-- show the performance when using only subsets of the metrics (only surface-level metrics vs only embedding-based metrics)
-
-\subsection{Maybe include -> Compliance with Summary Length}
-
-- not sure if this is worth its own subsection but it is interesting to see as it also gives a good feeling for how well a model follows the given instructions.
-
-\subsection{Maybe include -> Runtime Performance}
-
-- present the execution time across models, including distribution and outliers to give more context on execution time than just the average time for each model.
-
 \subsection{Maybe include -> Other things to possibly include}
 
 - maybe show a handpicked example of a good generated summary (good scores across all/most metrics, coming from a top-performing model) and a bad summary (bad scores across all/most metrics, coming from a low-performing model)
