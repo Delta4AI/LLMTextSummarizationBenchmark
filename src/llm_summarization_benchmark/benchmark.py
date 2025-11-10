@@ -763,6 +763,8 @@ class SummarizationBenchmark:
                 "title": paper.title,
                 "abstract": paper.abstract,
                 "summaries": paper.summaries,
+                "extracted_response": paper.extracted_response,
+                "raw_response": paper.raw_response,
                 "scores": {k: [float(vv) for vv in v] for k, v in paper.scores.items()}
             })
 
