@@ -394,7 +394,7 @@ class SummarizationBenchmark:
                 method_name = _method_name,
                 model_param_overrides=model_param_overrides,
                 tokenizer_param_overrides=tokenizer_param_overrides,
-                papers=self.papers,
+                papers=deepcopy(self.papers),
             )
 
             skip_inference = self.results.exists(irc.method_name) and self.results.same_size_as(irc.method_name,
