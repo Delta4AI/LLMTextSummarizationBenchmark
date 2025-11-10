@@ -1181,7 +1181,7 @@ wheels = [
 
 [[package]]
 name = "llm-apis"
-version = "0.3.3"
+version = "0.3.4"
 source = { directory = "../llm_apis" }
 dependencies = [
     { name = "anthropic" },
@@ -1218,7 +1218,7 @@ requires-dist = [
 
 [[package]]
 name = "llm-summarization-benchmark"
-version = "0.3.6"
+version = "0.3.7"
 source = { editable = "." }
 dependencies = [
     { name = "alignscore" },

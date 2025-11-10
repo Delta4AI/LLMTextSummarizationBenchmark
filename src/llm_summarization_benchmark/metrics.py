@@ -1,6 +1,7 @@
 import logging
 import gc
 import time
+from typing import TYPE_CHECKING
 
 from nltk.translate.meteor_score import meteor_score
 from nltk.translate.bleu_score import sentence_bleu
@@ -11,6 +12,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from alignscore import AlignScore
 
 from llm_apis.huggingface_client import init_hf_cache_dir
+
 from llm_summarization_benchmark.summarization_utilities import get_min_max_mean_std
 from exploration_utilities import get_project_root
 
@@ -20,6 +22,9 @@ try:
 except ImportError:
     torch = None
     DEVICE = "cpu"
+
+if TYPE_CHECKING:
+    from llm_summarization_benchmark.benchmark import InterferenceRunContainer
 
 logger = logging.getLogger(__name__)
 
@@ -121,17 +126,19 @@ def get_length_scores(summaries: list[str], min_words: int, max_words: int) -> d
     }
 
 
-def get_rouge_scores(generated: list[str], references: list[list[str]]) -> dict[str, dict[str, float]]:
+def get_rouge_scores(generated: list[str], references: list[list[str]],
+                     irc: 'InterferenceRunContainer') -> dict[str, dict[str, float]]:
     """Calculate ROUGE scores against multiple references (max score)."""
     rouge_scores = {rouge_type: [] for rouge_type in ROUGE_TYPES}
 
-    for gen, ref_list in zip(generated, references):
+    for gen, ref_list, paper in zip(generated, references, irc.papers):
         max_scores = dict.fromkeys(ROUGE_TYPES, 0.0)
 
         for ref in ref_list:
             scores = ROUGE_SCORER.score(ref, gen)
             for rouge_type in ROUGE_TYPES:
                 max_scores[rouge_type] = max(max_scores[rouge_type], scores[rouge_type].fmeasure)
+                paper.scores[rouge_type].append(scores[rouge_type].fmeasure)
 
         for rouge_type in ROUGE_TYPES:
             rouge_scores[rouge_type].append(max_scores[rouge_type])
@@ -144,12 +151,13 @@ def get_rouge_scores(generated: list[str], references: list[list[str]]) -> dict[
     }
 
 
-def get_meteor_scores(generated: list[str], references: list[list[str]]) -> dict[str, float]:
+def get_meteor_scores(generated: list[str], references: list[list[str]],
+                      irc: 'InterferenceRunContainer') -> dict[str, float]:
     """Calculate METEOR score using best reference for each generated summary."""
     meteor_scores = []
 
     try:
-        for gen, ref_list in zip(generated, references):
+        for gen, ref_list, paper in zip(generated, references, irc.papers):
             # Pre-tokenize the generated summary
             gen_tokens = gen.split()
 
@@ -159,6 +167,7 @@ def get_meteor_scores(generated: list[str], references: list[list[str]]) -> dict
                 ref_tokens = ref.split()
                 score = meteor_score([ref_tokens], gen_tokens)
                 ref_scores.append(score)
+                paper.scores["meteor"].append(score)
 
             # Take the best score for this document
             best_score = max(ref_scores) if ref_scores else 0.0
@@ -173,7 +182,8 @@ def get_meteor_scores(generated: list[str], references: list[list[str]]) -> dict
     return get_min_max_mean_std(meteor_scores)
 
 
-def get_bert_scores(generated: list[str], references: list[list[str]], model: str) -> dict[str, dict[str, float]]:
+def get_bert_scores(generated: list[str], references: list[list[str]], model: str,
+                    irc: 'InterferenceRunContainer') -> dict[str, dict[str, float]]:
     """Calculate BERTScore using best reference for each generated summary."""
     best_precision = []
     best_recall = []
@@ -183,7 +193,7 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
         logger.info(f"Calculating BERTScore with model: {model}")
         empty_cuda_cache()
 
-        for idx, (gen, ref_list) in enumerate(zip(generated, references)):
+        for idx, (gen, ref_list, paper) in enumerate(zip(generated, references, irc.papers)):
             with torch.no_grad():
                 P, R, F1 = bert_score(
                     cands=[gen] * len(ref_list),
@@ -195,9 +205,17 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
                     batch_size=8,
                 )
 
-            best_precision.append(P.max().item())
-            best_recall.append(R.max().item())
-            best_f1.append(F1.max().item())
+            precision = P.max().item()
+            recall = R.max().item()
+            f1 = F1.max().item()
+
+            best_precision.append(precision)
+            best_recall.append(recall)
+            best_f1.append(f1)
+
+            paper.scores[f"bert_{model}_precision"].append(precision)
+            paper.scores[f"bert_{model}_recall"].append(recall)
+            paper.scores[f"bert_{model}_f1"].append(f1)
 
             del P, R, F1
 
@@ -221,12 +239,14 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
         'f1': get_min_max_mean_std(best_f1)
     }
 
-def get_bleu_scores(generated: list[str], references: list[list[str]]) -> dict[str, float]:
+def get_bleu_scores(generated: list[str], references: list[list[str]],
+                    irc: 'InterferenceRunContainer') -> dict[str, float]:
     """Calculate BLEU score using best reference for each generated summary."""
     bleu_scores = []
     try:
-        for gen, ref_list in zip(generated, references):
+        for gen, ref_list, paper in zip(generated, references, irc.papers):
             scores = sentence_bleu(references=ref_list, hypothesis=gen)
+            paper.scores["bleu"].append(scores)
             bleu_scores.append(scores)
     except Exception as e:
         logger.error(f"BLEU calculation failed: {e}")
@@ -235,8 +255,8 @@ def get_bleu_scores(generated: list[str], references: list[list[str]]) -> dict[s
     return get_min_max_mean_std(bleu_scores)
 
 
-def get_sentence_transformer_similarity(generated: list[str], source_documents: list[str], model_name: str) -> dict[
-    str, float]:
+def get_sentence_transformer_similarity(generated: list[str], source_documents: list[str], model_name: str,
+                                        irc: 'InterferenceRunContainer') -> dict[str, float]:
     """Calculate sentence transformer similarity using cached model."""
     similarities = []
 
@@ -250,8 +270,9 @@ def get_sentence_transformer_similarity(generated: list[str], source_documents: 
         for i in range(0, len(generated), batch_size):
             batch_gen = generated[i:i + batch_size]
             batch_src = source_documents[i:i + batch_size]
+            batch_papers = irc.papers[i:i + batch_size]
 
-            for gen, src in zip(batch_gen, batch_src):
+            for gen, src, paper in zip(batch_gen, batch_src, batch_papers):
                 with torch.no_grad():  # Disable gradient computation
                     embeddings = model.encode([gen, src], convert_to_tensor=True)
                     similarity = cosine_similarity(
@@ -259,6 +280,7 @@ def get_sentence_transformer_similarity(generated: list[str], source_documents: 
                         embeddings[1].cpu().numpy().reshape(1, -1)
                     )[0][0]
                     similarities.append(float(similarity))
+                    paper.scores["sentence_transformer"].append(similarity)
 
                 # Clean up tensors
                 del embeddings
@@ -272,7 +294,8 @@ def get_sentence_transformer_similarity(generated: list[str], source_documents: 
 
     return get_min_max_mean_std(similarities)
 
-def get_alignscore_scores(generated: list[str], references: list[str]) -> dict[str, float]:
+def get_alignscore_scores(generated: list[str], references: list[str],
+                          irc: 'InterferenceRunContainer') -> dict[str, float]:
     """
     Calculate AlignScore between generated summaries and abstracts.
     """
@@ -294,10 +317,13 @@ def get_alignscore_scores(generated: list[str], references: list[str]) -> dict[s
         for i in range(0, len(generated), batch_size):
             batch_gen = generated[i:i + batch_size]
             batch_ref = references[i:i + batch_size]
+            batch_papers = irc.papers[i:i + batch_size]
 
             try:
                 batch_scores = aligner.score(batch_ref, batch_gen)
                 scores.extend(batch_scores)
+                for score, paper in zip(batch_scores, batch_papers):
+                    paper.scores["alignscore"].append(score)
             except Exception as e:
                 logger.warning(f"AlignScore batch {i // batch_size + 1} failed: {e}")
                 continue

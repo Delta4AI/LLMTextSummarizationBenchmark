@@ -13,7 +13,7 @@ Requirements:
     uv add matplotlib seaborn pandas numpy tqdm torch
 """
 from collections import defaultdict
-from datetime import datetime
+from copy import deepcopy
 import os
 from enum import Enum
 
@@ -78,6 +78,7 @@ class Paper:
     execution_time: float | None = None
     input_tokens: int | None = None  # N/A for huggingface pipeline
     output_tokens: int | None = None  # N/A for huggingface pipeline
+    scores: defaultdict[str, list] = field(default_factory=lambda: defaultdict(list))
 
     def __post_init__(self):
         self.formatted_text = f"Title: {self.title}\n\nAbstract: \n{self.abstract}"
@@ -120,6 +121,7 @@ class EvaluationResult:
     bleu_scores: dict[str, float]
     mpnet_content_coverage_scores: dict[str, float]
     alignscore_scores: dict[str, float]
+    full_paper_details: list[Paper]
 
     def as_json(self, detailed: bool = False) -> dict[str, Any]:
         rouge = {f"{k}_{kk}": vv for k, v in self.rouge_scores.items() for kk, vv in v.items()}
@@ -320,7 +322,7 @@ class SummarizationBenchmark:
                     )
                     papers.append(paper)
 
-                    if test and i == 5:
+                    if test and i == 9:
                         break
 
                 logger.info(f"Successfully loaded {len(papers)} papers from {json_file_path}. "
@@ -383,6 +385,8 @@ class SummarizationBenchmark:
 
         for idx, (platform, model_name, model_param_overrides, tokenizer_param_overrides,
                   batch) in enumerate(self.models):
+            if idx == 1:
+                break
             logger.info(f"Running model {idx+1}/{len(self.models)}: {platform} {model_name}")
             _method_name = f"{platform}_{model_name}" if model_name else platform
 
@@ -491,31 +495,34 @@ class SummarizationBenchmark:
             _output_tokens = [p.output_tokens for p in irc.papers if p.output_tokens is not None]
 
         _length_stats = get_length_scores(generated_summaries, self.min_words, self.max_words)
-        _rouge_scores = get_rouge_scores(generated_summaries, reference_summaries)
+        _rouge_scores = get_rouge_scores(generated_summaries, reference_summaries, irc)
 
         empty_cuda_cache(sync=True)
-        _roberta_scores = get_bert_scores(generated_summaries, reference_summaries, "roberta-large")
+        _roberta_scores = get_bert_scores(generated_summaries, reference_summaries, "roberta-large", irc)
 
         empty_cuda_cache(sync=True)
-        _deberta_scores = get_bert_scores(generated_summaries, reference_summaries, "microsoft/deberta-xlarge-mnli")
+        _deberta_scores = get_bert_scores(generated_summaries, reference_summaries,
+                                          "microsoft/deberta-xlarge-mnli", irc)
 
         empty_cuda_cache(sync=True)
-        _meteor_scores = get_meteor_scores(generated_summaries, reference_summaries)
+        _meteor_scores = get_meteor_scores(generated_summaries, reference_summaries, irc)
 
         empty_cuda_cache(sync=True)
-        _bleu_scores = get_bleu_scores(generated_summaries, reference_summaries)
+        _bleu_scores = get_bleu_scores(generated_summaries, reference_summaries, irc)
 
         empty_cuda_cache(sync=True)
         _mpnet_content_coverage_scores = get_sentence_transformer_similarity(
             generated=generated_summaries,
             source_documents=[p.full_text for p in irc.papers],
-            model_name="all-mpnet-base-v2"
+            model_name="all-mpnet-base-v2",
+            irc=irc
         )
 
         empty_cuda_cache(sync=True)
         _alignscore_scores = get_alignscore_scores(
             generated=generated_summaries,
-            references=[p.abstract for p in irc.papers]
+            references=[p.abstract for p in irc.papers],
+            irc=irc
         )
 
         empty_cuda_cache(sync=True)
@@ -534,7 +541,8 @@ class SummarizationBenchmark:
             meteor_scores=_meteor_scores,
             bleu_scores=_bleu_scores,
             mpnet_content_coverage_scores=_mpnet_content_coverage_scores,
-            alignscore_scores=_alignscore_scores
+            alignscore_scores=_alignscore_scores,
+            full_paper_details=deepcopy(irc.papers)
         )
 
     def _warmup(self, run_params: InterferenceRunContainer) -> None:
@@ -718,6 +726,7 @@ class SummarizationBenchmark:
     def export(self):
         self.generate_comparison_report()
         self.save_detailed_results_as_json()
+        self.save_detailed_scores_per_paper()
         self.visualizer.create_all_visualizations()
     
     def generate_comparison_report(self):
@@ -743,6 +752,19 @@ class SummarizationBenchmark:
             json.dump(detailed_results, f, indent=2, ensure_ascii=False)
 
         logger.info(f"Detailed results saved to {results_path}")
+
+    def save_detailed_scores_per_paper(self):
+        file_path = self.hashed_and_dated_output_dir / "detailed_scores_per_paper.json"
+        with open(file_path, mode='w', encoding='utf-8') as f:
+            f.write(json.dumps([{
+                "id": _.id,
+                "title": _.title,
+                "abstract": _.abstract,
+                "summaries": _.summaries,
+                "scores": {k: [float(vv) for vv in v] for k, v in _.scores.items()}
+            } for _ in self.papers], indent=2, ensure_ascii=False))
+
+        logger.info(f"Detailed metric scores per paper saved to {file_path}")
 
     def apply_token_size_hotfix(self):
         changes = False
