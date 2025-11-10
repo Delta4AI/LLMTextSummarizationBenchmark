@@ -446,8 +446,6 @@ class SummarizationBenchmark:
         )
 
     def _run_interference_and_calculate_metrics(self, irc: InterferenceRunContainer) -> EvaluationResult | None:
-        self._warmup(run_params=irc)
-
         try:
             self._run_batched_interference(run_params=irc)
         except NotImplementedError:
@@ -583,6 +581,9 @@ class SummarizationBenchmark:
                 papers_to_process.append((idx, paper))
 
         if papers_to_process:
+            self._warmup(run_params=run_params)
+            time.sleep(2)
+
             logger.info(f"Processing {len(papers_to_process)} uncached papers in batch for {_method}")
             start_time = time.time()
 
@@ -623,6 +624,8 @@ class SummarizationBenchmark:
         _system_prompt = self.api_clients[run_params.platform].text_summarization_system_prompt
         _method = run_params.method_name
 
+        warmed_up = False
+
         for idx, paper in enumerate(run_params.papers):
             _idx = f"{idx + 1}/{len(run_params.papers)}"
 
@@ -641,6 +644,10 @@ class SummarizationBenchmark:
                     paper.output_tokens = cache["output_tokens"]
                     logger.info(f"Using Cached response {_idx} for {_method}")
                     continue
+
+                if not warmed_up:
+                    self._warmup(run_params=run_params)
+                    warmed_up = True
 
                 logger.info(f"Running sequential interference {_idx} for {_method}")
                 if run_params.platform in ["openai", "anthropic", "mistral"]:
