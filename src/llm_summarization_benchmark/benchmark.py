@@ -385,6 +385,8 @@ class SummarizationBenchmark:
 
         for idx, (platform, model_name, model_param_overrides, tokenizer_param_overrides,
                   batch) in enumerate(self.models):
+            if idx == 2:
+                break
             logger.info(f"Running model {idx+1}/{len(self.models)}: {platform} {model_name}")
             _method_name = f"{platform}_{model_name}" if model_name else platform
 
@@ -753,14 +755,19 @@ class SummarizationBenchmark:
 
     def save_detailed_scores_per_paper(self):
         file_path = self.hashed_and_dated_output_dir / "detailed_scores_per_paper.json"
+        formatted_data = defaultdict(list)
+        for method_name, result in  self.results.data[self.papers_hash].items():
+            for paper in result.full_paper_details:
+                formatted_data[method_name].append({
+                "id": paper.id,
+                "title": paper.title,
+                "abstract": paper.abstract,
+                "summaries": paper.summaries,
+                "scores": {k: [float(vv) for vv in v] for k, v in paper.scores.items()}
+            })
+
         with open(file_path, mode='w', encoding='utf-8') as f:
-            f.write(json.dumps([{
-                "id": _.id,
-                "title": _.title,
-                "abstract": _.abstract,
-                "summaries": _.summaries,
-                "scores": {k: [float(vv) for vv in v] for k, v in _.scores.items()}
-            } for _ in self.papers], indent=2, ensure_ascii=False))
+            f.write(json.dumps(formatted_data, indent=2, ensure_ascii=False))
 
         logger.info(f"Detailed metric scores per paper saved to {file_path}")
 
