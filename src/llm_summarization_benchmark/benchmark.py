@@ -385,8 +385,6 @@ class SummarizationBenchmark:
 
         for idx, (platform, model_name, model_param_overrides, tokenizer_param_overrides,
                   batch) in enumerate(self.models):
-            if idx == 2:
-                break
             logger.info(f"Running model {idx+1}/{len(self.models)}: {platform} {model_name}")
             _method_name = f"{platform}_{model_name}" if model_name else platform
 
