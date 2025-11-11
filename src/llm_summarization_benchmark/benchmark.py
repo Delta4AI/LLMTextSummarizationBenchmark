@@ -377,6 +377,20 @@ class SummarizationBenchmark:
         for k, v in run_status_counts.items():
             logger.info(f"{k:<12}{v:<6}")
 
+    def run_retry_loop(self, max_retries: int = 5):
+        retries = 0
+        while any(k == RunStatus.FAILED for k in self.run_status.values()):
+            if retries >= max_retries:
+                logger.info(f"Aborting retry loop after {max_retries} retries")
+                break
+
+            retries += 1
+            wait_time = min(10 * (2 ** (retries - 1)), 300)
+            logger.info(f"Retry attempt {retries}/{max_retries}, waiting {wait_time} seconds ..")
+            time.sleep(wait_time)
+            self.run()
+            self.get_status()
+
     def _clear_cache(self, platform: str, model_name: str,
                      clear_api_cache: bool = False, clear_metrics: bool = False) -> None:
         method_name = f"{platform}_{model_name}" if model_name else platform
@@ -1071,6 +1085,7 @@ def main():
         exit(1)
 
     benchmark.get_status()
+    benchmark.run_retry_loop()
     benchmark.apply_token_size_hotfix()
     benchmark.export()
 
