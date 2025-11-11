@@ -274,6 +274,7 @@ class SummarizationBenchmark:
         # sort papers by keys and summaries to ensure order doesnt affect hash
         for paper in self.papers:
             paper_dict = asdict(paper)
+            paper_dict.pop("scores", None)  # to be in line with server results, we remove the scores dict
             paper_dict['summaries'] = sorted(paper_dict['summaries'])
             papers_data.append(paper_dict)
 
@@ -943,7 +944,7 @@ def main():
     parser.add_argument("--gold-standard-data", default=GOLD_STANDARD_DATA, nargs="+",
                         help="Gold standard data files to load (default: %(default)s)")
     parser.add_argument("--test", action="store_true", default=False,
-                        help="Run tests (limits to 5 publications")
+                        help="Run tests (limits to 10 publications")
     args = parser.parse_args()
 
     benchmark = SummarizationBenchmark()
@@ -976,7 +977,8 @@ def main():
     benchmark.add("huggingface", "google/pegasus-pubmed", _p14)
     benchmark.add("huggingface", "google/bigbird-pegasus-large-pubmed", _p14)
 
-    benchmark.add("huggingface:completion", "microsoft/biogpt", {"num_beams": 5, "early_stopping": True})
+    benchmark.add("huggingface:completion", "microsoft/biogpt",
+                  {"num_beams": 5, "early_stopping": True})
     benchmark.add("huggingface:chat", "swiss-ai/Apertus-8B-Instruct-2509",
                   tokenizer_param_overrides={"add_special_tokens": False, "truncation": False, }
                   )
