@@ -291,6 +291,7 @@ def get_sentence_transformer_similarity(generated: list[str], source_documents: 
         raise
     finally:
         empty_cuda_cache()
+        _model_cache.cleanup_all()
 
     return get_min_max_mean_std(similarities)
 
