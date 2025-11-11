@@ -346,9 +346,15 @@ class SummarizationBenchmark:
         self.results.load()
 
     def add(self, platform: str, model_name: str | None = None, model_param_overrides: dict[str, Any] | None = None,
-            tokenizer_param_overrides: dict[str, Any] | None = None, force_refresh: bool = False, batch: bool = False):
-        if force_refresh or self.force_refresh:
-            self._clear_cache(platform=platform, model_name=model_name)
+            tokenizer_param_overrides: dict[str, Any] | None = None, clear_api_cache: bool = False,
+            clear_metrics: bool = False, batch: bool = False):
+
+        if self.force_refresh:
+            clear_api_cache = True
+            clear_metrics = True
+
+        self._clear_cache(platform=platform, model_name=model_name,
+                          clear_api_cache=clear_api_cache, clear_metrics=clear_metrics)
 
         self.models.append((platform, model_name, model_param_overrides, tokenizer_param_overrides, batch))
         self.run_status[f"{platform}_{model_name}" if model_name else platform] = RunStatus.NOT_STARTED
@@ -365,20 +371,23 @@ class SummarizationBenchmark:
         for k, v in run_status_counts.items():
             logger.info(f"{k:<12}{v:<6}")
 
-    def _clear_cache(self, platform: str, model_name: str) -> None:
+    def _clear_cache(self, platform: str, model_name: str,
+                     clear_api_cache: bool = False, clear_metrics: bool = False) -> None:
         method_name = f"{platform}_{model_name}" if model_name else platform
 
-        self.api_clients[platform].clean_cache(method_name=method_name)
-        logger.info(f"Cleared API cache for {method_name}")
+        if clear_api_cache:
+            self.api_clients[platform].clean_cache(method_name=method_name)
+            logger.info(f"Cleared API cache for {method_name}")
 
-        try:
-            if (self.results and self.papers_hash in self.results.data and method_name in self.results.data[
-                self.papers_hash]):
-                del self.results.data[self.papers_hash][method_name]
-                self.results.save()
-                logger.info(f"Cleared results database for {method_name}")
-        except Exception as exc:
-            logger.warning(f"Failed to clear results database for {method_name}: {exc}")
+        if clear_metrics:
+            try:
+                if (self.results and self.papers_hash in self.results.data and method_name in self.results.data[
+                    self.papers_hash]):
+                    del self.results.data[self.papers_hash][method_name]
+                    self.results.save()
+                    logger.info(f"Cleared results database for {method_name}")
+            except Exception as exc:
+                logger.warning(f"Failed to clear results database for {method_name}: {exc}")
 
     def run(self, reset_metrics: bool = False):
         logger.info(f"Running benchmark for {len(self.models)} models ..")
@@ -839,7 +848,7 @@ class SummarizationBenchmark:
             self._update_papers_from_batch(irc=irc, cache=cache)
             return self._get_evaluation_result(
                 irc=irc,
-                generated_summaries=[p.extracted_response for p in self.papers],
+                generated_summaries=[p.extracted_response for p in irc.papers],
                 reference_summaries=[p.summaries for p in irc.papers],
                 existing_data=None
             )
@@ -1030,10 +1039,10 @@ def main():
     # https://docs.mistral.ai/getting-started/models/models_overview/
     benchmark.add("mistral", "mistral-medium-2505")  # frontier-class multimodal model
     # benchmark.add("mistral", "magistral-medium-2507")  # frontier-class reasoning
-    benchmark.add("mistral", "magistral-medium-2509", batch=True)
+    benchmark.add("mistral", "magistral-medium-2509", batch=True, clear_metrics=True)
     benchmark.add("mistral", "mistral-large-2411")  # top-tier large model, high complexity tasks
     benchmark.add("mistral", "mistral-small-2506")
-    benchmark.add("mistral", "mistral-medium-2508", batch=True)
+    benchmark.add("mistral", "mistral-medium-2508", batch=True, clear_metrics=True)
 
     # expensive
     # benchmark.add("ollama", "deepseek-r1:32b")
