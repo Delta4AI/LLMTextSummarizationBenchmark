@@ -1041,10 +1041,10 @@ def main():
     # https://docs.mistral.ai/getting-started/models/models_overview/
     benchmark.add("mistral", "mistral-medium-2505")  # frontier-class multimodal model
     # benchmark.add("mistral", "magistral-medium-2507")  # frontier-class reasoning
-    benchmark.add("mistral", "magistral-medium-2509", batch=True, clear_metrics=True)
+    benchmark.add("mistral", "magistral-medium-2509", batch=True)
     benchmark.add("mistral", "mistral-large-2411")  # top-tier large model, high complexity tasks
     benchmark.add("mistral", "mistral-small-2506")
-    benchmark.add("mistral", "mistral-medium-2508", batch=True, clear_metrics=True)
+    benchmark.add("mistral", "mistral-medium-2508", batch=True)
 
     # expensive
     # benchmark.add("ollama", "deepseek-r1:32b")
