@@ -169,6 +169,11 @@ class SummarizationResult:
 
     def load(self):
         try:
+            import sys
+            sys.modules['__main__'].EvaluationResult = EvaluationResult
+            sys.modules['__main__'].Paper = Paper
+            sys.modules['__main__'].defaultdict = defaultdict
+
             with open(self.fn, "rb") as f:
                 self.data = pickle.load(f)
             logger.info(f"Loaded benchmark results from {self.fn}")
@@ -250,7 +255,7 @@ class SummarizationBenchmark:
             except Exception as e:
                 logger.warning(f"Failed to load {_key} API client: {e}")
 
-    def load_papers(self, gold_standard_data: list[str] | None = None, test: bool = False):
+    def load_papers(self, gold_standard_data: list[str] | None = None, test: int = None):
         for file in gold_standard_data:
             file_path = Path(__file__).parents[3] / file
             if not Path(file_path).exists():
@@ -300,7 +305,7 @@ class SummarizationBenchmark:
 
         self.hashed_and_dated_output_dir.mkdir(parents=True, exist_ok=True)
 
-    def append_papers(self, json_file_path: str | Path, test: bool):
+    def append_papers(self, json_file_path: str | Path, test: int):
         """Load papers from JSON file."""
         try:
             with open(json_file_path, mode="r", encoding="utf-8") as f:
@@ -323,7 +328,7 @@ class SummarizationBenchmark:
                     )
                     papers.append(paper)
 
-                    if test and i == 9:
+                    if test and i + 1 == test:
                         break
 
                 logger.info(f"Successfully loaded {len(papers)} papers from {json_file_path}. "
@@ -943,8 +948,8 @@ def main():
                         help="Reset metrics while keeping LLM responses")
     parser.add_argument("--gold-standard-data", default=GOLD_STANDARD_DATA, nargs="+",
                         help="Gold standard data files to load (default: %(default)s)")
-    parser.add_argument("--test", action="store_true", default=False,
-                        help="Run tests (limits to 10 publications")
+    parser.add_argument("--test", type=int, default=None,
+                        help="Run tests with specified number of publications (e.g. --test 10)")
     args = parser.parse_args()
 
     benchmark = SummarizationBenchmark()
