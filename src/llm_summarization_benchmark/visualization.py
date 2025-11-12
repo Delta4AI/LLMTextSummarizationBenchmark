@@ -61,7 +61,7 @@ OVERALL = "Overall (70% metrics, 10% speed/accept./cost)"
 #     ],
 # }
 MODEL_GROUPS = {
-    "Traditional Methods": [
+    "Traditional Models": [
         "local:frequency", "local:textrank"
     ],
     "Encoder-Decoder Models": [
@@ -79,7 +79,7 @@ MODEL_GROUPS = {
     ],
     "General-purpose LLMs": [
         "ollama_gemma3:12b", "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b", "mistral_mistral-small-2506",
-        "mistral_mistral-medium-2505", "mistral_mistral-large-2411", "mistral_mistral-medium-2508", "ollama_phi4:14b",
+        "mistral_mistral-medium-2505", "mistral_mistral-large-2411", "ollama_phi4:14b",
         "openai_gpt-3.5-turbo", "openai_gpt-4o", "openai_gpt-4.1", "openai_gpt-4.1-mini", "anthropic_claude-3-5-haiku-20241022"
     ],
     "Reasoning-oriented SLMs": [
@@ -90,14 +90,14 @@ MODEL_GROUPS = {
         "openai_gpt-5-2025-08-07", "anthropic_claude-sonnet-4-20250514", "anthropic_claude-opus-4-20250514",
         "anthropic_claude-opus-4-1-20250805", "mistral_magistral-medium-2509"
     ],
-    "Scientific/Biomedical SLMs": [
+    "Domain-specific SLMs": [
         "huggingface_google/pegasus-pubmed", "huggingface_google/bigbird-pegasus-large-pubmed",
         "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
         "huggingface:completion_microsoft/biogpt", "ollama_medllama2:7b",
         "huggingface:chat_aaditya/OpenBioLLM-Llama3-8B", "huggingface:conversational_BioMistral/BioMistral-7B",
         "huggingface:chat_Uni-SMART/SciLitLLM1.5-7B"
     ],
-    "Scientific/Biomedical LLMs": [
+    "Domain-specific LLMs": [
         "huggingface:chat_Uni-SMART/SciLitLLM1.5-14B"
     ],
 }
@@ -625,14 +625,14 @@ class SummarizationVisualizer:
             metric_means.append(np.mean(metric_scores) if metric_scores else 0)
 
         group_colors = {
-            "Traditional Methods": "#677B96",
+            "Traditional Models": "#677B96",
             "Encoder-Decoder Models": "#C27D52",
             "General-purpose SLMs": "#D9AE78",
             "General-purpose LLMs": "#B66E5D",
             "Reasoning-oriented SLMs": "#B7A689",
             "Reasoning-oriented LLMs": "#83714D",
-            "Scientific/Biomedical SLMs": "#8CB26F",
-            "Scientific/Biomedical LLMs": "#587B5C"
+            "Domain-specific SLMs": "#8CB26F",
+            "Domain-specific LLMs": "#587B5C"
         }
 
         bar_colors = [group_colors.get(name, "#888888") for name in group_names]
@@ -649,20 +649,22 @@ class SummarizationVisualizer:
             ),
             text=[f"{v:.3f}" for v in metric_means],
             textposition="auto",
-            insidetextfont=dict(color="white", size=13, family="Arial")
+            insidetextfont=dict(family="Arial", color="black")
         ))
 
         fig.update_layout(
-            title="Comparison of Model Groups by Metric Mean Score",
             xaxis_title="Model Group",
             yaxis_title="Metric Mean Score",
-            yaxis=dict(range=[0, 1.0]),
+            yaxis=dict(range=[0, 0.6]),
             barmode="group",
             bargap=0.3,
             showlegend=False,
             margin=dict(l=60, r=40, t=80, b=120),
             width=1240,
-            height=500
+            height=500,
+            plot_bgcolor="white",
+            paper_bgcolor="white",
+            font=dict(family="Arial", size=16, color="black"),
         )
 
         output_path = self.out_dir / "group_bar_chart.html"
@@ -730,11 +732,11 @@ class SummarizationVisualizer:
                     line=dict(color="black", width=outlines)
                 ),
                 text=[f"{v:.3f}" for v in values],
-                textposition="auto"
+                textposition="auto",
+                insidetextfont=dict(family="Arial", color="white")
             ))
 
         fig.update_layout(
-            title="Detailed Comparison: General-purpose vs Reasoning-oriented Models",
             yaxis_title="Score (normalized)",
             barmode="group",
             xaxis_tickangle=-45,
@@ -750,7 +752,10 @@ class SummarizationVisualizer:
             ),
             margin=dict(l=60, r=20, t=110, b=90),
             width=620,
-            height=500
+            height=500,
+            plot_bgcolor="white",
+            paper_bgcolor="white",
+            font=dict(family="Arial", size=16, color="black"),
         )
 
         output_path = self.out_dir / "llm_comparison.html"
@@ -815,11 +820,11 @@ class SummarizationVisualizer:
                     line=dict(color="black", width=outlines)
                 ),
                 text=[f"{v:.3f}" for v in values],
-                textposition="auto"
+                textposition="auto",
+                insidetextfont=dict(family="Arial", color="black")
             ))
 
         fig.update_layout(
-            title="Detailed Comparison: General-purpose SLMs vs General-purpose LLMs",
             yaxis_title="Score (normalized)",
             barmode="group",
             xaxis_tickangle=-45,
@@ -835,7 +840,10 @@ class SummarizationVisualizer:
             ),
             margin=dict(l=60, r=20, t=110, b=90),
             width=620,
-            height=500
+            height=500,
+            plot_bgcolor="white",
+            paper_bgcolor="white",
+            font=dict(family="Arial", size=16, color="black"),
         )
 
         output_path = self.out_dir / "generalpurpose_comparison.html"
@@ -899,11 +907,11 @@ class SummarizationVisualizer:
                     line=dict(color="black", width=outlines)
                 ),
                 text=[f"{v:.3f}" for v in values],
-                textposition="auto"
+                textposition="auto",
+                insidetextfont=dict(family="Arial", color="black")
             ))
 
         fig.update_layout(
-            title="Detailed Comparison: Reasoning-oriented SLMs vs Reasoning-oriented LLMs",
             yaxis_title="Score (normalized)",
             barmode="group",
             xaxis_tickangle=-45,
@@ -919,7 +927,10 @@ class SummarizationVisualizer:
             ),
             margin=dict(l=60, r=20, t=110, b=90),
             width=620,
-            height=500
+            height=500,
+            plot_bgcolor="white",
+            paper_bgcolor="white",
+            font=dict(family="Arial", size=16, color="black"),
         )
 
         output_path = self.out_dir / "reasoning_comparison.html"
@@ -1084,7 +1095,7 @@ class SummarizationVisualizer:
 
         # exclude Traditional Methods and Encoder-Decoder Models
         excluded_models = set(
-            MODEL_GROUPS["Traditional Methods"] + MODEL_GROUPS["Encoder-Decoder Models"]
+            MODEL_GROUPS["Traditional Models"] + MODEL_GROUPS["Encoder-Decoder Models"]
         )
 
         plot_methods = [
@@ -1149,15 +1160,23 @@ class SummarizationVisualizer:
         """Create grouped boxplot comparing execution times across general-purpose vs reasoning-oriented LLMs."""
 
         group_map = {
-            "General-purpose LLMs": {"models": deepcopy(MODEL_GROUPS["General-purpose LLMs"])},
-            "Reasoning-oriented LLMs": {"models": deepcopy(MODEL_GROUPS["Reasoning-oriented LLMs"])},
+            "General-purpose Models": {
+                "models": deepcopy(
+                    MODEL_GROUPS["General-purpose SLMs"] + MODEL_GROUPS["General-purpose LLMs"]
+                )
+            },
+            "Reasoning-oriented Models": {
+                "models": deepcopy(
+                    MODEL_GROUPS["Reasoning-oriented SLMs"] + MODEL_GROUPS["Reasoning-oriented LLMs"]
+                )
+            },
         }
 
         fig = go.Figure()
 
         group_colors = {
-            "General-purpose LLMs": "rgba(64, 60, 83, 0.8)",
-            "Reasoning-oriented LLMs": "rgba(195, 61, 53, 0.8)"
+            "General-purpose Models": "rgba(64, 60, 83, 0.8)",
+            "Reasoning-oriented Models": "rgba(195, 61, 53, 0.8)"
         }
 
         for group_name, group_info in group_map.items():
@@ -1180,7 +1199,6 @@ class SummarizationVisualizer:
             ))
 
         fig.update_layout(
-            title="Execution Time: General-purpose vs Reasoning-oriented LLMs",
             yaxis_title="Time (seconds, log scale)",
             xaxis_title="Model Group",
             boxmode="group",
@@ -1194,7 +1212,10 @@ class SummarizationVisualizer:
             ),
             margin=dict(l=60, r=20, t=60, b=90),
             width=620,
-            height=500
+            height=500,
+            plot_bgcolor="white",
+            paper_bgcolor="white",
+            font=dict(family="Arial", size=16, color="black"),
         )
 
         fig.update_traces(width=0.4)
@@ -1209,6 +1230,9 @@ class SummarizationVisualizer:
         Only includes true quality metrics (e.g., ROUGE, BERTScore, METEOR, BLEU, mpnet).
         Uses Pearson correlation coefficient.
         """
+        all_group_models = [m for group in MODEL_GROUPS.values() for m in group]
+        self.methods = [m for m in self.methods if m in all_group_models]
+
         chosen_metrics = [*self.metrics]
         labels = [m.label for m in chosen_metrics]
         categories = [m.category for m in chosen_metrics]
@@ -1296,38 +1320,50 @@ class SummarizationVisualizer:
         add_category_band(surf_start, surf_end, category_colors[SURFACE_LEVEL], "Surface-level", "royalblue")
         add_category_band(emb_start, emb_end, category_colors[EMBEDDING_BASED], "Embedding-based", "forestgreen")
 
-        # heatmap
+        mask = np.triu(np.ones_like(corr_filled, dtype=bool), k=1)
+        corr_masked = np.where(mask, np.nan, corr_filled)
+
+        colorscale = [
+            [0.0, "rgb(255, 255, 245)"],
+            [0.25, "rgb(252, 224, 191)"],
+            [0.5, "rgb(244, 165, 130)"],
+            [0.75, "rgb(214, 96, 77)"],
+            [1.0, "rgb(153, 0, 0)"]
+        ]
+
         fig = go.Figure(
             data=go.Heatmap(
-                z=corr_filled,
+                z=corr_masked,
                 x=labels,
                 y=labels,
-                zmin=-1, zmax=1,
-                colorscale="RdBu",
-                reversescale=True,
+                zmin=0, zmax=1,
+                colorscale=colorscale,
                 colorbar=dict(title="ρ", x=1.12)
             )
         )
 
+        # add annotations only for lower half
         for i in range(len(labels)):
             for j in range(len(labels)):
-                if j >= i:
+                if j <= i:
                     annotations.append(dict(
                         x=labels[j], y=labels[i],
                         text=f"{corr_filled[i, j]:.2f}",
                         showarrow=False,
-                        font=dict(size=11, color="black")
+                        font=dict(family="Arial", size=13, color="black")
                     ))
 
         fig.update_layout(
-            title="Correlation Between Metrics (across models)",
             xaxis=dict(tickangle=60),
             yaxis=dict(autorange="reversed"),
             annotations=annotations,
             shapes=shapes,
             margin=dict(l=140, r=200, t=100, b=140),
             height=750,
-            width=880
+            width=880,
+            plot_bgcolor="white",
+            paper_bgcolor="white",
+            font=dict(family="Arial", size=16, color="black"),
         )
 
         output_path = self.out_dir / "metric_correlation_matrix.html"
