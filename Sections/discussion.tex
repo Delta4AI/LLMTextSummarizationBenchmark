@@ -1,24 +1,24 @@
 \section{Discussion}
 
-\subsection{Overview of Main Findings}
-
-The benchmarking analysis revealed clear performance differences between the evaluated summarization approaches. Overall, general-purpose large language models (LLMs) achieved the highest summarization quality across all surface-level and embedding-based metrics, followed closely by general-purpose small language models (SLMs) and reasoning-oriented LLMs. In contrast, domain-specific scientific/biomedical models, encoder–decoder architectures such as T5 and PEGASUS, and traditional extractive methods like TextRank all reached noticeably lower performance levels. These results highlight the clear progression from extractive and encoder–decoder approaches toward transformer-based models, while also showing that domain-specific fine-tuning alone does not necessarily lead to improved summarization quality.
+The benchmarking analysis revealed clear performance differences between the evaluated summarization approaches. Overall, general-purpose large language models (LLMs) achieved the highest summarization quality across all surface-level and embedding-based metrics, followed closely by general-purpose small language models (SLMs) and reasoning-oriented LLMs. In contrast, domain-specific models, encoder–decoder architectures such as T5 and PEGASUS, and traditional extractive methods like TextRank all reached noticeably lower performance levels. These results highlight the clear progression from extractive and encoder–decoder approaches toward transformer-based models, while also showing that domain-specific fine-tuning alone does not necessarily lead to improved summarization quality.
 
 \subsection{Model Group Comparisons}
 
-To understand the causes of the observed performance differences, the models were compared by architecture, size, and domain focus. This analysis examines how model scale, reasoning ability, and domain specialization influence summarization quality in biomedical texts. The next sections discuss these aspects in detail by comparing large and small language models, general-purpose and scientific/biomedical models, and general-purpose and reasoning-oriented models.
+To understand the causes of the observed performance differences, the models were compared by architecture, size, and domain focus. This analysis examines how model scale, reasoning ability, and domain specialization influence summarization quality in biomedical texts. The next sections discuss these aspects in detail by comparing large and small language models, general-purpose and domain-specific models, and general-purpose and reasoning-oriented models, referring to Figure~\ref{fig:rank_heatmap}.
 
-\subsubsection{Large vs. Small Language Models (LLMs vs. SLMs)}
+\subsubsection{General-purpose Large vs. Small Language Models (LLMs vs. SLMs)}
 
--discuss relationship between model size and summarization performance. https://arxiv.org/html/2501.05465v1
+By comparing the overall performance of SLMs and LLMs, even among the top 10 of the best-performing models the majority are LLMs. This is likely due to their huge number of parameters which allow them to better understand the complex context typical for biomedical literature. While very small models, like Gemma3:270M, can indeed lack the capacity to handle this complexity, SLMs remain competitive, with some models even outperforming certain LLMs. This may be because smaller datasets are often more curated and of higher quality compared to the large amount of data required to train a big model \cite{gunasekar2023textbooksneed}. 
 
-\subsubsection{General-purpose vs. Scientific/Biomedical Models}
+Interestingly, medium-sized models in the range of approx. 20-70B parameters (e.g the Mistral family), appear to be more performant than larger proprietary ones. These models seem to reach an optimal compromise about number of parameters and overall performance where additional parameters could disrupt this equilibrium, leading to potentially over‑fitting or plateauing performance \cite{largerandmoreinstructable}.
 
--discuss why general-purpose models outperformed scientific/biomedical ones. https://arxiv.org/abs/2408.13833
+\subsubsection{General-purpose vs. Domain-specific Models}
+
+As discussed in the introduction section, domain-specific models have been developed over time with the aim of improving model ability for a specific task. However, in this article, we found that overall General-purpose models outperform both domain-specific models specialized in the biomedical domain and the one specialized for text summarization, regardless of model size. A possible explanation for this behavior is that domain-specific models fine-tuned on biomedical text, might be better for learning and understanding the complex biomedical terminology or lexical patterns but might fail in the specific summarization task. On the other hand, models specifically designed for text summarization might be good at summarizing in general but fail at capturing the complex biomedical meaning. That is why generalist models, leveraging their broad knowledge, seem to perform better \cite{dorfner2024biomedicallargelanguagesmodels}. Additionally, domain-specific models can “forget” the general knowledge that was acquired during the pre-training phase, experiencing a phenomenon called “catastrophic forgetting”, which represents an issue when the task requires both domain-specific knowledge, the biomedical knowledge, and context understanding, for text summarization \cite{zhai2023investigatingcatastrophicforgettingmultimodal}.
 
 \subsubsection{General-purpose vs Reasoning-oriented Models}
 
--discuss why reasoning-oriented models did not surpass general-purpose ones in summarization (primarily needs semantic compression and factual grounding rather than multi-step logical reasoning). https://arxiv.org/abs/2504.08120
+Even though some reasoning-oriented models ranked among the top 10 of the best performing models, most of them were positioned in the middle of the ranking as moderate performing models. This can be explained by the intrinsic multi-step logical reasoning nature of these models, that while it can be advantageous for tasks that require breaking problems down into sequential steps like for mathematics or coding, it can be not ideal for text summarization that require semantic compression and factual grounding instead \cite{jin2025reasoningnotcomprehensiveevaluation}.
 
 \subsection{Evaluation and Metric Considerations}
 
@@ -34,9 +34,14 @@ Model access methods varied across the evaluation due to differing API capabilit
 
 \subsection{Limitations and Future Work}
 
--state main limitations (focus on single summarization task: abstract -> highlights, rapid evolution, absence of human quality evaluation)
+This benchmark focuses on a single summarization task: generating concise, highlight-style summaries from biomedical abstracts. This setup provides a clear and well-defined evaluation framework, but the findings may not fully extend to other forms of scientific or biomedical summarization, including full-length articles, clinical trial data, or lay-oriented summaries. And the rapid pace of progress in large language models means that the results reflect a specific snapshot in time and may change as newer architectures and model versions become available.
+
+Another limitation lies in the exclusive reliance on automatic evaluation metrics. Although combining surface-level, embedding-based, and factual measure offers a broad view, human assessment would provide a more nuanced understanding of readability, coherence, and factual correctness. Future work could therefore extend this benchmark by integrating expert-based evaluations, exploring alternative summarization tasks, and including emerging model families as they are released.
 
 \subsection{Practical Implications and Applications}
 
--emphasize how the results can guide model selection in biomedical NLP. highlight tradeoff between accuracy and efficiency.
--conclude with short statement that general-purpose LLMs currently provide the most robust option for scientific summarization.
+The results of this benchmark provide useful guidance for selecting summarization models in biomedical and scientific settings. The strong performance of general-purpose LLMs indicates that broad, diverse pretraining is often more advantageous than narrow domain adaptation when dealing with unseen scientific content.
+
+Another key consideration is the trade-off between output quality and processing efficiency. While LLMs achieved the highest overall scores, SLMs deliver competitive results at substantially lower computational cost, which makes them especially attractive for large-scale or resource-constrained applications. Choosing between large and small models therefore depends not only on desired output quality but also on the intended scale of summarization.
+
+Overall, the findings suggest that general-purpose LLMs currently offer the most reliable and practical choice for biomedical summarization. Their consistent performance across evaluation criteria demonstrates that broad generalization outweighs the marginal gains from more narrowly specialized or fine-tuned approaches, many of which are not primarily optimized for summarization.

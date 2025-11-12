@@ -9,7 +9,7 @@ Articles were collected systematically across a variety of journals to ensure co
 \begin{table}[H]
 \centering
 \caption{Overview of journals in the gold-standard dataset.\label{tab:goldstandard}}
-\begin{tabularx}{\textwidth}{llc}
+\begin{tabularx}{0.8\textwidth}{ll}
 \toprule
 \textbf{Publisher} & \textbf{Journal} \\
 \midrule
@@ -41,16 +41,16 @@ This setup provides standardized pairs of abstracts and reference summaries that
 
 \subsection{Summarization Methods}
 
-We evaluated 63 summarization models, ranging from simple frequency-based algorithms to state-of-the-art large language models (LLMs) as listed in Table~\ref{tab:models}.
+We evaluated 62 summarization models, ranging from simple frequency-based algorithms to state-of-the-art small- and large language models (SLMs \& LLMs) as listed in Table~\ref{tab:models}.
 
 The summarization models were grouped into five categories:
 
 \begin{enumerate}
 	\item Traditional models: We included two traditional extractive models that served as a baseline for all of the newer more complex models: a simple frequency-based approach and TextRank \cite{mihalcea-tarau-2004-textrank}.
 	\item Encoder-Decoder models: We included a set of pre-trained encoder-decoder models, which are available through the HuggingFace library: BART (base and large) \cite{DBLP:journals/corr/abs-1910-13461}, T5 (base and large) \cite{2020t5}, mT5 \cite{hasan-etal-2021-xl}, and a variety of PEGASUS models \cite{zhang2020pegasuspretrainingextractedgapsentences}. These models are often applied for abstractive summarization and represent well-established neural systems within our benchmark.
-	\item General-purpose LLMs: We also evaluated a range of widely used large language models designed for broad application. This group includes models such as Gemma \cite{gemmateam2025gemma3technicalreport}, Granite \cite{mishra2024granitecodemodelsfamily}, LLaMA \cite{grattafiori2024llama3herdmodels}, Mistral \cite{jiang2023mistral7b}, Phi \cite{abdin2024phi3technicalreporthighly,abdin2024phi4technicalreport}, GPT \cite{brown2020languagemodelsfewshotlearners,openai2024gpt4technicalreport}, Claude \cite{anthropic2025claude}, and Apertus \cite{swissai2025apertus}, which represent the current landscape of general-purpose systems.
-	\item Reasoning-oriented LLMs: We further included several models developed with a focus on advanced reasoning capabilities. This group includes models from the DeepSeek-R1 family \cite{deepseekai2025deepseekr1incentivizingreasoningcapability}, Qwen \cite{qwen3technicalreport}, more GPT models such as GPT-oss \cite{gptoss2025} and GPT-5 \cite{openai2025gpt5}, Magistral \cite{mistralai2025magistral}, and some additional Claude models. Their design emphasizes multi-step problem solving and allowed us to explore whether reasoning affects summarization performance.
-	\item Scientific/Biomedical models: To assess whether domain adaptation improves summarization quality, we included PEGASUS and BigBird models fine-tuned on PubMed data (pegasus-pubmed \& bigbird-pegasus-large-pubmed), LED \cite{Beltagy2020Longformer} (arXiv-tuned), BioGPT \cite{10.1093/bib/bbac409}, MedLLaMA2 \cite{touvron2023llama2openfoundation}, OpenBioLLM \cite{OpenBioLLMs}, BioMistral \cite{labrak2024biomistral}, and SciLitLLM1.5 models \cite{li2024scilitllmadaptllmsscientific}, which are trained on medical/biomedical data or on summarization tasks themselves.
+	\item General-purpose models: We also evaluated a range of widely used LLMs and SLMs designed for broad application, with SLMs being defined as <10 B parameters \cite{belcak2025smalllanguagemodelsfuture}. This group includes models such as Gemma \cite{gemmateam2025gemma3technicalreport}, Granite \cite{mishra2024granitecodemodelsfamily}, LLaMA \cite{grattafiori2024llama3herdmodels}, Mistral \cite{jiang2023mistral7b}, Phi \cite{abdin2024phi3technicalreporthighly,abdin2024phi4technicalreport}, GPT \cite{brown2020languagemodelsfewshotlearners,openai2024gpt4technicalreport}, Claude \cite{anthropic2025claude}, and Apertus \cite{swissai2025apertus}, which represent the current landscape of general-purpose systems.
+	\item Reasoning-oriented models: Both LLMs and SLMs with a focus on advanced reasoning capabilities were categorized as reasoning-oriented models. This group includes models from the DeepSeek-R1 family \cite{deepseekai2025deepseekr1incentivizingreasoningcapability}, Qwen \cite{qwen3technicalreport}, more GPT models such as GPT-oss \cite{gptoss2025} and GPT-5 \cite{openai2025gpt5}, Magistral \cite{mistralai2025magistral}, and some additional Claude models. Their design emphasizes multi-step problem solving and allowed us to explore whether reasoning affects summarization performance.
+	\item Domain-specific models: To assess whether domain adaptation improves summarization quality, we included both LLMs and SLMs which are fine-tuned on scientific/biomedical data or on summarization such as PEGASUS and BigBird models fine-tuned on PubMed data (pegasus-pubmed \& bigbird-pegasus-large-pubmed), LED \cite{Beltagy2020Longformer} (arXiv-tuned), BioGPT \cite{10.1093/bib/bbac409}, MedLLaMA2 \cite{touvron2023llama2openfoundation}, OpenBioLLM \cite{OpenBioLLMs}, BioMistral \cite{labrak2024biomistral}, and SciLitLLM1.5 models \cite{li2024scilitllmadaptllmsscientific}.
 \end{enumerate}
 
 \begin{table}[H]
@@ -63,22 +63,47 @@ Traditional models & textrank; frequency \\
 \midrule
 Encoder-Decoder models & facebook/bart-base; facebook/bart-large-cnn; google-t5/t5-base; google-t5/t5-large; csebuetnlp/mT5\_multilingual\_XLSum;  google/pegasus-xsum; google/pegasus-cnn\_dailymail; google/pegasus-large \\
 \midrule
-General-purpose LLMs & gemma3:270M; gemma3:1b; gemma3:4b; gemma3:12b; PetrosStav/gemma3-tools:4b; granite3.3:2b; granite3.3:8b; granite4:tiny-h; granite4:small-h; granite4:micro; granite4:micro-h; llama3.1:8b; llama3.2:1b; llama3.2:3b; mistral:7b; mistral-nemo:12b; mistral-small3.2:24b; mistral-small-2506; mistral-medium-2505; mistral-large-2411; mistral-medium-2508; phi3:3.8b; phi4:14b; gpt-3.5-turbo; gpt-4o; gpt-4o-mini; gpt-4.1; gpt-4.1-mini; claude-3-5-haiku-20241022; chat\_swiss-ai/Apertus-8B-Instruct-2509 \\
+General-purpose SLMs & gemma3:270M; gemma3:1b; gemma3:4b; PetrosStav/gemma3-tools:4b; granite3.3:2b; granite3.3:8b; granite4:tiny-h; granite4:small-h; granite4:micro; granite4:micro-h; llama3.1:8b; llama3.2:1b; llama3.2:3b; mistral:7b; phi3:3.8b; gpt-4o-mini; chat\_swiss-ai/Apertus-8B-Instruct-2509 \\
 \midrule
-Reasoning-oriented LLMs & deepseek-r1:1.5b; deepseek-r1:7b; deepseek-r1:8b; deepseek-r1:14b; qwen3:4b; qwen3:8b; gpt-oss:20b; gpt-5-nano-2025-08-07; gpt-5-mini-2025-08-07; gpt-5-2025-08-07; claude-sonnet-4-20250514; claude-opus-4-20250514; claude-opus-4-1-20250805; magistral-medium-2509 \\
+General-purpose LLMs & gemma3:12b; mistral-nemo:12b; mistral-small3.2:24b; mistral-small-2506; mistral-medium-2505; mistral-large-2411; phi4:14b; gpt-3.5-turbo; gpt-4o; gpt-4.1; gpt-4.1-mini; claude-3-5-haiku-20241022 \\
 \midrule
-Scientific/Biomedical models & google/pegasus-pubmed; google/bigbird-pegasus-large-pubmed; led\_large\_16384\_arxiv\_summarization; completion\_microsoft/biogpt; medllama2:7b; chat\_aaditya/OpenBioLLM-Llama3-8B; conversational\_BioMistral/BioMistral-7B; chat\_Uni-SMART/SciLitLLM1.5-7B; chat\_Uni-SMART/SciLitLLM1.5-14B \\
+Reasoning-oriented SLMs & deepseek-r1:1.5b; deepseek-r1:7b; deepseek-r1:8b; qwen3:4b; qwen3:8b; \\
+\midrule
+Reasoning-oriented LLMs & deepseek-r1:14b; gpt-oss:20b; gpt-5-nano-2025-08-07; gpt-5-mini-2025-08-07; gpt-5-2025-08-07; claude-sonnet-4-20250514; claude-opus-4-20250514; claude-opus-4-1-20250805; magistral-medium-2509 \\
+\midrule
+Domain-specific SLMs & google/pegasus-pubmed; google/bigbird-pegasus-large-pubmed; led\_large\_16384\_arxiv\_summarization; completion\_microsoft/biogpt; medllama2:7b; chat\_aaditya/OpenBioLLM-Llama3-8B; conversational\_BioMistral/BioMistral-7B; chat\_Uni-SMART/SciLitLLM1.5-7B \\
+\midrule
+Domain-specific LLMs & chat\_Uni-SMART/SciLitLLM1.5-14B \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
 With this selection, we covered models of different sizes and release periods, ensuring that both widely adopted systems and recent architectures were represented. Extraordinarily large models, such as LLaMA 3.1 405B, were not considered because their resource demands exceed what is practical for typical summarization pipelines.
 
-These 63 diverse models were all tasked with generating summaries for each of the 1,000 abstracts in the dataset, resulting in 50,000 generated summaries available for evaluation.
+These 62 diverse models were all tasked with generating summaries for each of the 1,000 abstracts in the dataset, resulting in 50,000 generated summaries available for evaluation.
+
+\subsection{Prompt Design}
+
+To ensure comparability across models, we prompted all summarization systems with the same task description. The prompt instructed the models to generate concise summaries focused on the main findings of each publication while excluding unnecessary background or methodological detail. Each model received the publication title and abstract as input and was asked to produce an output of approximately 15–100 words. If the abstract did not contain any substantive results or conclusions, the model was instructed to return the predefined token INSUFFICIENT\_FINDINGS.
+
+The exact prompt used for all models was as follows:
+
+\begin{verbatim}
+	Summarize the provided publication (title and abstract) in 15-100 words.
+
+Key requirements:
+- Identify main findings, results, or contributions
+- Preserve essential context and nuance
+- Exclude background, methods unless crucial to conclusions
+- Write concisely and objectively
+- Avoid repetition and unnecessary qualifiers
+
+If no substantial findings exist, respond: 'INSUFFICIENT_FINDINGS'
+\end{verbatim}
 
 \subsection{Evaluation Metrics}
 
-As there is no single metric that can fully reflect summary quality, especially in the biomedical field where both coverage of key information and factual correctness are critical, we used a multitude of metrics grouped into three categories: traditional surface-level measures, embedding-based metrics, and performance-related measures that reflect the feasibility of using the methods in real-world applications. By combining all these metrics into one final overall score, we ended up with a balanced benchmark value that reflects both summary quality and practical usability.
+As there is no single metric that can fully reflect summary quality, especially in the biomedical field where both coverage of key information and factual correctness are critical, we used a multitude of metrics grouped into two categories: traditional surface-level metrics and embedding-based metrics. By combining all these metrics into one final overall score, we ended up with a balanced benchmark value that reflects summary quality.
 
 \subsubsection{Surface-level Metrics}
 
@@ -92,17 +117,43 @@ We also included all-mpnet-base-v2 \cite{song2020mpnetmaskedpermutedpretraining}
 
 Finally, to evaluate factual consistency, we applied AlignScore \cite{zha2023alignscoreevaluatingfactualconsistency}, a metric designed to test whether the statements in a generated summary are supported by the source text. In contrast to the other metrics, AlignScore thus compares the output to the input text itself (i.e. the publication abstract) instead of the reference summary (i.e. the Highlights section), as factual accuracy can only be assessed relative to the original input text. This addition ensures that our evaluation is sensitive to errors and hallucinations that might otherwise be overlooked.
 
+\subsubsection{Ranks Calculation}
+\label{subsec:ranks_calculation}
+
+For each of the evaluation metrics, ranks were calculated by assigning rank~1 to the lowest metric value, reflecting the best-performing model. Different weights were then given to each score (Table~\ref{tab:weights}) to compute a weighted overall score by multiplying each metric rank by its weight and then summing all weighted ranks together. Thus, the overall performance rank was built by prioritizing the semantic metrics (RoBERTa and DeBERTa), which better reflect true summary quality, over the lexical (ROUGE, BLEU, METEOR) and alignment-based (all-mpnet-base-v2, AlignScore) ones.
+
+\begin{table}[H]
+\caption{Overview of the assigned weights for each evaluation metric.\label{tab:weights}}
+\centering
+\begin{tabularx}{0.5\textwidth}{lcc}
+\toprule
+\textbf{Evaluation Metric} & \textbf{Weight} & \textbf{Percentage} \\
+\midrule
+RoBERTa & 0.25 & \\[-0.3em]
+DeBERTa & 0.25 & \raisebox{0.5em}{50\%} \\
+\cmidrule(lr){1-3}
+ROUGE-1 & 0.07 & \\[-0.3em]
+ROUGE-2 & 0.07 & \\[-0.3em]
+ROUGE-L & 0.05 & 30\% \\[-0.3em]
+METEOR & 0.06 & \\[-0.3em]
+BLEU & 0.05 & \\[0.3em]
+\cmidrule(lr){1-3}
+all-mpnet-base-v2 & 0.11 & \\[-0.3em]
+AlignScore & 0.09 & \raisebox{0.5em}{20\%} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
 \subsubsection{Performance Metrics}
 
-In addition to summary quality, we also considered four practical aspects of model performance:
+In addition to summary quality, we also considered some practical aspects of model performance:
 \begin{itemize}
-	\item Output token cost reflects the average length of generated summaries in tokens, as excessively long outputs increase runtime and resource requirements. 
-	\item Insufficient findings describe how often a model returned the predefined token 'INSUFFICIENT\_FINDINGS' instead of producing a summary, capturing cases where it concluded the input did not contain substantive findings.
-	\item Acceptance is the proportion of prompts for which a model produced an output, since some models occasionally failed to return a response. 
-	\item Speed records the average time required to generate summaries, which is critical when processing large datasets.
+	\item Execution time records the average time required to generate summaries, which is critical when processing large datasets.
+	\item Length compliance (\% within bounds) measures how often the generated summaries fall within the target length range specified in the prompt. It reflects a model’s ability to follow explicit output-length instructions as it penalizes overly short or excessively long responses.
+	\item Insufficient findings describe how often a model returned the predefined token 'INSUFFICIENT\_FINDINGS' instead of producing a summary, capturing cases where it concluded the input did not contain substantive findings. Summaries that were clearly nonsensical or contained no meaningful content were also flagges as ‘INSUFFICIENT\_FINDINGS’ during post-processing.
 \end{itemize}
 
-These measures complement the quality metrics by addressing whether a method is not only accurate but also feasible to use in practice.
+These measures complement the quality metrics in some evaluations by addressing whether a method is not only accurate but also feasible to use in practice.
 
 \subsection{Benchmarking Framework}
 
