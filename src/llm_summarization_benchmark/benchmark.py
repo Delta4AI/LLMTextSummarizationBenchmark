@@ -791,6 +791,12 @@ class SummarizationBenchmark:
         file_path = self.hashed_and_dated_output_dir / "detailed_scores_per_paper.json"
         formatted_data = defaultdict(list)
         for method_name, result in  self.results.data[self.papers_hash].items():
+            if not hasattr(result,  "full_paper_details"):
+                logger.warning(f"benchmark.pkl is generated using an old EvaluationResult structure and should be "
+                               f"re-calculated by deleting benchmark.pkl (recalculates all metrics). Detailed metric "
+                               f"scores will not be exported.")
+                return
+
             for paper in result.full_paper_details:
                 formatted_data[method_name].append({
                 "id": paper.id,
