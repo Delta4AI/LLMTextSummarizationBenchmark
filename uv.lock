@@ -584,7 +584,7 @@ wheels = [
 
 [[package]]
 name = "exploration-utilities"
-version = "0.4.2"
+version = "0.4.0"
 source = { directory = "../exploration/ExplorationUtilities" }
 dependencies = [
     { name = "python-dotenv" },
@@ -1181,7 +1181,7 @@ wheels = [
 
 [[package]]
 name = "llm-apis"
-version = "0.3.4"
+version = "0.2.18"
 source = { directory = "../llm_apis" }
 dependencies = [
     { name = "anthropic" },
