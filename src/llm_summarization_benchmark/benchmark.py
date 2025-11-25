@@ -762,6 +762,7 @@ class SummarizationBenchmark:
         self.save_detailed_results_as_json()
         self.save_detailed_scores_per_paper()
         self.visualizer.create_all_visualizations()
+        self.save_scores_per_model()
     
     def generate_comparison_report(self):
         """Generate comparison report with length compliance statistics."""
@@ -812,6 +813,26 @@ class SummarizationBenchmark:
             f.write(json.dumps(formatted_data, indent=2, ensure_ascii=False))
 
         logger.info(f"Detailed metric scores per paper saved to {file_path}")
+
+    def save_scores_per_model(self):
+        file_path = self.hashed_and_dated_output_dir / "detailed_scores_per_model.json"
+        formatted_data = defaultdict(lambda: defaultdict(list))
+
+        for method_name, result in self.results.data[self.papers_hash].items():
+            if not hasattr(result, "full_paper_details"):
+                logger.warning(f"benchmark.pkl is generated using an old EvaluationResult structure and should be "
+                               f"re-calculated by deleting benchmark.pkl (recalculates all metrics). Detailed metric "
+                               f"scores will not be exported.")
+                return
+
+            for paper in result.full_paper_details:
+                for metric, similarity_scores in paper.scores.items():
+                    formatted_data[method_name][metric].append(float(max(similarity_scores)))
+
+        with open(file_path, mode="w", encoding="utf-8") as f:
+            f.write(json.dumps(formatted_data, indent=2, ensure_ascii=False))
+
+        logger.info(f"Detailed metric scores per model saved to {file_path}")
 
     def apply_token_size_hotfix(self):
         changes = False
