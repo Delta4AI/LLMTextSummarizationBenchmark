@@ -761,9 +761,9 @@ class SummarizationBenchmark:
         self.generate_comparison_report()
         self.save_detailed_results_as_json()
         self.save_detailed_scores_per_paper()
-        self.visualizer.create_all_visualizations()
         self.save_scores_per_model()
-    
+        self.visualizer.create_all_visualizations()
+
     def generate_comparison_report(self):
         """Generate comparison report with length compliance statistics."""
         comparison_data = []
