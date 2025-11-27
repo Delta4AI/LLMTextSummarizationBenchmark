@@ -268,6 +268,9 @@ def get_sentence_transformer_similarity(generated: list[str], source_documents: 
         batch_size = 4
 
         for i in range(0, len(generated), batch_size):
+            if i % 100 == 0:
+                logger.info(f"Processed sentence transformer similarities for {i}/{len(generated)} documents "
+                            f"for {model_name}")
             batch_gen = generated[i:i + batch_size]
             batch_src = source_documents[i:i + batch_size]
             batch_papers = irc.papers[i:i + batch_size]
@@ -284,7 +287,7 @@ def get_sentence_transformer_similarity(generated: list[str], source_documents: 
 
                 # Clean up tensors
                 del embeddings
-                empty_cuda_cache()
+                empty_cuda_cache(silent=True)
 
     except Exception as e:
         logger.error(f"Sentence Transformer embedding similarity {model_name} failed: {e}")
@@ -344,13 +347,15 @@ def get_alignscore_scores(generated: list[str], references: list[str],
     return get_min_max_mean_std(scores)
 
 
-def empty_cuda_cache(sync: bool = False):
+def empty_cuda_cache(sync: bool = False, silent: bool = False):
     if DEVICE == "cuda":
-        logger.info("Clearing CUDA cache ..")
+        if not silent:
+            logger.info("Clearing CUDA cache ..")
         gc.collect()
         torch.cuda.empty_cache()
         if sync:
-            logger.info("Syncing CUDA cache ..")
+            if not silent:
+                logger.info("Syncing CUDA cache ..")
             torch.cuda.synchronize()
 
 
