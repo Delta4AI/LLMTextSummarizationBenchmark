@@ -758,11 +758,25 @@ class SummarizationBenchmark:
         logger.info(f"Token sizes written to {out_fn}")
 
     def export(self):
+        self.save_empty_formatted_responses()
         self.generate_comparison_report()
         self.save_detailed_results_as_json()
         self.save_detailed_scores_per_paper()
         self.save_scores_per_model()
         self.visualizer.create_all_visualizations()
+
+    def save_empty_formatted_responses(self):
+        empty_responses = defaultdict(list)
+        for model, metrics in self.results.data[self.papers_hash].items():
+            for paper, resp in zip(metrics.full_paper_details, metrics.full_responses):
+                if paper.extracted_response == "":
+                    empty_responses[model].append(resp)
+
+        if empty_responses:
+            out_fn = self.output_dir / "empty_formatted_responses.json"
+            with open(out_fn, mode="w", encoding="utf-8") as f:
+                json.dump(empty_responses, f, indent=4, ensure_ascii=False)
+            logger.info(f"Created {out_fn} with {sum(len(_) for _ in empty_responses.values())} empty responses")
 
     def generate_comparison_report(self):
         """Generate comparison report with length compliance statistics."""
@@ -1090,7 +1104,7 @@ def main():
     benchmark.add("mistral", "magistral-medium-2509", batch=True)
     benchmark.add("mistral", "mistral-large-2411")  # top-tier large model, high complexity tasks
     benchmark.add("mistral", "mistral-small-2506")
-    benchmark.add("mistral", "mistral-medium-2508", batch=True)
+    benchmark.add("mistral", "mistral-medium-2508", batch=True, clear_metrics=True)
 
     # expensive
     # benchmark.add("ollama", "deepseek-r1:32b")
