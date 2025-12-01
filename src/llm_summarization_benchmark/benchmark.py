@@ -34,7 +34,8 @@ import pandas as pd
 import nltk
 
 from exploration_utilities import get_project_root, get_logger, setup_logging
-from llm_summarization_benchmark.summarization_utilities import extract_response, get_min_max_mean_std
+from llm_summarization_benchmark.summarization_utilities import (extract_response, get_min_max_mean_std,
+                                                                 find_truncated, normalize_llm_response)
 
 
 OUT_DIR = get_project_root() / "Output" / "llm_summarization_benchmark"
@@ -759,6 +760,7 @@ class SummarizationBenchmark:
 
     def export(self):
         self.save_empty_formatted_responses()
+        self.save_truncated_formatted_responses()
         self.generate_comparison_report()
         self.save_detailed_results_as_json()
         self.save_detailed_scores_per_paper()
@@ -773,10 +775,27 @@ class SummarizationBenchmark:
                     empty_responses[model].append(resp)
 
         if empty_responses:
-            out_fn = self.output_dir / "empty_formatted_responses.json"
+            out_fn = self.output_dir / "debug_empty_formatted_responses.json"
             with open(out_fn, mode="w", encoding="utf-8") as f:
                 json.dump(empty_responses, f, indent=4, ensure_ascii=False)
-            logger.info(f"Created {out_fn} with {sum(len(_) for _ in empty_responses.values())} empty responses")
+            logger.warning(f"Created {out_fn} with {sum(len(_) for _ in empty_responses.values())} empty responses")
+
+    def save_truncated_formatted_responses(self):
+        all_formatted_responses = []
+        threshold = 0.85
+
+        for metrics in self.results.data[self.papers_hash].values():
+            all_formatted_responses.extend([extract_response(_) for _ in metrics.full_responses])
+
+        truncated = find_truncated(all_formatted_responses, threshold=0.85)
+
+        if truncated:
+            out_fn = self.output_dir / "debug_truncated_formatted_responses.json"
+            with open(out_fn, mode="w", encoding="utf-8") as f:
+                json.dump(truncated, f, indent=4, ensure_ascii=False)
+            logger.warning(f"Created {out_fn} with {len(truncated)} truncated responses "
+                        f"(threshold length of {threshold}% of original responses). Check file to recognize truncated "
+                        f"responses and potential upgrades to summarization_utilities.extract_response() !")
 
     def generate_comparison_report(self):
         """Generate comparison report with length compliance statistics."""
@@ -938,62 +957,13 @@ class SummarizationBenchmark:
             _paper.output_tokens = _body["usage"]["completion_tokens"]
             _paper.execution_time = _exec_time_per_paper
 
-            _response = self.normalize_llm_response(response_body=_body)
+            _response = normalize_llm_response(response_body=_body)
 
             _paper.raw_response = _response["raw_response"]
-            _paper.extracted_response = _response["extracted_response"]
+            _paper.extracted_response = extract_response(_response["answer"])
 
         for resp in cache.errors or []:
             raise NotImplementedError(f"Investigate why errors are thrown and handle accordingly: {resp}")
-
-    @staticmethod
-    def normalize_llm_response(response_body):
-        choices = response_body.get("choices", [])
-
-        if not choices:
-            raise ValueError("No choices in response")
-
-        first_choice = choices[0]
-        message = first_choice.get("message", {})
-        content = message.get("content", "")
-
-        # mistral with separate thinking/answer (2 choices)
-        if len(choices) == 2:
-            thinking = choices[0]["message"]["content"][0]["thinking"][0]["text"]
-            answer = choices[0]["message"]["content"][1]["text"]
-            return {
-                "raw_response": thinking,
-                "extracted_response": extract_response(answer)
-            }
-
-        # structured content with text field
-        if isinstance(content, list) and len(content) >= 2:
-            last_item = content[-1]
-            if isinstance(last_item, dict) and "text" in last_item:
-                return {
-                    "raw_response": content,
-                    "extracted_response": extract_response(last_item["text"])
-                }
-
-        # standard single string content (OpenAI, Anthropic, etc.)
-        if isinstance(content, str):
-            return {
-                "raw_response": content,
-                "extracted_response": extract_response(content)
-            }
-
-        # fallback
-        if content:
-            return {
-                "raw_response": str(content),
-                "extracted_response": extract_response(str(content))
-            }
-
-        raise NotImplementedError(
-            f"Unsupported response format: {len(choices)} choices, "
-            f"content type: {type(content)}"
-        )
-
 
 def main():
     """Main execution function with length constraints."""
@@ -1104,7 +1074,7 @@ def main():
     benchmark.add("mistral", "magistral-medium-2509", batch=True)
     benchmark.add("mistral", "mistral-large-2411")  # top-tier large model, high complexity tasks
     benchmark.add("mistral", "mistral-small-2506")
-    benchmark.add("mistral", "mistral-medium-2508", batch=True, clear_metrics=True)
+    benchmark.add("mistral", "mistral-medium-2508", batch=True)
 
     # expensive
     # benchmark.add("ollama", "deepseek-r1:32b")
@@ -1120,6 +1090,7 @@ def main():
     # benchmark.test_token_sizes()
 
     benchmark.run(reset_metrics=args.reset_metrics)
+
 
     if benchmark.papers_hash not in benchmark.results.data:
         logger.info("No results available. Exiting")
