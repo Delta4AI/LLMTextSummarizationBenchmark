@@ -32,6 +32,11 @@ ROUGE_TYPES = ['rouge1', 'rouge2', 'rougeL']
 ROUGE_SCORER = RougeScorer(ROUGE_TYPES, use_stemmer=True)
 OUT_DIR = get_project_root() / "Output" / "llm_summarization_benchmark"
 USE_MODEL_CACHE = False
+METRIC_TYPES = [
+    "rouge_scores", "roberta_scores", "deberta_scores", "meteor_scores", "bleu_scores",
+    "mpnet_content_coverage_scores", "alignscore_scores"
+]
+
 
 init_hf_cache_dir()
 

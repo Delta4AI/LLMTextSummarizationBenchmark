@@ -61,7 +61,8 @@ from llm_apis.local_client import TextRankSummarizer, FrequencySummarizer
 from llm_apis.config import SUMMARY_MIN_WORDS, SUMMARY_MAX_WORDS, TOKEN_SIZE_SAMPLE_TEXT
 from llm_summarization_benchmark.metrics import (get_length_scores, get_meteor_scores, ROUGE_TYPES, get_rouge_scores,
                                                  get_bert_scores, get_bleu_scores, get_sentence_transformer_similarity,
-                                                 get_alignscore_scores, cleanup_metrics_cache, empty_cuda_cache)
+                                                 get_alignscore_scores, cleanup_metrics_cache, empty_cuda_cache,
+                                                 METRIC_TYPES)
 from llm_summarization_benchmark.visualization import SummarizationVisualizer
 
 
@@ -205,7 +206,7 @@ class SummarizationResult:
 class SummarizationBenchmark:
     """Main benchmarking framework with length constraint tracking."""
 
-    def __init__(self):
+    def __init__(self, reset_metric_types: list[str], reset_metrics_for_models: list[str]):
 
         self.output_dir = OUT_DIR
 
@@ -235,6 +236,9 @@ class SummarizationBenchmark:
         self._load_api_clients()
         logger.info(f"Benchmark initialized with {len(self.api_clients)} API clients. "
                     f"Length constraints: {self.min_words}-{self.max_words}")
+
+        self.reset_metric_types = reset_metric_types
+        self.reset_metrics_for_models = {k: True for k in reset_metrics_for_models}
 
     def _load_api_clients(self):
         self.api_clients = {}
@@ -360,6 +364,9 @@ class SummarizationBenchmark:
             clear_api_cache = True
             clear_metrics = True
 
+        if f"{platform}_{model_name}" in self.reset_metrics_for_models:
+            clear_metrics = True
+
         self._clear_cache(platform=platform, model_name=model_name,
                           clear_api_cache=clear_api_cache, clear_metrics=clear_metrics)
 
@@ -396,6 +403,20 @@ class SummarizationBenchmark:
                      clear_api_cache: bool = False, clear_metrics: bool = False) -> None:
         method_name = f"{platform}_{model_name}" if model_name else platform
 
+        # TODO: remove hardcoded unclean at some point
+        metric_type_map = {
+            "rouge_scores": ["rouge1", "rouge2", "rougeL"],
+            "roberta_scores": ["bert_roberta-large_precision", "bert_roberta-large_recall",
+                               "bert_roberta-large_f1"],
+            "deberta_scores": ["bert_microsoft/deberta-xlarge-mnli_precision",
+                               "bert_microsoft/deberta-xlarge-mnli_recall",
+                               "bert_microsoft/deberta-xlarge-mnli_f1"],
+            "meteor_scores": ["meteor"],
+            "bleu_scores": ["bleu"],
+            "mpnet_content_coverage_scores": ["sentence_transformer"],
+            "alignscore_scores": ["alignscore"]
+        }
+
         if clear_api_cache:
             self.api_clients[platform].clean_cache(method_name=method_name)
             logger.info(f"Cleared API cache for {method_name}")
@@ -404,9 +425,25 @@ class SummarizationBenchmark:
             try:
                 if (self.results and self.papers_hash in self.results.data and method_name in self.results.data[
                     self.papers_hash]):
-                    del self.results.data[self.papers_hash][method_name]
-                    self.results.save()
-                    logger.info(f"Cleared results database for {method_name}")
+                    if self.reset_metric_types == METRIC_TYPES:
+                        del self.results.data[self.papers_hash][method_name]
+                        self.results.save()
+                        logger.info(f"Cleared all metric results for {method_name}")
+                    else:
+                        for metric in self.reset_metric_types:
+                            existing_result = self.results.data[self.papers_hash][method_name]
+                            setattr(existing_result, metric, {})
+                            for paper in existing_result.full_paper_details:
+                                for k in metric_type_map.get(metric, []):
+                                    if k in paper.scores:
+                                        del paper.scores[k]
+                                    else:
+                                        logger.warning(f"Could not clear {metric} for {method_name} as it is not "
+                                                       f"existent yet")
+                            logger.info(f"Cleared {metric} metric results for {method_name}")
+                        self.results.save()
+
+
             except Exception as exc:
                 logger.warning(f"Failed to clear results database for {method_name}: {exc}")
 
@@ -430,7 +467,9 @@ class SummarizationBenchmark:
             skip_inference = self.results.exists(irc.method_name) and self.results.same_size_as(irc.method_name,
                                                                                                 len(self.papers))
 
-            if skip_inference and not reset_metrics:
+            needs_metric_recalc = _method_name in self.reset_metrics_for_models
+
+            if skip_inference and not reset_metrics and not needs_metric_recalc:
                 logger.info(f"Skipping interference and metrics for existing method: {irc.method_name}")
                 self.run_status[_method_name] = RunStatus.SKIPPED
                 continue
@@ -439,7 +478,7 @@ class SummarizationBenchmark:
                 if batch:
                     result = self._check_batch(irc=irc)
                 else:
-                    if skip_inference and reset_metrics:
+                    if skip_inference and (reset_metrics or needs_metric_recalc):
                         logger.info(f"Recalculating metrics for existing method: {irc.method_name}")
                         result = self._recalculate_metrics_from_cache(irc=irc)
                     else:
@@ -502,6 +541,18 @@ class SummarizationBenchmark:
             existing_data=None
         )
 
+    def _needs_recalc(self, metric_attr: str, existing_data: EvaluationResult | None) -> bool:
+        if existing_data is None:
+            empty_cuda_cache(sync=True)
+            return True
+
+        existing_value = getattr(existing_data, metric_attr, None)
+        if existing_value is None or not existing_value or metric_attr in self.reset_metric_types:
+            empty_cuda_cache(sync=True)
+            return True
+
+        return False
+
     def _get_evaluation_result(
             self, irc: InterferenceRunContainer,
             generated_summaries: list[str],
@@ -521,37 +572,51 @@ class SummarizationBenchmark:
             _output_tokens = [p.output_tokens for p in irc.papers if p.output_tokens is not None]
 
         _length_stats = get_length_scores(generated_summaries, self.min_words, self.max_words)
-        _rouge_scores = get_rouge_scores(generated_summaries, reference_summaries, irc)
 
-        empty_cuda_cache(sync=True)
-        _roberta_scores = get_bert_scores(generated_summaries, reference_summaries, "roberta-large", irc)
+        if self._needs_recalc("rouge_scores", existing_data):
+            _rouge_scores = get_rouge_scores(generated_summaries, reference_summaries, irc)
+        else:
+            _rouge_scores = existing_data.rouge_scores
 
-        empty_cuda_cache(sync=True)
-        _deberta_scores = get_bert_scores(generated_summaries, reference_summaries,
-                                          "microsoft/deberta-xlarge-mnli", irc)
+        if self._needs_recalc("roberta_scores", existing_data):
+            _roberta_scores = get_bert_scores(generated_summaries, reference_summaries, "roberta-large", irc)
+        else:
+            _roberta_scores = existing_data.roberta_scores
 
-        empty_cuda_cache(sync=True)
-        _meteor_scores = get_meteor_scores(generated_summaries, reference_summaries, irc)
+        if self._needs_recalc("deberta_scores", existing_data):
+            _deberta_scores = get_bert_scores(generated_summaries, reference_summaries, "microsoft/deberta-xlarge-mnli",
+                                              irc)
+        else:
+            _deberta_scores = existing_data.deberta_scores
 
-        empty_cuda_cache(sync=True)
-        _bleu_scores = get_bleu_scores(generated_summaries, reference_summaries, irc)
+        if self._needs_recalc("meteor_scores", existing_data):
+            _meteor_scores = get_meteor_scores(generated_summaries, reference_summaries, irc)
+        else:
+            _meteor_scores = existing_data.meteor_scores
 
-        empty_cuda_cache(sync=True)
-        _mpnet_content_coverage_scores = get_sentence_transformer_similarity(
-            generated=generated_summaries,
-            source_documents=[p.full_text for p in irc.papers],
-            model_name="all-mpnet-base-v2",
-            irc=irc
-        )
+        if self._needs_recalc("bleu_scores", existing_data):
+            _bleu_scores = get_bleu_scores(generated_summaries, reference_summaries, irc)
+        else:
+            _bleu_scores = existing_data.bleu_scores
 
-        empty_cuda_cache(sync=True)
-        _alignscore_scores = get_alignscore_scores(
-            generated=generated_summaries,
-            references=[p.abstract for p in irc.papers],
-            irc=irc
-        )
+        if self._needs_recalc("mpnet_content_coverage_scores", existing_data):
+            _mpnet_content_coverage_scores = get_sentence_transformer_similarity(
+                generated=generated_summaries,
+                source_documents=[p.full_text for p in irc.papers],
+                model_name="all-mpnet-base-v2",
+                irc=irc
+            )
+        else:
+            _mpnet_content_coverage_scores = existing_data.mpnet_content_coverage_scores
 
-        empty_cuda_cache(sync=True)
+        if self._needs_recalc("alignscore_scores", existing_data):
+            _alignscore_scores = get_alignscore_scores(
+                generated=generated_summaries,
+                references=[p.abstract for p in irc.papers],
+                irc=irc
+            )
+        else:
+            _alignscore_scores = existing_data.alignscore_scores
 
         return EvaluationResult(
             method_name=irc.method_name,
@@ -968,16 +1033,22 @@ class SummarizationBenchmark:
 def main():
     """Main execution function with length constraints."""
     parser = ArgumentParser(description="LLM Text Summarization Benchmark. Set HF_HUB_OFFLINE to 0 on first run.")
-    parser.add_argument("--clear", action="store_true", help="Clear existing benchmark results")
-    parser.add_argument("--reset-metrics", action="store_true",
-                        help="Reset metrics while keeping LLM responses")
+    parser.add_argument("--clear", action="store_true",
+                        help="Clear all existing benchmark results (responses and metrics)")
+    parser.add_argument("--reset-all-metrics", action="store_true",
+                        help="Reset all metrics while keeping LLM responses")
+    parser.add_argument("--reset-metrics-for-models", default=[], type=str, nargs="+",
+                        help="Reset metrics for individual models (space separated) (e.g. ollama_gemma3:270M")
+    parser.add_argument("--reset-metric-types", default=METRIC_TYPES, nargs="+",
+                        help=f"Space separated list of metric types to reset (default: {' '.join(METRIC_TYPES)})")
     parser.add_argument("--gold-standard-data", default=GOLD_STANDARD_DATA, nargs="+",
                         help="Gold standard data files to load (default: %(default)s)")
     parser.add_argument("--test", type=int, default=None,
                         help="Run tests with specified number of publications (e.g. --test 10)")
     args = parser.parse_args()
 
-    benchmark = SummarizationBenchmark()
+    benchmark = SummarizationBenchmark(reset_metric_types=args.reset_metric_types,
+                                       reset_metrics_for_models=args.reset_metrics_for_models)
     benchmark.load_papers(gold_standard_data=args.gold_standard_data, test=args.test)
     if args.clear:
         benchmark.clear()
@@ -1089,7 +1160,7 @@ def main():
 
     # benchmark.test_token_sizes()
 
-    benchmark.run(reset_metrics=args.reset_metrics)
+    benchmark.run(reset_metrics=args.reset_all_metrics)
 
 
     if benchmark.papers_hash not in benchmark.results.data:
