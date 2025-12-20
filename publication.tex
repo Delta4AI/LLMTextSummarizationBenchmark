@@ -59,19 +59,20 @@
 %\longauthorlist{yes} % For many authors that exceed the left citation part
 
 % Full title of the paper (Capitalized)
-\Title{A systematic evaluation and benchmarking of summarization methods for biomedical literature: From Classical Models to LLMs}
+\Title{A systematic evaluation and benchmarking of summarization methods for biomedical literature: From word-frequency methods to language models}
 
 % MDPI internal command: Title for citation in the left column
 \TitleCitation{Title}
 
 % Author Orchid ID: enter ID or remove command
-\newcommand{\orcidauthorA}{0009-0000-0243-2673} % Add \orcidA{} behind the author's name
+\newcommand{\orcidauthorA}{0009-0000-0243-2673} % Add \orcidA{} behind the author's name; FB
 \newcommand{\orcidauthorB}{0009-0007-7272-5034} % Add \orcidB{} behind the author's name; PP
 \newcommand{\orcidauthorC}{0000-0003-2087-5691} % Add \orcidC{} behind the author's name; EB
 \newcommand{\orcidauthorD}{0000-0001-6853-8542} % Add \orcidD{} behind the author's name; ML
+% TBD -> add IDs for other authors
 
 % Authors, for the paper (add full first names)
-\Author{Fabio Baumgärtel $^{1}$\orcidA{}, Enrico Bono $^{1,2}$\orcidB{}, Paul Perco $^{1,3}$\orcidC{} and Matthias Ley $^{1,2}$\orcidD{}*}
+\Author{Fabio Baumgärtel $^{1,\dagger}$\orcidA{}, Enrico Bono $^{1,2,\dagger}$\orcidB{}, Lucas Fillinger $^{1}$, Louiza Galou $^{1}$, Kinga Keska-Izworska $^{1}$, Samuel Walter $^{1}$, Peter Andorfer $^{1}$, Klaus Kratochwill $^{1,2}$, Paul Perco $^{1,3}$\orcidC{} and Matthias Ley $^{1,2}$\orcidD{}*}
 
 % MDPI internal command: Authors, for metadata in PDF
 \AuthorNames{Fabio Baumgärtel, Enrico Bono, Paul Perco and Matthias Ley}
@@ -89,7 +90,7 @@ $^{3}$ \quad Department of Internal Medicine IV, Medical University Innsbruck, I
 %\firstnote{Current address: Affiliation.}  
 % Current address should not be the same as any items in the Affiliation section.
 
-%\secondnote{These authors contributed equally to this work.}
+\firstnote{These authors contributed equally to this work.}
 % The commands \thirdnote{} till \eighthnote{} are available for further notes.
 
 %\simplesumm{} % Simple summary
@@ -97,10 +98,10 @@ $^{3}$ \quad Department of Internal Medicine IV, Medical University Innsbruck, I
 %\conference{} % An extended version of a conference paper
 
 % Abstract (Do not insert blank lines, i.e. \\) 
-\abstract{<TBD> \\ \\Draft: The exponential growth of scientific literature has created an urgent need for reliable tools that can distill research articles into concise and accurate summaries. In this study, we benchmarked 62 summarization models on 1,000 scientific abstracts with corresponding author-provided highlights as reference summaries. We evaluated models ranging from classical approaches – such as frequency-based and TextRank methods – to modern state-of-the-art language models, using a comprehensive set of surface-level, embedding-based and performance metrics. The results indicate that general-purpose models appear to outperform both reasoning-oriented and domain-specific models, whether tailored on biomedical text or designed for text summarization, with mid-sized general models outperforming larger proprietary ones. By systematically comparing traditional and modern approaches, this work highlights their respective strengths and limitations, offering insights into effective strategies for accelerating knowledge discovery in the molecular sciences. \\ \newline A single paragraph of about 200 words maximum. For research articles, abstracts should give a pertinent overview of the work. We strongly encourage authors to use the following style of structured abstracts, but without headings: (1) Background: place the question addressed in a broad context and highlight the purpose of the study; (2) Methods: describe briefly the main methods or treatments applied; (3) Results: summarize the article's main findings; (4) Conclusions: indicate the main conclusions or interpretations. The abstract should be an objective representation of the article, it must not contain results which are not presented and substantiated in the main text and should not exaggerate the main conclusions.}
+\abstract{The rapid expansion of biomedical literature demands automated summarization tools that can reliably condense research articles into concise, accurate overviews. We benchmarked 62 summarization systems – ranging from frequency-based and TextRank extractors to modern \acp{EDM} and \acp{LLM} – on a curated set of 1,000 biomedical abstracts paired with author-generated highlights sections as reference summaries. Models were evaluated using a composite suite of metrics covering lexical overlap (ROUGE-1/2/L, BLEU, METEOR), embedding-based semantic similarity (RoBERTa, DeBERTa, all-mpnet-base-v2), and factual consistency (AlignScore). Our results indicate that general-purpose \acp{LM} achieve the highest overall scores across both lexical and semantic metrics, outperforming both reasoning-oriented and domain-specific models. Within the general-purpose group, medium-sized models, typically runnable on a single node, often outperform frontier-scale counterparts, suggesting an optimal balance between model capacity and computational efficiency. Statistical extractive methods lag behind all neural approaches. These findings provide a systematic reference for selecting summarization tools in biomedical research and highlight that broad pretraining remains more effective than narrow domain adaptation for generating high-quality scientific summaries.}
 
 % Keywords
-\keyword{benchmarking; natural language processing; text summarization; largue language models; biomedical literature} 
+\keyword{benchmarking; natural language processing; scientific text summarization; large language models; biomedical literature} 
 
 % The fields PACS, MSC, and JEL may be left empty or commented out if not applicable
 %\PACS{J0101}
@@ -146,6 +147,9 @@ $^{3}$ \quad Department of Internal Medicine IV, Medical University Innsbruck, I
 % \item Second bullet.
 % \end{itemize}
 %}
+
+\usepackage{acronym}
+%\usepackage[nohyperlinks]{acronym}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
@@ -241,10 +245,45 @@ $^{3}$ \quad Department of Internal Medicine IV, Medical University Innsbruck, I
       % %% Only for journal Encyclopedia
       % %\entrylink{The Link to this entry published on the encyclopedia platform.}
 
-      % \abbreviations{Abbreviations}{
-      % The following abbreviations are used in this manuscript:
-      % \\
+      \abbreviations{Abbreviations}{
+            The following abbreviations are used in this manuscript:
+            \begin{acronym}
+            
+            \acro{LM}{Language Model}
+            \acro{LLM}{Large Language Model}
+            \acro{SLM}{Small Language Model}
 
+            \acro{EDM}{Encoder-Decoder Model}
+            \acro{NLP}{Natural Language Processing}
+            \acro{ATS}{Automatic Text Summarization}
+            \acro{TF-IDF}{Term Frequency-Inverse Document Frequency}
+            \acro{Seq2seq}{Sequence-to-Sequence}
+            \acro{RNN}{Recurrent Neural Networks}
+            \acro{LSTM}{Long Short-Term Memory}
+            \acro{GRU}{Gated Recurrent Unit}
+            \acro{CPT}{Continual Pre-Training}
+            \acro{SFT}{Supervised Fine-Tuning}
+            \acro{RL}{Reinforcement Learning}
+            \acro{API}{Application Programming Interface}
+            \acro{ANOVA}{Analysis of Variance}
+
+            \acro{BERT}{Bidirectional Encoder Representations from Transformers}
+            \acro{BART}{Bidirectional and Auto-Regressive Transformer}
+            \acro{T5}{Text-to-Text Transfer Transformer}
+            \acro{PEGASUS}{Pre-training with Extracted Gap-sentences for Abstractive Summarization Sequence-to-sequence}
+            \acro{GPT}{Generative Pre-trained Transformer}
+            \acro{Llama}{Large Language Model Meta AI}
+            \acro{LED}{Longformer Encoder-Decoder}
+
+            \acro{ROUGE}{Recall-Oriented Understudy for Gisting Evaluation}
+            \acro{BLEU}{Bilingual Evaluation Understudy}
+            \acro{METEOR}{Metric for Evaluation of Translation with Explicit ORdering}
+            \acro{RoBERTa}{Robustly Optimized BERT Approach}
+            \acro{DeBERTa}{Decoding-enhanced BERT with Disentangled Attention}
+            \acro{MPNet}{Masked and Permuted Pre-training}
+
+            \end{acronym}
+      }
       % \noindent 
       % \begin{tabular}{@{}ll}
       % MDPI & Multidisciplinary Digital Publishing Institute\\

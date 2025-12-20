@@ -1,128 +1,87 @@
 \section{Results}
 
-Our benchmark results offer a comparative view of summarization performance across all evaluated models. We first present overall rankings, followed by comparisons between different model groups. Additionally, we examine results on individual metrics, runtime performance, and correlations between the evaluation metrics used.
-
-\subsection{Overall Model Performance}
-
-Based on the performance outcomes shown in Figure~\ref{fig:rank_heatmap}, models from the Mistral family occupied the top positions of the ranking, achieving strong performance across the majority of surface-level metrics (ROUGE-1, ROUGE-2, ROUGE-L, METEOR, BLEU) and embedding-based measures (RoBERTa, DeBERTa, all-mpnet-base-v2, AlignScore). According to the performance rank, mistral-medium-2505 ranks first, followed by mistral-small-2506, mistral-small-3.2:24b, and mistral-large-2411. 
-
-The lowest-ranked models include pegasus-xsum, pegasus-pubmed and bigbird-pegasus-large-pubmed from the Pegasus family, with the latter being the worst-performing model. Domain-specific models such as OpenBioLLM-Llama3-8B, biogpt, and multilingual\_XLSum, show poor performance across all the metrics.
-
-Among the 10 top ranked models, five are general-purpose LLMs, three are general-purpose SLMs, and two are reasoning-oriented LLMs. A similar trend is present by looking at the top half of the ranking (positions 10 to 32), except from the presence of a single domain-specific LLM ranked at 20 (SciLitLLM1.5-14B). In contrast, in the lower half of the ranking, where models start to perform poorly across most metrics, the majority are reasoning-oriented SLMs, general-purpose EDMs, domain-specific EDMs, and traditional models. The best and worst models by category are reported in Table~\ref{tab:bestworst}, while those by model family are reported in Table~\ref{tab:bestworstfamily}. 
-
-% Define consistent column widths
-\newlength{\colA}\setlength{\colA}{3.2cm}  % Category / Family
-\newlength{\colB}\setlength{\colB}{3.5cm}  % Best Model
-\newlength{\colC}\setlength{\colC}{0.7cm}  % Rank
-\newlength{\colD}\setlength{\colD}{3.7cm}  % Worst Model
-\newlength{\colE}\setlength{\colE}{0.7cm}  % Rank
-
-%-------------------- TABLE 4 --------------------
-\begin{table}[H]
-\caption{Overview of the best- and worst-performing models by category. Only categories with at least 3 models are reported.\label{tab:bestworst}}
-\centering
-\begin{tabularx}{\textwidth}{p{\colA} p{\colB} p{\colC} p{\colD} p{\colE}}
-\toprule
-\textbf{Category} & \textbf{Best Model} & \textbf{Rank} & \textbf{Worst Model} & \textbf{Rank} \\
-\midrule
-General-purpose EDMs & \texttt{T5-large} & 48 & \texttt{Pegasus-large} & 55 \\
-Domain-specific EDMs & \texttt{led\_large\_16384\_ arxiv\_summarization} & 46 & \texttt{bigbird-pegasus- large-pubmed} & 62 \\
-General-purpose SLMs & \texttt{GPT-4o-mini} & 6 & \texttt{Phi3:3.8b} & 45 \\
-General-purpose LLMs & \texttt{Mistral-medium-2505} & 1 & \texttt{Mistral-nemo:12b} & 30 \\
-Reasoning-oriented SLMs & \texttt{qwen3:8b} & 35 & \texttt{Deepseek-r1:8b} & 50 \\
-Reasoning-oriented LLMs & \texttt{GPT-5-nano} & 7 & \texttt{GPT-5} & 41 \\
-Domain-specific SLMs & \texttt{SciLitLLM1.5-7B} & 37 & \texttt{OpenBioLLM-Llama3-8B} & 61 \\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-%-------------------- TABLE 5 --------------------
-\begin{table}[H]
-\caption{Overview of the best- and worst-performing models by family. Only families with at least 3 models are reported.\label{tab:bestworstfamily}}
-\centering
-\begin{tabularx}{\textwidth}{p{\colA} p{\colB} p{\colC} p{\colD} p{\colE}}
-\toprule
-\textbf{Family} & \textbf{Best Model} & \textbf{Rank} & \textbf{Worst Model} & \textbf{Rank} \\
-\midrule
-Pegasus & \texttt{pegasus-cnn\_ dailymail} & 49 & \texttt{bigbird-pegasus- large-pubmed} & 62 \\
-T5 & \texttt{T5-large} & 48 & \texttt{mT5\_multi- lingual\_XLSum} & 60 \\
-Qwen & \texttt{SciLitLLM1.5-14B} & 20 & \texttt{Qwen3:4b} & 43 \\
-Gemma & \texttt{Gemma3-tools:4b} & 10 & \texttt{Gemma3:270M} & 42 \\
-Granite & \texttt{Granite3.3:8b} & 9 & \texttt{Granite3.3:2b} & 28 \\
-LLaMA & \texttt{Llama3.2:3b} & 26 & \texttt{OpenBioLLM-Llama3-8B} & 61 \\
-Mistral & \texttt{Mistral-medium-2505} & 1 & \texttt{BioMistral-7B} & 38 \\
-Phi & \texttt{Phi4:14b} & 23 & \texttt{Phi3:3.8b} & 45 \\
-DeepSeek & \texttt{Deepseek-r1:14b} & 34 & \texttt{Deepseek-r1:8b} & 50 \\
-GPT & \texttt{GPT-4o} & 5 & \texttt{BioGPT} & 59 \\
-Claude & \texttt{Claude-sonnet-4} & 8 & \texttt{Claude-opus-4-1} & 33 \\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=1.00\textwidth]{Visualizations/rank_heatmap.png}
-\caption{Overview of the performance of all evaluated models across all surface-level and embedding-based metrics. Each row corresponds to one model, and each column to a specific metric, with lower ranks indicating better performance. The figure displays each model’s family (e.g., GPT, DeepSeek, Gemma, Granite), and category (e.g., encoder–decoder, general-purpose SLMs, reasoning-oriented LLMs). Models are sorted by their weighted average rank across metrics (Performance\_Rank), where lower ranks indicate better performance.\label{fig:rank_heatmap}}
-\end{figure}
-
-\subsection{Group Comparisons}
-
-Figure~\ref{fig:group_bar_chart} summarizes the average performance of the nine model categories based on the overall metric mean score. General-purpose LLMs achieved the highest mean score (0.527), followed by general-purpose SLMs (0.519) and reasoning-oriented LLMs (0.515). Traditional extractive models, general-purpose EDMs, and domain-specific EDMs performed considerably lower, with mean scores of 0.451, 0.471, and 0.410, respectively. The domain-specific SLMs showed weak overall performance (0.439), whereas the domain-specific LLMs achieved a higher score (0.513; single model).
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=1.0\textwidth]{Visualizations/group_bar_chart.png}
-\caption{Average metric mean score across the nine model categories. The figure highlights clear performance differences between categories, with general-purpose LLMs performing best overall, followed by general-purpose SLMs and reasoning-oriented LLMs. Traditional models, EDMs, and domain-specific SLMs achieved notably lower scores.\label{fig:group_bar_chart}}
-\end{figure}
-
-\subsubsection{SLMs vs. LLMs}
-
-To further analyze differences between small and large language models, we compared the performance of SLMs and LLMs within both the general-purpose and reasoning-oriented groups (Figure~\ref{fig:slm_llm_comparison}). In both categories, LLMs achieved higher overall metric mean scores (0.527 vs 0.519 and 0.515 vs. 0.495) and generally performed better on surface-level and embedding-based metrics. Compliance with word-length bounds favored LLMs in the general-purpose group but SLMs in the reasoning-oriented group. The comparison for domain-specific models is omitted, as this category includes only a single LLM, preventing meaningful comparison.
-
-\begin{figure}[H]
-\centering
-\subfloat[\centering General-purpose SLMs vs.\ LLMs.]{%
-    \includegraphics[width=0.49\textwidth]{Visualizations/generalpurpose_comparison.png}
-}
-\hfill
-\subfloat[\centering Reasoning-oriented SLMs vs.\ LLMs.]{%
-    \includegraphics[width=0.49\textwidth]{Visualizations/reasoning_comparison.png}
-}
-\caption{(\textbf{a}) Comparison between general-purpose SLMs and LLMs across key evaluation metrics. (\textbf{b}) Comparison between reasoning-oriented SLMs and LLMs. In both groups, LLMs achieved slightly higher overall metric mean scores, while SLMs occasionally performed better on individual metrics. \label{fig:slm_llm_comparison}}
-\end{figure}
-
-\subsubsection{General-purpose Models vs. Reasoning-oriented Models}
-    
-Figure~\ref{fig:llm_group_comparison}a compares the two largest and most competitive groups (general-purpose and reasoning-oriented models) across multiple evaluation aspects, including both SLMs and LLMs. General-purpose models achieved slightly higher scores across surface-level metrics, embedding-based metrics, execution time, compliance with word-length bounds, and overall metric mean score. The largest difference was observed in execution time, where general-purpose models reached a score of 0.968 compared to 0.930 for reasoning-oriented models. Figure~\ref{fig:llm_group_comparison}b provides a detailed view of these runtime differences. Smaller but consistent advantages were also seen in surface-level metrics, embedding-based metrics, and compliance with word-length bounds.
-
-\begin{figure}[H]
-\centering
-\subfloat[\centering General-purpose vs.\ reasoning-oriented models across key evaluation aspects.]{%
-    \includegraphics[width=0.49\textwidth]{Visualizations/llm_comparison.png}
-}
-\hfill
-\subfloat[\centering Execution time distribution for the same two groups.]{%
-    \includegraphics[width=0.49\textwidth]{Visualizations/grouped_execution_time_distribution.png}
-}
-\caption{(\textbf{a}) Comparison between general-purpose and reasoning-oriented models across key evaluation metrics. General-purpose models achieved higher scores across all categories, including surface-level and embedding-based metrics, execution time, compliance with word-length bounds, and overall Metric Mean Score. (\textbf{b}) Distribution of execution times for the same groups, showing that general-purpose models produced summaries more efficiently and with lower variability.\label{fig:llm_group_comparison}}
-\end{figure}
+Our benchmark results offer a comparative view of summarization performance across all evaluated models on biomedical abstracts. We first examine the correlations among the chosen evaluations metrics and, based on the findings, identify the best-performing model across lexical, semantic, and factual dimensions. Next, we compare model performance across categories and families to identify significant differences. Finally, we present a case study illustrating how concept coverage varies between models.
 
 \subsection{Metric Correlations}
 
-To examine how the different evaluation metrics relate to each other, we computed pairwise Pearson correlation coefficients across all models (Figure~\ref{fig:metric_correlation}).
+To examine how the different evaluation metrics relate to each other, we computed pairwise Spearman correlation coefficients across all models (Figure~\ref{fig:metric_correlation}).
 
-Strong positive correlations were observed among the surface-level metrics (ROUGE-1, ROUGE-2, ROUGE-L, METEOR, and BLEU). ROUGE variants showed almost identical behavior ($\rho > 0.9$), while BLEU and METEOR demonstrated slightly weaker but still substantial alignment with ROUGE measures.
+Strong positive correlations were observed among most lexical-based metrics (\ac{ROUGE}-1/2/L, \ac{METEOR}, and \ac{BLEU}), with the correlation between \ac{METEOR} and \ac{BLEU} marking an exception ($\rho = 0.23$). \ac{ROUGE} variants showed almost identical behavior ($\rho > 0.89$), while \ac{BLEU} and \ac{METEOR} demonstrated slightly weaker but still substantial alignment with \ac{ROUGE} measures ($\rho = 0.53 - 0.79$).
 
-Most embedding-based metrics (RoBERTa, DeBERTa, and all-mpnet-base-v2) showed very high internal consistency ($\rho > 0.8$), reflecting their shared focus on semantic similarity beyond surface-level overlap. When compared with surface-level metrics, correlations were moderate to strong ($\rho \approx 0.7$--$1.0$), indicating that both categories capture related but not identical dimensions of summary quality.
+Most semantic-based metrics (\ac{RoBERTa}, \ac{DeBERTa}, and all-mpnet-base-v2) showed high internal consistency ($\rho > 0.5$), reflecting their shared focus on semantic similarity. When compared with lexical-based metrics, correlations were moderate to strong in most cases, indicating that both categories capture related but not identical dimensions of summary quality. 
 
-AlignScore correlated moderately with the other metrics ($\rho \approx 0.4$--$0.7$), which can be attributed to its different point of reference, as it compares generated summaries directly with source abstracts instead of the reference summaries like other metrics.
+In addition, AlignScore, a factual consistency metric, correlated moderately with the semantic-based metrics even though they both are embedding-based ($\rho = 0.35 - 0.5$), as well as with the lexical-based ones ($\rho = 0.2 - 0.41$), which can be attributed to its different point of reference.
 
-Overall, these relationships demonstrate that the various metrics are broadly consistent while providing complementary perspectives. This supports the use of an aggregated ``Metrics Mean Score'' as a balanced indicator of overall summarization performance.
+Overall, these relationships demonstrate that the various metrics are broadly consistent while providing complementary perspectives. This supports the use of an aggregated ``Overall Performance Score'' as a balanced indicator of overall summarization performance.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.75\textwidth]{Visualizations/metric_correlation.png}
-\caption{Correlation matrix of evaluation metrics. Each cell in the matrix represents the Pearson correlation coefficient ($\rho$) between two metrics based on their mean scores across all models. Surface-level and embedding-based metrics show strong internal consistency, while AlignScore exhibits lower correlations due to its distinct focus on factual consistency with source abstracts.\label{fig:metric_correlation}}
+\includegraphics[width=0.9\textwidth]{Visualizations/metric_correlation.png}
+\caption{Correlation matrix of evaluation metrics. Each cell in the matrix represents the Spearman correlation coefficient ($\rho$) between two metrics based on their mean scores across all models. Metric categories (lexical, semantic, factual) are indicated on the x and y axes. For visualization purposes, cells with values higher than 0.8 are shown with white text.\label{fig:metric_correlation}}
+\end{figure}
+
+\subsection{Overall Model Performance}
+
+Based on overall performance ranks, referred to as "Performance Rank" and derived from our multi-metric evaluation framework (\ref{subsec:overall_performance_metric} Overall Performance Metric), models from the Mistral family were top-ranked with high performance scores across the three evaluated metric dimensions, as depicted in Figure~\ref{fig:rank_heatmap}. 
+
+The mistral:7b model ranked first, followed by mistral-small3.2:24b and mistral-medium-2506. The lowest-ranked models included bigbird-pegasus-large-pubmed and pegasus-pubmed from the \ac{PEGASUS} family, and mT5\_multilingual\_XLSum from the \ac{T5} family. Overall, domain-specific \acp{SLM} and \ac{EDM} models showed poor performance across all the different dimensions of metrics.
+
+Among the 10 top-ranked models, six were general-purpose \acp{LLM} and four were general-purpose \acp{SLM}. A similar trend was observed in the top half of the ranking (positions 10 to 32) with the presence of some reasoning-oriented \acp{LLM} and with the exception of a single domain-specific \ac{LLM} ranked at 20 (SciLitLLM1.5-14B). In contrast, in the lower half of the ranking, where models start to perform poorly across most metric dimensions, the majority were reasoning-oriented \acp{SLM}, general-purpose \acp{EDM}, domain-specific \acp{EDM}, and traditional models. 
+
+Considering each metric dimension separately, some Mistral models ranked highly in the lexical dimension with GPT-5-nano, a reasoning-oriented \ac{LLM} from the \ac{GPT} family, ranked third. In the semantic dimension, Mistral models achieved high ranks, but the highest positions were occupied by the Phi4:14b general-purpose \ac{LLM} and some models from the Granite family, such as granite4:tiny-h and granite3.3:2b. Finally, the highest ranks based on the factual dimension were covered by traditional and encoder-decoder models. Detailed performance indications for each model across all individual ranked metrics are provided in Figure S1 (supplementary).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.0\textwidth]{Visualizations/rank_heatmap.png}
+\caption{Overview of the performance of all evaluated models across lexical, semantic and factual metric dimensions. Each row corresponds to one model. Columns show the overall Performance Rank and independent ranks for each metric dimension, with lower ranks indicating better performance. The figure displays each model’s family, and category. Models are sorted by the Performance Rank. Ranks are displayed using a continuous diverging color gradient, ranging from navy-blue tones for top-performing models through light neutral shades for mid-ranked models to dark red tones for low-performing models. Text color is switched to white for the highest-ranked models (ranks $\leq 3$) to improve readability. \label{fig:rank_heatmap}}
+\end{figure}
+
+\subsection{Category Comparisons}
+
+To compare model performance across categories, we displayed the distribution of overall performance scores within each category, along with the best- and worst-performing individual models (Figure~\ref{fig:category_boxplots_and_gameshowell}a).
+
+Domain-specific \acp{EDM}, domain-specific \acp{SLM}, traditional models, and general-purpose \acp{EDM} formed the weakest groups, with substantially lower performance scores. Notably, domain specific \acp{EDM} and domain-specific \acp{SLM} displayed a wide range of results, while all the general-purpose \acp{LLM} achieved high overall performance, with general-purpose \acp{SLM} being distributed wider but following closely. Reasoning-oriented \acp{LLM} also performed competitively, with performance scores comparable to some general-purpose \acp{SLM}.
+
+To evaluate whether differences between groups were significant, we conducted a Games-Howell post-hoc comparison as presented in Figure~\ref{fig:category_boxplots_and_gameshowell}b. Its results show that most between-category differences in the overall performance score were statistically significant. Specifically, general-purpose \acp{LLM} differed significantly from all lower-performing groups. Only a few comparisons were found not statistically significant: the difference between reasoning-oriented \acp{LLM} and domain-specific \acp{LLM}, the difference between general-purpose \acp{EDM} and reasoning-oriented \acp{SLM}, and the difference between traditional models and reasoning-oriented \acp{SLM}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{Visualizations/category_boxplot.png}
+\vspace{8pt}
+\includegraphics[width=0.9\textwidth]{Visualizations/category_gameshowell.png}
+\caption{
+\textbf{(a)} Boxplots summarizing the distribution of overall performance scores across the nine model categories,
+with each model represented by a black dot. Categories are ordered from lowest- to highest-performing according to the performance score.
+Moreover, the best- and worst-performing models of each category are highlighted.
+\textbf{(b)} Games--Howell pairwise adjusted $p$-value matrix comparing all category pairs.
+Each cell shows the adjusted $p$-value for the difference in metric mean scores between two categories,
+with white-to-gray shading indicating smaller $p$-values.
+}
+\label{fig:category_boxplots_and_gameshowell}
+\end{figure}
+
+\subsection{Family Comparisons}
+
+To complement the category-level findings, we next examined performance across model families, since models within the same family often share architectural features or training strategies that may cause consistent performance trends. Figure~\ref{fig:family_boxplots_and_gameshowell}a illustrates the distribution of overall performance scores across all model families. Similar to the category-level analysis, there were clear performance differences between architectural lineages. The Mistral family achieved the strongest overall results, with several models ranking among the highest-scoring models in the entire benchmark. Families dominated by modern \ac{LLM} or \ac{SLM} architectures, such as Granite, Claude, and Gemma, consistently outperformed more traditional extractive approaches and families built on encoder-decoder architectures such as \ac{LED}, \ac{BART}, \ac{T5} and \ac{PEGASUS}.
+
+In particular, the \ac{GPT} and \ac{Llama} families showed lower performance scores than expected given the competitive performance of their top models. This was primarily due to the inclusion of domain-specific small models, such as BioGPT and OpenBioLLM-Llama3-8B, which performed substantially worse than their general-purpose counterparts and therefore pulled down the family-level averages.
+
+Regarding the Games-Howell post-hoc matrix in the family comparison (Figure~\ref{fig:family_boxplots_and_gameshowell}b), a combination of significant and non-significant differences between families was observed, reflecting the greater heterogeneity within some lineages. While many high-performing families differed significantly from traditional and encoder-decoder dominated families, several comparisons among modern \acp{SLM} and \acp{LLM} dominated families did not reach statistical significance.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{Visualizations/family_boxplot.png}
+\vspace{8pt}
+\includegraphics[width=0.9\textwidth]{Visualizations/family_gameshowell.png}
+\caption{
+\textbf{a)} Boxplots summarizing the distribution of overall performance scores across all model families,
+with each model represented by a black dot. Families are ordered from lowest- to highest-performing according to the performance score.
+Moreover, the best- and worst-performing models of each family are highlighted.
+\textbf{b)} Games–Howell pairwise adjusted $p$-value matrix comparing all family pairs. 
+Each cell shows the adjusted $p$-value for the difference in metric mean scores between two families, 
+with white-to-gray shading indicating smaller $p$-values.
+}
+\label{fig:family_boxplots_and_gameshowell}
 \end{figure}
 
 \subsection{Qualitative Analysis: Case Study}
@@ -136,32 +95,30 @@ To illustrate how concept coverage differs between models beyond aggregate metri
 The generated summaries are as follows:
 
 \begin{itemize}
-    \item \textbf{mistral\_medium-2505:} "This study reveals that the complement system, a network of blood proteins, exhibits a sharp activation threshold based on the surface density of attachment points on materials. This threshold behavior, observed across scales from nanoparticles to macroscale pathologies, arises from a percolation-type phase transition in a minimal subnetwork of complement proteins. The findings suggest that this critical transition acts as a switch, determining whether the complement system will interact with and initiate inflammation against a material."
-    \item \textbf{SciLitLLM1.5-14B:} "A sharp threshold for complement activation upon varying a fundamental material parameter, the surface density of potential complement attachment points, was experimentally demonstrated and computationally explained."
+    \item \textbf{mistral-small3.2:24b:} "This study reveals that the complement system's activation on materials exhibits a sharp threshold behavior, controlled by the surface density of complement attachment points. This percolation-like phase transition occurs across scales, from nanoparticles to macroscale materials, and is driven by a minimal subnetwork of complement proteins. The findings explain how complex protein networks 'decide' to interact with and attack materials, initiating inflammation."
+    \item \textbf{medllama2:7b:} "The main findings are that there is a sharp threshold for complement activation upon varying a fundamental material parameter and this threshold manifests at scales spanning single nanoparticles to macroscale pathologies. The study shows how a minimal subnetwork of complement proteins can give rise to percolation-type critical transitions in the complement response, which explains why some materials are more likely to trigger an immune response than others."
 \end{itemize}
 
-Table~\ref{tab:concept_coverage} summarizes the concept-level coverage and overall performance for both models. While both models capture the surface density threshold (H2), the lower-performing model omits the mechanistic explanation (H3) and only partially conveys the behavioral characteristics (H1, H4), resulting in substantially lower concept coverage and semantic alignment. The overall performance scores, derived using the weighted metric aggregation introduced in Section~\ref{subsec:ranks_calculation}, further reflect this difference, with \textbf{mistral\_medium-2505} achieving 0.619 compared to 0.560 for \textbf{SciLitLLM1.5-14B}.
+Table~\ref{tab:concept_coverage} summarizes the concept-level coverage and overall performance for both models. While both models capture the switch-like behavior (H1) and the percolation transition (H3), the lower-performing model fails to explicitly link the threshold to surface density/spacing (H2) and omits the complexity-based decision-making framework (H4). In contrast, \textbf{mistral-small3.2:24b} achieves full coverage by explicitly connecting the physical density to the "decisions" made by the complex protein network. The overall performance scores, derived using the weighted metric aggregation introduced in Section~\ref{subsec:overall_performance_metric}, further reflect this difference, with \textbf{mistral-small3.2:24b} achieving a higher score compared to \textbf{medllama2:7b}.
 
 \begin{table}[H]
 \centering
-\caption{Concept coverage analysis of model-generated summaries. Symbols: \checkmark = fully covered; $\sim$ = partially covered; $\times$ = not covered. Overall performance scores are derived using the weighted metric aggregation described in Section~\ref{subsec:ranks_calculation}.}
+\caption{Concept coverage analysis of model-generated summaries. Symbols: \checkmark = fully covered; $\sim$ = partially covered; $\times$ = not covered. Overall performance scores are derived using the weighted metric aggregation described in Section~\ref{subsec:overall_performance_metric}.}
 \label{tab:concept_coverage}
 \begin{tabularx}{0.9\textwidth}{lcc}
 \toprule
-\textbf{Reference Concept} & \textbf{mistral\_medium-2505} & \textbf{SciLitLLM1.5-14B} \\
+\textbf{Reference Concept} & \textbf{mistral-small3.2:24b} & \textbf{medllama2:7b} \\
 \midrule
-H1: Switch-like response & \checkmark & $\sim$ \\
-H2: Surface density threshold & \checkmark & \checkmark \\
-H3: Percolation phase transition & \checkmark & $\times$ \\
-H4: Discrete decision-making & \checkmark & $\sim$ \\
+H1: Switch-like response & \checkmark & \checkmark \\
+H2: Surface density threshold & \checkmark & $\sim$ \\
+H3: Percolation phase transition & \checkmark & \checkmark \\
+H4: Discrete decision-making & \checkmark & $\times$ \\
 \midrule
-Coverage Score & 4.0 / 4.0 & 1.5 / 4.0 \\
-Semantic Similarity\textsuperscript{a} & 0.946 & 0.731 \\
-Overall Performance Score & 0.619 & 0.560 \\
+Coverage Score & 4.0 / 4.0 & 2.5 / 4.0 \\
+Overall Performance Score & 0.659 & 0.512 \\
 \bottomrule
 \end{tabularx}
 
 \smallskip
 \raggedright
-\textsuperscript{a}\textit{Cosine similarity to highlights (all-mpnet-base-v2).}
 \end{table}

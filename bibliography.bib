@@ -86,19 +86,17 @@ abstract = {In this paper, we present Google, a prototype of a large-scale searc
 }
 
 @misc{ElsevierHighlights,
-  author       = {{Elsevier}},
-  title        = {Highlights},
-  year         = {2024},
-  url          = {https://www.elsevier.com/researcher/author/tools-and-resources/highlights},
-  note         = {Accessed: 2025-08-07}
+  author = {{Elsevier}},
+  title  = {Highlights},
+  year   = {2024},
+  note   = {\url{https://www.elsevier.com/researcher/author/tools-and-resources/highlights} (accessed: 2025-08-07)}
 }
 
 @misc{CellPressHighlights,
-  author       = {{Cell Press}},
-  title        = {Final Submission: Other Components: Highlights},
-  year         = {2024},
-  url          = {https://www.cell.com/cell/information-for-authors/final-submission},
-  note         = {Accessed: 2025-08-07}
+  author = {{Cell Press}},
+  title  = {Final Submission: Other Components: Highlights},
+  year   = {2024},
+  note   = {\url{https://www.cell.com/cell/information-for-authors/final-submission} (accessed: 2025-08-07)}
 }
 
 @inproceedings{mihalcea-tarau-2004-textrank,
@@ -138,14 +136,14 @@ abstract = {In this paper, we present Google, a prototype of a large-scale searc
   bibsource = {dblp computer science bibliography, https://dblp.org}
 }
 
-@article{2020t5,
+@article{JMLR:v21:20-074,
   author  = {Colin Raffel and Noam Shazeer and Adam Roberts and Katherine Lee and Sharan Narang and Michael Matena and Yanqi Zhou and Wei Li and Peter J. Liu},
   title   = {Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer},
   journal = {Journal of Machine Learning Research},
   year    = {2020},
   volume  = {21},
   number  = {140},
-  pages   = {1-67},
+  pages   = {1--67},
   url     = {http://jmlr.org/papers/v21/20-074.html}
 }
 
@@ -714,16 +712,6 @@ url="http://www.ncbi.nlm.nih.gov/pubmed/33095174"
   title = {Medical Text Summarization Using BART with LoRA-Based Parameter Efficient Fine Tuning}
 }
 
-@misc{raffel2023exploringlimitstransferlearning,
-      title={Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer}, 
-      author={Colin Raffel and Noam Shazeer and Adam Roberts and Katherine Lee and Sharan Narang and Michael Matena and Yanqi Zhou and Wei Li and Peter J. Liu},
-      year={2023},
-      eprint={1910.10683},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/1910.10683}, 
-}
-
 @misc{zaheer2021bigbirdtransformerslonger,
       title={Big Bird: Transformers for Longer Sequences}, 
       author={Manzil Zaheer and Guru Guruganesh and Avinava Dubey and Joshua Ainslie and Chris Alberti and Santiago Ontanon and Philip Pham and Anirudh Ravula and Qifan Wang and Li Yang and Amr Ahmed},
@@ -862,15 +850,6 @@ doi = {10.32604/cmc.2022.024556}
       primaryClass={cs.CL}
 }
 
-@misc{li2024scilitllmadaptllmsscientific,
-      title={SciLitLLM: How to Adapt LLMs for Scientific Literature Understanding}, 
-      author={Sihang Li and Jin Huang and Jiaxi Zhuang and Yaorui Shi and Xiaochen Cai and Mingjun Xu and Xiang Wang and Linfeng Zhang and Guolin Ke and Hengxing Cai},
-      year={2024},
-      eprint={2408.15545},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2408.15545}, 
-}
 
 @misc{belcak2025smalllanguagemodelsfuture,
       title={Small Language Models are the Future of Agentic AI}, 
@@ -931,4 +910,72 @@ doi = {10.1038/s41586-024-07930-y}
       archivePrefix={arXiv},
       primaryClass={cs.CL},
       url={https://arxiv.org/abs/2507.02145}, 
+}
+
+@misc{fabbri2021summevalreevaluatingsummarizationevaluation,
+      title={SummEval: Re-evaluating Summarization Evaluation}, 
+      author={Alexander R. Fabbri and Wojciech Kryściński and Bryan McCann and Caiming Xiong and Richard Socher and Dragomir Radev},
+      year={2021},
+      eprint={2007.12626},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2007.12626}, 
+}
+
+@inproceedings{durmus-etal-2020-feqa,
+    title = "{FEQA}: A Question Answering Evaluation Framework for Faithfulness Assessment in Abstractive Summarization",
+    author = "Durmus, Esin  and
+      He, He  and
+      Diab, Mona",
+    editor = "Jurafsky, Dan  and
+      Chai, Joyce  and
+      Schluter, Natalie  and
+      Tetreault, Joel",
+    booktitle = "Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics",
+    month = jul,
+    year = "2020",
+    address = "Online",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2020.acl-main.454/",
+    doi = "10.18653/v1/2020.acl-main.454",
+    pages = "5055--5070",
+    abstract = "Neural abstractive summarization models are prone to generate content inconsistent with the source document, i.e. unfaithful. Existing automatic metrics do not capture such mistakes effectively. We tackle the problem of evaluating faithfulness of a generated summary given its source document. We first collected human annotations of faithfulness for outputs from numerous models on two datasets. We find that current models exhibit a trade-off between abstractiveness and faithfulness: outputs with less word overlap with the source document are more likely to be unfaithful. Next, we propose an automatic question answering (QA) based metric for faithfulness, FEQA, which leverages recent advances in reading comprehension. Given question-answer pairs generated from the summary, a QA model extracts answers from the document; non-matched answers indicate unfaithful information in the summary. Among metrics based on word overlap, embedding similarity, and learned language understanding models, our QA-based metric has significantly higher correlation with human faithfulness scores, especially on highly abstractive summaries."
+}
+
+@misc{xu2025evaluatingsmalllanguagemodels,
+      title={Evaluating Small Language Models for News Summarization: Implications and Factors Influencing Performance}, 
+      author={Borui Xu and Yao Chen and Zeyi Wen and Weiguo Liu and Bingsheng He},
+      year={2025},
+      eprint={2502.00641},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2502.00641}, 
+}
+
+@misc{muennighoff2025scalingdataconstrainedlanguagemodels,
+      title={Scaling Data-Constrained Language Models}, 
+      author={Niklas Muennighoff and Alexander M. Rush and Boaz Barak and Teven Le Scao and Aleksandra Piktus and Nouamane Tazi and Sampo Pyysalo and Thomas Wolf and Colin Raffel},
+      year={2025},
+      eprint={2305.16264},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2305.16264}, 
+}
+
+@article{zhou2025internal,
+  title   = {Investigating and Mitigating Catastrophic Forgetting in Medical Knowledge Injection through Internal Knowledge Augmentation Learning},
+  author  = {Zhou, Yuxuan and Liu, Xien and Zhang, Xiao and Ning, Chen and Wang, Shijin and Hu, Guoping and Wu, Ji},
+  journal = {OpenReview},
+  year    = {2025},
+  note    = {Preprint. Available online: \url{https://openreview.net/forum?id=i9RDDi2SZC}}
+}
+
+@misc{irugalbandara2024scalingscaleupcostbenefit,
+      title={Scaling Down to Scale Up: A Cost-Benefit Analysis of Replacing OpenAI's LLM with Open Source SLMs in Production}, 
+      author={Chandra Irugalbandara and Ashish Mahendra and Roland Daynauth and Tharuka Kasthuri Arachchige and Jayanaka Dantanarayana and Krisztian Flautner and Lingjia Tang and Yiping Kang and Jason Mars},
+      year={2024},
+      eprint={2312.14972},
+      archivePrefix={arXiv},
+      primaryClass={cs.SE},
+      url={https://arxiv.org/abs/2312.14972}, 
 }
