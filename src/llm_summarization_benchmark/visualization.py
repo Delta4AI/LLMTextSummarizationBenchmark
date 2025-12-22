@@ -10,6 +10,7 @@ from plotly.subplots import make_subplots
 import plotly.offline as pyo
 import numpy as np
 from scipy.spatial import ConvexHull, QhullError
+from scipy.stats import spearmanr
 
 from typing import TYPE_CHECKING, NamedTuple, Any, Callable
 
@@ -24,63 +25,29 @@ AGGREGATE = "Metrics: Aggregate"
 PERFORMANCE = "Performance"
 OVERALL = "Overall (70% metrics, 10% speed/accept./cost)"
 
-# model grouping
-# MODEL_GROUPS = {
-#     "Traditional Methods": [
-#         "local:frequency", "local:textrank"
-#     ],
-#     "Encoder-Decoder Models": [
-#         "huggingface_facebook/bart-base", "huggingface_facebook/bart-large-cnn",
-#         "huggingface_google-t5/t5-base", "huggingface_google-t5/t5-large",
-#         "huggingface_csebuetnlp/mT5_multilingual_XLSum", "huggingface_google/pegasus-xsum",
-#         "huggingface_google/pegasus-cnn_dailymail", "huggingface_google/pegasus-large"
-#     ],
-#     "General-purpose LLMs": [
-#         "ollama_gemma3:270M","ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_gemma3:12b",
-#         "ollama_PetrosStav/gemma3-tools:4b", "ollama_granite3.3:2b", "ollama_granite3.3:8b", 
-#         "ollama_granite4:tiny-h", "ollama_granite4:small-h", "ollama_granite4:micro", "ollama_granite4:micro-h",
-#         "ollama_llama3.1:8b", "ollama_llama3.2:1b", "ollama_llama3.2:3b", "ollama_mistral:7b",
-#         "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b", "mistral_mistral-small-2506",
-#         "mistral_mistral-medium-2505", "mistral_mistral-large-2411", "mistral_mistral-medium-2508","ollama_phi3:3.8b",
-#         "ollama_phi4:14b", "openai_gpt-3.5-turbo", "openai_gpt-4o", "openai_gpt-4o-mini", "openai_gpt-4.1", 
-#         "openai_gpt-4.1-mini", "anthropic_claude-3-5-haiku-20241022", "huggingface:chat_swiss-ai/Apertus-8B-Instruct-2509"
-#     ],
-#     "Reasoning-oriented LLMs": [
-#         "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b",
-#         "ollama_deepseek-r1:14b", "ollama_qwen3:4b", "ollama_qwen3:8b",
-#         "ollama_gpt-oss:20b", "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
-#         "openai_gpt-5-2025-08-07", "anthropic_claude-sonnet-4-20250514",
-#         "anthropic_claude-opus-4-20250514", "anthropic_claude-opus-4-1-20250805", "mistral_magistral-medium-2509"
-#     ],
-#     "Scientific/Biomedical Models": [
-#         "huggingface_google/pegasus-pubmed", "huggingface_google/bigbird-pegasus-large-pubmed",
-#         "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
-#         "huggingface:completion_microsoft/biogpt", "ollama_medllama2:7b",
-#         "huggingface:chat_aaditya/OpenBioLLM-Llama3-8B", "huggingface:conversational_BioMistral/BioMistral-7B",
-#         "huggingface:chat_Uni-SMART/SciLitLLM1.5-7B", "huggingface:chat_Uni-SMART/SciLitLLM1.5-14B"
-#     ],
-# }
 MODEL_GROUPS = {
     "Traditional Models": [
         "local:frequency", "local:textrank"
     ],
-    "Encoder-Decoder Models": [
-        "huggingface_facebook/bart-base", "huggingface_facebook/bart-large-cnn",
-        "huggingface_google-t5/t5-base", "huggingface_google-t5/t5-large",
-        "huggingface_csebuetnlp/mT5_multilingual_XLSum", "huggingface_google/pegasus-xsum",
-        "huggingface_google/pegasus-cnn_dailymail", "huggingface_google/pegasus-large"
+    "General-purpose EDMs": [
+        "huggingface_facebook/bart-base",
+        "huggingface_google-t5/t5-base", "huggingface_google-t5/t5-large", "huggingface_google/pegasus-large"
+    ],
+    "Domain-specific EDMs": [
+        "huggingface_facebook/bart-large-cnn", "huggingface_google/pegasus-xsum", "huggingface_google/pegasus-cnn_dailymail",
+        "huggingface_google/pegasus-pubmed", "huggingface_google/bigbird-pegasus-large-pubmed", "huggingface_csebuetnlp/mT5_multilingual_XLSum", "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization"
     ],
     "General-purpose SLMs": [
         "ollama_gemma3:270M", "ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_PetrosStav/gemma3-tools:4b",
         "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_granite4:tiny-h", "ollama_granite4:small-h", 
         "ollama_granite4:micro", "ollama_granite4:micro-h", "ollama_llama3.1:8b", "ollama_llama3.2:1b",
-        "ollama_llama3.2:3b", "ollama_mistral:7b", "ollama_phi3:3.8b", "openai_gpt-4o-mini",
+        "ollama_llama3.2:3b", "ollama_mistral:7b", "ollama_phi3:3.8b", "openai_gpt-4o-mini", "openai_gpt-4.1-mini",
         "huggingface:chat_swiss-ai/Apertus-8B-Instruct-2509"
     ],
     "General-purpose LLMs": [
         "ollama_gemma3:12b", "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b", "mistral_mistral-small-2506",
         "mistral_mistral-medium-2505", "mistral_mistral-large-2411", "ollama_phi4:14b",
-        "openai_gpt-3.5-turbo", "openai_gpt-4o", "openai_gpt-4.1", "openai_gpt-4.1-mini", "anthropic_claude-3-5-haiku-20241022"
+        "openai_gpt-3.5-turbo", "openai_gpt-4o", "openai_gpt-4.1", "anthropic_claude-3-5-haiku-20241022"
     ],
     "Reasoning-oriented SLMs": [
         "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b", "ollama_qwen3:4b", "ollama_qwen3:8b"
@@ -91,8 +58,6 @@ MODEL_GROUPS = {
         "anthropic_claude-opus-4-1-20250805", "mistral_magistral-medium-2509"
     ],
     "Domain-specific SLMs": [
-        "huggingface_google/pegasus-pubmed", "huggingface_google/bigbird-pegasus-large-pubmed",
-        "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
         "huggingface:completion_microsoft/biogpt", "ollama_medllama2:7b",
         "huggingface:chat_aaditya/OpenBioLLM-Llama3-8B", "huggingface:conversational_BioMistral/BioMistral-7B",
         "huggingface:chat_Uni-SMART/SciLitLLM1.5-7B"
@@ -202,6 +167,7 @@ class SummarizationVisualizer:
         self._create_group_bar_chart()
         self._create_generalpurpose_comparison_plot()
         self._create_reasoning_comparison_plot()
+        self._create_group_boxplot()
         try:
             self._create_llm_comparison_plot()
         except Exception as exc:
@@ -610,6 +576,66 @@ class SummarizationVisualizer:
 
         return shapes, annotations
 
+    def _create_group_boxplot(self):
+        """Boxplot showing distribution of Metric Mean Scores for each model group (larger, clearer boxes)."""
+
+        group_map = MODEL_GROUPS
+        group_names = list(group_map.keys())
+
+        group_colors = {
+            "Traditional Models": "#4575B4",
+            "General-purpose EDMs": "#C5E1EF",
+            "Domain-specific EDMs": "#74ACD1",
+            "General-purpose SLMs": "#FDDF90",
+            "General-purpose LLMs": "#FCAD60",
+            "Reasoning-oriented SLMs": "#F46C43",
+            "Reasoning-oriented LLMs": "#D62F27",
+            "Domain-specific SLMs": "#A6D96A",
+            "Domain-specific LLMs": "#1A9750"
+        }
+
+        group_scores = {}
+        for group in group_names:
+            models = group_map[group]
+            scores = [self.metric_scores[m]["mean"] for m in models if m in self.metric_scores]
+            group_scores[group] = scores
+
+        sorted_groups = sorted(group_scores.keys(), key=lambda g: np.mean(group_scores[g]) if group_scores[g] else 0, reverse=True)
+
+        fig = go.Figure()
+
+        for group in sorted_groups:
+            fig.add_trace(go.Box(
+                y=group_scores[group],
+                name=group,
+                boxmean=True,
+                marker_color=group_colors.get(group, "#888888"),
+                line=dict(width=2, color="black"),
+                fillcolor=group_colors.get(group, "#888888"),
+                opacity=0.9,
+                width=0.6
+            ))
+
+        fig.update_layout(
+            xaxis_title="Model Group",
+            yaxis_title="Metric Mean Score",
+            yaxis=dict(range=[0.30, 0.55]),
+            boxmode="group",
+            showlegend=False,
+            margin=dict(l=60, r=40, t=80, b=150),
+            width=1300,
+            height=600,
+            boxgap=0.15,
+            boxgroupgap=0.05,
+            plot_bgcolor="white",
+            paper_bgcolor="white",
+            font=dict(family="Arial", size=18, color="black"),
+        )
+
+        output_path = self.out_dir / "group_boxplot.html"
+        pyo.plot(fig, filename=str(output_path), auto_open=False)
+
+
     def _create_group_bar_chart(self):
         """Bar chart showing Metric Mean Score for each model group."""
 
@@ -625,16 +651,19 @@ class SummarizationVisualizer:
             metric_means.append(np.mean(metric_scores) if metric_scores else 0)
 
         group_colors = {
-            "Traditional Models": "#677B96",
-            "Encoder-Decoder Models": "#C27D52",
-            "General-purpose SLMs": "#D9AE78",
-            "General-purpose LLMs": "#B66E5D",
-            "Reasoning-oriented SLMs": "#B7A689",
-            "Reasoning-oriented LLMs": "#83714D",
-            "Domain-specific SLMs": "#8CB26F",
-            "Domain-specific LLMs": "#587B5C"
+            "Traditional Models": "#4575B4",
+            "General-purpose EDMs": "#C5E1EF",
+            "Domain-specific EDMs": "#74ACD1",
+            "General-purpose SLMs": "#FDDF90",
+            "General-purpose LLMs": "#FCAD60",
+            "Reasoning-oriented SLMs": "#F46C43",
+            "Reasoning-oriented LLMs": "#D62F27",
+            "Domain-specific SLMs": "#A6D96A",
+            "Domain-specific LLMs": "#1A9750"
         }
 
+        sorted_data = sorted(zip(group_names, metric_means), key=lambda x: x[1], reverse=True)
+        group_names, metric_means = zip(*sorted_data)
         bar_colors = [group_colors.get(name, "#888888") for name in group_names]
 
         fig = go.Figure()
@@ -758,6 +787,14 @@ class SummarizationVisualizer:
             font=dict(family="Arial", size=16, color="black"),
         )
 
+        fig.add_annotation(
+            text="a)",
+            xref="paper", yref="paper",
+            x=-0.12, y=1.12,
+            showarrow=False,
+            font=dict(family="Arial", size=20, color="black")
+        )
+
         output_path = self.out_dir / "llm_comparison.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
 
@@ -788,7 +825,6 @@ class SummarizationVisualizer:
                 self.results[m].mpnet_content_coverage_scores["mean"],
                 self.results[m].alignscore_scores["mean"]
             ]),
-            "Execution Time": lambda m: self.normalized_exec_times.get(m, {}).get("mean"),
             "% Within Bounds": lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
             "Metric Mean Score": lambda m: self.metric_scores.get(m, {}).get("mean")
         }
@@ -802,8 +838,8 @@ class SummarizationVisualizer:
                 group_values[group].append(np.mean(vals) if vals else 0)
 
         colors = {
-            "General-purpose SLMs": "#D9AE78",
-            "General-purpose LLMs": "#B66E5D"
+            "General-purpose SLMs": "#FDDF90",
+            "General-purpose LLMs": "#FCAD60"
         }
 
         fig = go.Figure()
@@ -846,6 +882,14 @@ class SummarizationVisualizer:
             font=dict(family="Arial", size=16, color="black"),
         )
 
+        fig.add_annotation(
+            text="a)",
+            xref="paper", yref="paper",
+            x=-0.12, y=1.12,
+            showarrow=False,
+            font=dict(family="Arial", size=20, color="black")
+        )
+
         output_path = self.out_dir / "generalpurpose_comparison.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
 
@@ -875,7 +919,6 @@ class SummarizationVisualizer:
                 self.results[m].mpnet_content_coverage_scores["mean"],
                 self.results[m].alignscore_scores["mean"]
             ]),
-            "Execution Time": lambda m: self.normalized_exec_times.get(m, {}).get("mean"),
             "% Within Bounds": lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
             "Metric Mean Score": lambda m: self.metric_scores.get(m, {}).get("mean")
         }
@@ -889,8 +932,8 @@ class SummarizationVisualizer:
                 group_values[group].append(np.mean(vals) if vals else 0)
 
         colors = {
-            "Reasoning-oriented SLMs": "#B7A689",
-            "Reasoning-oriented LLMs": "#83714D"
+            "Reasoning-oriented SLMs": "#F46C43",
+            "Reasoning-oriented LLMs": "#D62F27"
         }
 
         fig = go.Figure()
@@ -931,6 +974,14 @@ class SummarizationVisualizer:
             plot_bgcolor="white",
             paper_bgcolor="white",
             font=dict(family="Arial", size=16, color="black"),
+        )
+
+        fig.add_annotation(
+            text="b)",
+            xref="paper", yref="paper",
+            x=-0.12, y=1.12,
+            showarrow=False,
+            font=dict(family="Arial", size=20, color="black")
         )
 
         output_path = self.out_dir / "reasoning_comparison.html"
@@ -1093,9 +1144,9 @@ class SummarizationVisualizer:
         """Create boxplot for execution time distribution per method."""
         fig = go.Figure()
 
-        # exclude Traditional Methods and Encoder-Decoder Models
+        # exclude Traditional Methods and both EDM groups
         excluded_models = set(
-            MODEL_GROUPS["Traditional Models"] + MODEL_GROUPS["Encoder-Decoder Models"]
+            MODEL_GROUPS["Traditional Models"] + MODEL_GROUPS["General-purpose EDMs"] + MODEL_GROUPS["Domain-specific EDMs"]
         )
 
         plot_methods = [
@@ -1133,7 +1184,7 @@ class SummarizationVisualizer:
             ))
 
         fig.update_layout(
-            title="Execution Time Distribution per Method (excluding 'Traditional Methods' & 'Encoder-Decoder Models')",
+            title="Execution Time Distribution per Method (excluding 'Traditional Methods' & 'EDM groups')",
             yaxis_title="Time (seconds, log scale)",
             xaxis_title="Methods",
             boxmode="group",
@@ -1159,6 +1210,19 @@ class SummarizationVisualizer:
     def _create_grouped_execution_time_boxplot(self):
         """Create grouped boxplot comparing execution times across general-purpose vs reasoning-oriented LLMs."""
 
+        # group_map = {
+        #     "General-purpose SLMs": {
+        #         "models": deepcopy(
+        #             MODEL_GROUPS["General-purpose SLMs"]
+        #         )
+        #     },
+        #     "General-purpose LLMs": {
+        #         "models": deepcopy(
+        #             MODEL_GROUPS["General-purpose LLMs"]
+        #         )
+        #     },
+        # }
+
         group_map = {
             "General-purpose Models": {
                 "models": deepcopy(
@@ -1174,10 +1238,17 @@ class SummarizationVisualizer:
 
         fig = go.Figure()
 
+        # group_colors = {
+        #     "General-purpose SLMs": "rgba(64, 60, 83, 0.8)",
+        #     "General-purpose LLMs": "rgba(195, 61, 53, 0.8)"
+        # }
+
         group_colors = {
             "General-purpose Models": "rgba(64, 60, 83, 0.8)",
             "Reasoning-oriented Models": "rgba(195, 61, 53, 0.8)"
         }
+
+        group_means = {}
 
         for group_name, group_info in group_map.items():
             all_times = []
@@ -1186,6 +1257,11 @@ class SummarizationVisualizer:
                 if model in self.results and hasattr(self.results[model], "execution_times"):
                     all_times.extend(self.results[model].execution_times)
 
+            if all_times:
+                group_means[group_name] = np.mean(all_times)
+            else:
+                group_means[group_name] = np.nan
+                
             fig.add_trace(go.Box(
                 y=all_times,
                 name=group_name,
@@ -1197,6 +1273,27 @@ class SummarizationVisualizer:
                 boxpoints="outliers",
                 hovertemplate=f"<b>{group_name}</b><br>Time: %{{y:.2f}} sec<extra></extra>"
             ))
+
+        # # add mean markers as dashed lines
+        # for i, (group_name, mean_val) in enumerate(group_means.items()):
+        #     if not np.isnan(mean_val):
+        #         fig.add_shape(
+        #             type="line",
+        #             xref="x", yref="y",
+        #             x0=i - 0.4, x1=i + 0.4,
+        #             y0=mean_val, y1=mean_val,
+        #             line=dict(color="black", width=2, dash="dash"),
+        #         )
+        #         # label mean value below x-axis
+        #         fig.add_annotation(
+        #             text=f"Mean: {mean_val:.2f}s",
+        #             x=i,
+        #             y=0.5,  # slightly below the lowest tick
+        #             yref="paper",
+        #             showarrow=False,
+        #             font=dict(family="Arial", size=14, color="black"),
+        #             yanchor="top"
+        #         )
 
         fig.update_layout(
             yaxis_title="Time (seconds, log scale)",
@@ -1216,6 +1313,14 @@ class SummarizationVisualizer:
             plot_bgcolor="white",
             paper_bgcolor="white",
             font=dict(family="Arial", size=16, color="black"),
+        )
+
+        fig.add_annotation(
+            text="b)",
+            xref="paper", yref="paper",
+            x=-0.12, y=1.12,
+            showarrow=False,
+            font=dict(family="Arial", size=20, color="black")
         )
 
         fig.update_traces(width=0.4)
@@ -1250,10 +1355,10 @@ class SummarizationVisualizer:
 
         A = np.array(data, dtype=float)
 
-        with np.errstate(invalid="ignore"):
-            corr = np.ma.corrcoef(np.ma.masked_invalid(A))
+        corr, _ = spearmanr(A.T, axis=0, nan_policy="omit")
 
-        corr_filled = np.array(corr.filled(np.nan))
+        # Ensure it's a NumPy array and fill missing values
+        corr_filled = np.array(corr)
         np.fill_diagonal(corr_filled, 1.0)
         corr_filled = np.nan_to_num(corr_filled, nan=0.0)
 
@@ -1324,11 +1429,11 @@ class SummarizationVisualizer:
         corr_masked = np.where(mask, np.nan, corr_filled)
 
         colorscale = [
-            [0.0, "rgb(255, 255, 245)"],
-            [0.25, "rgb(252, 224, 191)"],
-            [0.5, "rgb(244, 165, 130)"],
-            [0.75, "rgb(214, 96, 77)"],
-            [1.0, "rgb(153, 0, 0)"]
+            [0.0,  "rgb(255, 255, 245)"],
+            [0.25, "rgb(253, 226, 197)"],
+            [0.5,  "rgb(247, 173, 143)"],
+            [0.75, "rgb(222, 106, 90)"],
+            [1.0,  "rgb(190, 0, 0)"]
         ]
 
         fig = go.Figure(
@@ -1505,7 +1610,7 @@ if __name__ == "__main__":
         uv run Python/src/text_summarization/visualization.py
     """
     from llm_summarization_benchmark.benchmark import SummarizationBenchmark, GOLD_STANDARD_DATA, EvaluationResult
-    benchmark = SummarizationBenchmark()
+    benchmark = SummarizationBenchmark([], [])
     benchmark.load_papers(GOLD_STANDARD_DATA)
     benchmark.load_results()
     benchmark.visualizer.create_all_visualizations()
