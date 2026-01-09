@@ -923,7 +923,7 @@ class SummarizationBenchmark:
                                f"scores will not be exported.")
                 return
 
-            for paper in result.full_paper_details:
+            for idx, paper in enumerate(result.full_paper_details):
                 for metric, similarity_scores in paper.scores.items():
                     formatted_data[method_name][metric].append(float(max(similarity_scores)))
 
