@@ -1,14 +1,13 @@
-\pagebreak
-
 \section{Materials and Methods}
 
 Figure~\ref{fig:workflow_graphic} provides an overview of the complete benchmarking workflow of this study from dataset construction and model inference to metric computation, score aggregation, and statistical analysis.
 
-\begin{figure}[htbp]
+\begin{figure*}[t]
 \centering
-\includegraphics[width=1.0\textwidth]{Visualizations/workflow_graphic.png}
+\includegraphics[width=0.9\textwidth]{Visualizations/workflow_graphic.png}
+\captionsetup{skip=6pt}
 \caption{
-\textbf{Overview of the benchmarking workflow.}
+\textbf{Overview of the benchmarking workflow:}
 (1) Construction of a gold-standard dataset comprising 1,000 biomedical abstracts paired with author-provided highlights sections.
 (2) Suite of 62 diverse summarization models.
 (3) Uniform prompting of all models to generate summaries for each abstract.
@@ -17,7 +16,7 @@ Figure~\ref{fig:workflow_graphic} provides an overview of the complete benchmark
 (7) Ranking of models based on overall performance scores.
 \label{fig:workflow_graphic}
 }
-\end{figure}
+\end{figure*}
 
 \subsection{Gold-Standard Dataset}
 
@@ -25,11 +24,11 @@ We generated a gold-standard benchmarking dataset comprising 1,000 biomedical pe
 
 Articles were collected systematically across a variety of journals from the two publishers to ensure coverage of different fields within molecular sciences, including among others drug discovery, genomics, proteomics, biotechnology, and biochemistry. We selected 50 articles from each of 20 different journals across the two publishers, resulting in 1,000 papers as shown in Table~\ref{tab:goldstandard}.
 
-\begin{table}[H]
+\begin{table*}[t]
 \centering
 \caption{Overview of journals included in the gold-standard dataset. 
 Each journal contributed 50 articles, resulting in 500 articles from \textit{ScienceDirect} and 500 articles from \textit{Cell Press}. \label{tab:goldstandard}}
-\begin{tabularx}{1.0\textwidth}{lX}
+\begin{tabularx}{\linewidth}{lX}
 \toprule
 \textbf{Publisher} & \textbf{Journals} \\
 \midrule
@@ -45,7 +44,7 @@ Cell Metabolism; Cell Reports; Cell Reports Medicine; Cell Stem Cell;
 Cell Systems \\
 \bottomrule
 \end{tabularx}
-\end{table}
+\end{table*}
 
 This setup provided standardized pairs of abstracts and reference summaries subsequently used in our systematic evaluation and benchmarking of \ac{ATS} methods.
 
@@ -55,9 +54,10 @@ We in total evaluated 62 summarization models, ranging from simple frequency-bas
 
 Exceptionally large models, such as LLaMA 3.1 405B, were excluded as their computational requirements exceed those of practical summarization pipelines. Each of the 62 models was tasked with generating summaries for the 1,000 abstracts in the dataset, resulting in a total of 62,000 generated summaries for evaluation.
 
-\begin{table}[H]
+\begin{table*}[t]
+\centering
 \caption{Overview of summarization methods/models evaluated in this study, organized by category.\label{tab:models}}
-\begin{tabularx}{\textwidth}{lX}
+\begin{tabularx}{\linewidth}{lX}
 \toprule
 \textbf{Category} & \textbf{Methods/Models} \\
 \midrule
@@ -80,7 +80,7 @@ Domain-specific \acp{SLM} & completion\_microsoft/biogpt; medllama2:7b; chat\_aa
 Domain-specific \acp{LLM} & chat\_Uni-SMART/SciLitLLM1.5-14B \\
 \bottomrule
 \end{tabularx}
-\end{table}
+\end{table*}
 
 \subsection{Prompt Design}
 
@@ -88,18 +88,21 @@ To ensure comparability across models, we prompted all summarization systems wit
 
 The exact prompt used for all models was as follows:
 
-\begin{verbatim}
+\begin{Verbatim}[
+  breaklines=true,
+  breakanywhere=true,
+  breaksymbolleft={},
+  breaksymbolright={}
+]
 Summarize the provided publication (title and abstract) in 15-100 words.
-
 Key requirements:
 - Identify main findings, results, or contributions
 - Preserve essential context and nuance
 - Exclude background, methods unless crucial to conclusions
 - Write concisely and objectively
 - Avoid repetition and unnecessary qualifiers
-
 If no substantial findings exist, respond: 'INSUFFICIENT_FINDINGS'
-\end{verbatim}
+\end{Verbatim}
 
 \subsection{Evaluation Metrics}
 
@@ -122,31 +125,40 @@ Finally, to evaluate factual consistency, we applied AlignScore \cite{zha2023ali
 
 To comprehensively assess the performance of each model on the summarization task, we employed a multi-metric framework covering three dimensions: lexical (n=5), semantic (n=3), and factual (n=1). To prevent the impact of dimension imbalance, we first computed an average score for each category as follows: 
 
+{\scriptsize
 \begin{equation}
-\mathrm{avg}_{\text{lexical}} =
-\frac{\mathrm{ROUGE\text{-}1} + \mathrm{ROUGE\text{-}2} + \mathrm{ROUGE\text{-}L} + \mathrm{METEOR} + \mathrm{BLEU}}{5}
+\mathrm{avg}_{\text{lex}} =
+\frac{
+\mathrm{ROUGE\text{-}1} + \mathrm{ROUGE\text{-}2} + \mathrm{ROUGE\text{-}L}+ \mathrm{METEOR} + \mathrm{BLEU}
+}{5}
 \end{equation}
+}
 
+{\scriptsize
 \begin{equation}
-\mathrm{avg}_{\text{semantic}} =
-\frac{\mathrm{RoBERTa} + \mathrm{DeBERTa} + \mathrm{all\text{-}mpnet\text{-}base\text{-}v2}}{3}
+\mathrm{avg}_{\text{sem}} =
+\frac{
+\mathrm{RoBERTa} + \mathrm{DeBERTa} + \mathrm{all\text{-}mpnet\text{-}base\text{-}v2}
+}{3}
 \end{equation}
+}
 
+{\scriptsize
 \begin{equation}
-\mathrm{avg}_{\text{factual}} = \mathrm{AlignScore}
+\mathrm{avg}_{\text{fact}} = \mathrm{AlignScore}
 \end{equation}
+}
 
-To examine how the different evaluation metrics relate to each other, we computed pairwise Spearman correlation coefficients across all models (Figure~\ref{fig:metric_correlation}). Averaging metrics within each dimension ensures that highly correlated measures such as ROUGE-1, ROUGE-2, and ROUGE-L do not dominate the overall evaluation. Averaged scores were used to construct the overall performance score, weighting each dimension according to literature-based evidences. Semantic metrics for example correlate more strongly with human judgment than lexical ones and thus were given a slightly higher overall weight \cite{fabbri2021summevalreevaluatingsummarizationevaluation}. Furthermore, we accounted for the fact that AlignScore, due to its different point of reference, tends to favor extractive approaches \cite{durmus-etal-2020-feqa}, while showing only a moderate correlation with both lexical and semantic metrics (Figure~\ref{fig:metric_correlation}). Based on these considerations, the overall performance score for each model was computed as follows:
+To examine how the different evaluation metrics relate to each other, we computed pairwise Spearman correlation coefficients across all models (Figure~\ref{fig:metric_correlation}). Averaging metrics within each dimension ensures that highly correlated measures such as ROUGE-1, ROUGE-2, and ROUGE-L do not dominate the overall evaluation. Averaged scores were used to construct the overall performance score, weighting each dimension according to literature-based evidences. Semantic metrics for example correlate more strongly with human judgment than lexical ones and thus were given a slightly higher overall weight \cite{fabbri2021summevalreevaluatingsummarizationevaluation}. Furthermore, we accounted for the fact that AlignScore, due to its different point of reference, tends to favor extractive approaches \cite{durmus-etal-2020-feqa}, while showing only a moderate correlation with both lexical and semantic metrics (Figure~\ref{fig:metric_correlation}). Based on these considerations, we defined an Overall Performance Score (OPS) as a weighted combination of the three dimension-wise average scores:
 
+{\scriptsize
 \begin{equation}
-\mathrm{Overall\ performance\ score}
-=
-0.35 \times \mathrm{avg}_{\text{lexical}}
-+
-0.40 \times \mathrm{avg}_{\text{semantic}}
-+
-0.25 \times \mathrm{avg}_{\text{factual}}
+\mathrm{OPS}
+= 0.35 \times \mathrm{avg}_{\text{lex}}
++ 0.40 \times \mathrm{avg}_{\text{sem}}
++ 0.25 \times \mathrm{avg}_{\text{fact}}
 \end{equation}
+}
 
 We finally ranked models based on their overall performance scores, constructing the performance rank, with lower ranks indicating better performance. To examine which model performed best for each dimension (lexical, semantic, factual), we also ranked models based on average scores for each dimension.
 
