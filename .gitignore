@@ -49,6 +49,7 @@ Thumbs.db
 *.wmv
 
 Output/
+!Output/benchmark_report.csv
 *.html
 *.pkl
 *.json
