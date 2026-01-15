@@ -32,8 +32,8 @@ import shutil
 import pandas as pd
 import nltk
 
-from src.utilities import (get_project_root, get_logger, setup_logging, extract_response, get_min_max_mean_std,
-                           find_truncated, normalize_llm_response)
+from utilities import (get_project_root, get_logger, setup_logging, extract_response, find_truncated,
+                       normalize_llm_response)
 
 OUT_DIR = get_project_root() / "Output" / "llm_summarization_benchmark"
 OUT_DIR.mkdir(exist_ok=True, parents=True)

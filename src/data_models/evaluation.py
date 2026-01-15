@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.utilities import get_min_max_mean_std
-from src.data_models.paper import Paper
+from utilities import get_min_max_mean_std
+from data_models import Paper
 
 
 @dataclass
