@@ -1,7 +1,5 @@
-import argparse
 import logging
 import math
-import json
 from copy import deepcopy
 
 import plotly.graph_objects as go
@@ -9,7 +7,6 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.offline as pyo
 import numpy as np
-from scipy.spatial import ConvexHull, QhullError
 from scipy.stats import spearmanr
 
 from typing import TYPE_CHECKING, NamedTuple, Any, Callable
@@ -25,46 +22,79 @@ AGGREGATE = "Metrics: Aggregate"
 PERFORMANCE = "Performance"
 OVERALL = "Overall (70% metrics, 10% speed/accept./cost)"
 
+TRADITIONAL_MODELS = "Traditional Models"
+GENERAL_MODELS = "General-purpose Models"
+GENERAL_EDMS = "General-purpose EDMs"
+GENERAL_SLMS = "General-purpose SLMs"
+GENERAL_LLMS = "General-purpose LLMs"
+REASONING_MODELS = "Reasoning-oriented Models"
+REASONING_SLMS = "Reasoning-oriented SLMs"
+REASONING_LLMS = "Reasoning-oriented LLMs"
+DOMAIN_EDMS = "Domain-specific EDMs"
+DOMAIN_SLMS = "Domain-specific SLMs"
+DOMAIN_LLMS = "Domain-specific LLMs"
+
+SURFACE_METRICS = "Surface-Level Metrics"
+EMBEDDING_METRICS = "Embedding-Based Metrics"
+
+MODEL_GROUP = "Model Group"
+METRIC_MEAN_SCORE = "Metric Mean Score"
+PCT_WITHIN_BOUNDS = "% Within Bounds"
+EXECUTION_TIME = "Execution Time"
+SCORE_NORMALIZED = "Score (normalized)"
+
 MODEL_GROUPS = {
-    "Traditional Models": [
+    TRADITIONAL_MODELS: [
         "local:frequency", "local:textrank"
     ],
-    "General-purpose EDMs": [
+    GENERAL_EDMS: [
         "huggingface_facebook/bart-base",
         "huggingface_google-t5/t5-base", "huggingface_google-t5/t5-large", "huggingface_google/pegasus-large"
     ],
-    "Domain-specific EDMs": [
+    DOMAIN_EDMS: [
         "huggingface_facebook/bart-large-cnn", "huggingface_google/pegasus-xsum", "huggingface_google/pegasus-cnn_dailymail",
         "huggingface_google/pegasus-pubmed", "huggingface_google/bigbird-pegasus-large-pubmed", "huggingface_csebuetnlp/mT5_multilingual_XLSum", "huggingface_AlgorithmicResearchGroup/led_large_16384_arxiv_summarization"
     ],
-    "General-purpose SLMs": [
+    GENERAL_SLMS: [
         "ollama_gemma3:270M", "ollama_gemma3:1b", "ollama_gemma3:4b", "ollama_PetrosStav/gemma3-tools:4b",
         "ollama_granite3.3:2b", "ollama_granite3.3:8b", "ollama_granite4:tiny-h", "ollama_granite4:small-h", 
         "ollama_granite4:micro", "ollama_granite4:micro-h", "ollama_llama3.1:8b", "ollama_llama3.2:1b",
         "ollama_llama3.2:3b", "ollama_mistral:7b", "ollama_phi3:3.8b", "openai_gpt-4o-mini", "openai_gpt-4.1-mini",
         "huggingface:chat_swiss-ai/Apertus-8B-Instruct-2509"
     ],
-    "General-purpose LLMs": [
+    GENERAL_LLMS: [
         "ollama_gemma3:12b", "ollama_mistral-nemo:12b", "ollama_mistral-small3.2:24b", "mistral_mistral-small-2506",
         "mistral_mistral-medium-2505", "mistral_mistral-large-2411", "ollama_phi4:14b",
         "openai_gpt-3.5-turbo", "openai_gpt-4o", "openai_gpt-4.1", "anthropic_claude-3-5-haiku-20241022"
     ],
-    "Reasoning-oriented SLMs": [
+    REASONING_SLMS: [
         "ollama_deepseek-r1:1.5b", "ollama_deepseek-r1:7b", "ollama_deepseek-r1:8b", "ollama_qwen3:4b", "ollama_qwen3:8b"
     ],
-    "Reasoning-oriented LLMs": [
+    REASONING_LLMS: [
         "ollama_deepseek-r1:14b", "ollama_gpt-oss:20b", "openai_gpt-5-nano-2025-08-07", "openai_gpt-5-mini-2025-08-07",
         "openai_gpt-5-2025-08-07", "anthropic_claude-sonnet-4-20250514", "anthropic_claude-opus-4-20250514",
         "anthropic_claude-opus-4-1-20250805", "mistral_magistral-medium-2509"
     ],
-    "Domain-specific SLMs": [
+    DOMAIN_SLMS: [
         "huggingface:completion_microsoft/biogpt", "ollama_medllama2:7b",
         "huggingface:chat_aaditya/OpenBioLLM-Llama3-8B", "huggingface:conversational_BioMistral/BioMistral-7B",
         "huggingface:chat_Uni-SMART/SciLitLLM1.5-7B"
     ],
-    "Domain-specific LLMs": [
+    DOMAIN_LLMS: [
         "huggingface:chat_Uni-SMART/SciLitLLM1.5-14B"
     ],
+}
+
+GROUP_COLORS = {
+    TRADITIONAL_MODELS: "#4575B4",
+    GENERAL_EDMS: "#C5E1EF",
+    DOMAIN_EDMS: "#74ACD1",
+    GENERAL_SLMS: "#FDDF90",
+    GENERAL_LLMS: "#FCAD60",
+    REASONING_SLMS: "#F46C43",
+    REASONING_LLMS: "#D62F27",
+    DOMAIN_SLMS: "#A6D96A",
+    DOMAIN_LLMS: "#1A9750"
 }
 
 class Metric(NamedTuple):
@@ -582,18 +612,6 @@ class SummarizationVisualizer:
         group_map = MODEL_GROUPS
         group_names = list(group_map.keys())
 
-        group_colors = {
-            "Traditional Models": "#4575B4",
-            "General-purpose EDMs": "#C5E1EF",
-            "Domain-specific EDMs": "#74ACD1",
-            "General-purpose SLMs": "#FDDF90",
-            "General-purpose LLMs": "#FCAD60",
-            "Reasoning-oriented SLMs": "#F46C43",
-            "Reasoning-oriented LLMs": "#D62F27",
-            "Domain-specific SLMs": "#A6D96A",
-            "Domain-specific LLMs": "#1A9750"
-        }
-
         group_scores = {}
         for group in group_names:
             models = group_map[group]
@@ -609,16 +627,16 @@ class SummarizationVisualizer:
                 y=group_scores[group],
                 name=group,
                 boxmean=True,
-                marker_color=group_colors.get(group, "#888888"),
+                marker_color=GROUP_COLORS.get(group, "#888888"),
                 line=dict(width=2, color="black"),
-                fillcolor=group_colors.get(group, "#888888"),
+                fillcolor=GROUP_COLORS.get(group, "#888888"),
                 opacity=0.9,
                 width=0.6
             ))
 
         fig.update_layout(
-            xaxis_title="Model Group",
-            yaxis_title="Metric Mean Score",
+            xaxis_title=MODEL_GROUP,
+            yaxis_title=METRIC_MEAN_SCORE,
             yaxis=dict(range=[0.30, 0.55]),
             boxmode="group",
             showlegend=False,
@@ -650,28 +668,16 @@ class SummarizationVisualizer:
             metric_scores = [self.metric_scores[m]["mean"] for m in models if m in self.metric_scores]
             metric_means.append(np.mean(metric_scores) if metric_scores else 0)
 
-        group_colors = {
-            "Traditional Models": "#4575B4",
-            "General-purpose EDMs": "#C5E1EF",
-            "Domain-specific EDMs": "#74ACD1",
-            "General-purpose SLMs": "#FDDF90",
-            "General-purpose LLMs": "#FCAD60",
-            "Reasoning-oriented SLMs": "#F46C43",
-            "Reasoning-oriented LLMs": "#D62F27",
-            "Domain-specific SLMs": "#A6D96A",
-            "Domain-specific LLMs": "#1A9750"
-        }
-
         sorted_data = sorted(zip(group_names, metric_means), key=lambda x: x[1], reverse=True)
         group_names, metric_means = zip(*sorted_data)
-        bar_colors = [group_colors.get(name, "#888888") for name in group_names]
+        bar_colors = [GROUP_COLORS.get(name, "#888888") for name in group_names]
 
         fig = go.Figure()
 
         fig.add_trace(go.Bar(
             x=group_names,
             y=metric_means,
-            name="Metric Mean Score",
+            name=METRIC_MEAN_SCORE,
             marker=dict(
                 color=bar_colors,
                 line=dict(color="black", width=1)
@@ -682,8 +688,8 @@ class SummarizationVisualizer:
         ))
 
         fig.update_layout(
-            xaxis_title="Model Group",
-            yaxis_title="Metric Mean Score",
+            xaxis_title=MODEL_GROUP,
+            yaxis_title=METRIC_MEAN_SCORE,
             yaxis=dict(range=[0, 0.6]),
             barmode="group",
             bargap=0.3,
@@ -703,35 +709,35 @@ class SummarizationVisualizer:
         """Compare combined General-purpose vs Reasoning-oriented models (SLMs + LLMs) across key metrics."""
 
         group_map = {
-            "General-purpose Models": {
+            GENERAL_MODELS: {
                 "models": deepcopy(
-                    MODEL_GROUPS["General-purpose SLMs"] + MODEL_GROUPS["General-purpose LLMs"]
+                    MODEL_GROUPS[GENERAL_SLMS] + MODEL_GROUPS[GENERAL_LLMS]
                 )
             },
-            "Reasoning-oriented Models": {
+            REASONING_MODELS: {
                 "models": deepcopy(
-                    MODEL_GROUPS["Reasoning-oriented SLMs"] + MODEL_GROUPS["Reasoning-oriented LLMs"]
+                    MODEL_GROUPS[REASONING_SLMS] + MODEL_GROUPS[REASONING_LLMS]
                 )
             },
         }
 
         metrics = {
-            "Surface-Level Metrics": lambda m: np.mean([
+            SURFACE_METRICS: lambda m: np.mean([
                 self.results[m].rouge_scores["rouge1"]["mean"],
                 self.results[m].rouge_scores["rouge2"]["mean"],
                 self.results[m].rouge_scores["rougeL"]["mean"],
                 self.results[m].bleu_scores["mean"],
                 self.results[m].meteor_scores["mean"]
             ]),
-            "Embedding-Based Metrics": lambda m: np.mean([
+            EMBEDDING_METRICS: lambda m: np.mean([
                 self.results[m].roberta_scores["f1"]["mean"],
                 self.results[m].deberta_scores["f1"]["mean"],
                 self.results[m].mpnet_content_coverage_scores["mean"],
                 self.results[m].alignscore_scores["mean"]
             ]),
-            "Execution Time": lambda m: self.normalized_exec_times.get(m, {}).get("mean"),
-            "% Within Bounds": lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
-            "Metric Mean Score": lambda m: self.metric_scores.get(m, {}).get("mean")
+            EXECUTION_TIME: lambda m: self.normalized_exec_times.get(m, {}).get("mean"),
+            PCT_WITHIN_BOUNDS: lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
+            METRIC_MEAN_SCORE: lambda m: self.metric_scores.get(m, {}).get("mean")
         }
 
         categories = list(metrics.keys())
@@ -743,14 +749,14 @@ class SummarizationVisualizer:
                 group_values[group].append(np.mean(vals) if vals else 0)
 
         colors = {
-            "General-purpose Models": "#403C53",
-            "Reasoning-oriented Models": "#C33D35"
+            GENERAL_MODELS: "#403C53",
+            REASONING_MODELS: "#C33D35"
         }
 
         fig = go.Figure()
 
         for group, values in group_values.items():
-            outlines = [3 if category == "Metric Mean Score" else 1 for category in categories]
+            outlines = [3 if category == METRIC_MEAN_SCORE else 1 for category in categories]
 
             fig.add_trace(go.Bar(
                 x=categories,
@@ -766,7 +772,7 @@ class SummarizationVisualizer:
             ))
 
         fig.update_layout(
-            yaxis_title="Score (normalized)",
+            yaxis_title=SCORE_NORMALIZED,
             barmode="group",
             xaxis_tickangle=-45,
             yaxis=dict(range=[0, 1.0]),
@@ -803,30 +809,30 @@ class SummarizationVisualizer:
         """Compare General-purpose SLMs vs General-purpose LLMs across key metrics."""
 
         group_map = {
-            "General-purpose SLMs": {
-                "models": deepcopy(MODEL_GROUPS["General-purpose SLMs"])
+            GENERAL_SLMS: {
+                "models": deepcopy(MODEL_GROUPS[GENERAL_SLMS])
             },
-            "General-purpose LLMs": {
-                "models": deepcopy(MODEL_GROUPS["General-purpose LLMs"])
+            GENERAL_LLMS: {
+                "models": deepcopy(MODEL_GROUPS[GENERAL_LLMS])
             },
         }
 
         metrics = {
-            "Surface-Level Metrics": lambda m: np.mean([
+            SURFACE_METRICS: lambda m: np.mean([
                 self.results[m].rouge_scores["rouge1"]["mean"],
                 self.results[m].rouge_scores["rouge2"]["mean"],
                 self.results[m].rouge_scores["rougeL"]["mean"],
                 self.results[m].bleu_scores["mean"],
                 self.results[m].meteor_scores["mean"]
             ]),
-            "Embedding-Based Metrics": lambda m: np.mean([
+            EMBEDDING_METRICS: lambda m: np.mean([
                 self.results[m].roberta_scores["f1"]["mean"],
                 self.results[m].deberta_scores["f1"]["mean"],
                 self.results[m].mpnet_content_coverage_scores["mean"],
                 self.results[m].alignscore_scores["mean"]
             ]),
-            "% Within Bounds": lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
-            "Metric Mean Score": lambda m: self.metric_scores.get(m, {}).get("mean")
+            PCT_WITHIN_BOUNDS: lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
+            METRIC_MEAN_SCORE: lambda m: self.metric_scores.get(m, {}).get("mean")
         }
 
         categories = list(metrics.keys())
@@ -838,14 +844,14 @@ class SummarizationVisualizer:
                 group_values[group].append(np.mean(vals) if vals else 0)
 
         colors = {
-            "General-purpose SLMs": "#FDDF90",
-            "General-purpose LLMs": "#FCAD60"
+            GENERAL_SLMS: "#FDDF90",
+            GENERAL_LLMS: "#FCAD60"
         }
 
         fig = go.Figure()
 
         for group, values in group_values.items():
-            outlines = [3 if category == "Metric Mean Score" else 1 for category in categories]
+            outlines = [3 if category == METRIC_MEAN_SCORE else 1 for category in categories]
 
             fig.add_trace(go.Bar(
                 x=categories,
@@ -861,7 +867,7 @@ class SummarizationVisualizer:
             ))
 
         fig.update_layout(
-            yaxis_title="Score (normalized)",
+            yaxis_title=SCORE_NORMALIZED,
             barmode="group",
             xaxis_tickangle=-45,
             yaxis=dict(range=[0, 1.0]),
@@ -897,30 +903,30 @@ class SummarizationVisualizer:
         """Compare Reasoning-oriented SLMs vs Reasoning-oriented LLMs across key metrics."""
 
         group_map = {
-            "Reasoning-oriented SLMs": {
-                "models": deepcopy(MODEL_GROUPS["Reasoning-oriented SLMs"])
+            REASONING_SLMS: {
+                "models": deepcopy(MODEL_GROUPS[REASONING_SLMS])
             },
-            "Reasoning-oriented LLMs": {
-                "models": deepcopy(MODEL_GROUPS["Reasoning-oriented LLMs"])
+            REASONING_LLMS: {
+                "models": deepcopy(MODEL_GROUPS[REASONING_LLMS])
             },
         }
 
         metrics = {
-            "Surface-Level Metrics": lambda m: np.mean([
+            SURFACE_METRICS: lambda m: np.mean([
                 self.results[m].rouge_scores["rouge1"]["mean"],
                 self.results[m].rouge_scores["rouge2"]["mean"],
                 self.results[m].rouge_scores["rougeL"]["mean"],
                 self.results[m].bleu_scores["mean"],
                 self.results[m].meteor_scores["mean"]
             ]),
-            "Embedding-Based Metrics": lambda m: np.mean([
+            EMBEDDING_METRICS: lambda m: np.mean([
                 self.results[m].roberta_scores["f1"]["mean"],
                 self.results[m].deberta_scores["f1"]["mean"],
                 self.results[m].mpnet_content_coverage_scores["mean"],
                 self.results[m].alignscore_scores["mean"]
             ]),
-            "% Within Bounds": lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
-            "Metric Mean Score": lambda m: self.metric_scores.get(m, {}).get("mean")
+            PCT_WITHIN_BOUNDS: lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
+            METRIC_MEAN_SCORE: lambda m: self.metric_scores.get(m, {}).get("mean")
         }
 
         categories = list(metrics.keys())
@@ -932,14 +938,14 @@ class SummarizationVisualizer:
                 group_values[group].append(np.mean(vals) if vals else 0)
 
         colors = {
-            "Reasoning-oriented SLMs": "#F46C43",
-            "Reasoning-oriented LLMs": "#D62F27"
+            REASONING_SLMS: "#F46C43",
+            REASONING_LLMS: "#D62F27"
         }
 
         fig = go.Figure()
 
         for group, values in group_values.items():
-            outlines = [3 if category == "Metric Mean Score" else 1 for category in categories]
+            outlines = [3 if category == METRIC_MEAN_SCORE else 1 for category in categories]
 
             fig.add_trace(go.Bar(
                 x=categories,
@@ -955,7 +961,7 @@ class SummarizationVisualizer:
             ))
 
         fig.update_layout(
-            yaxis_title="Score (normalized)",
+            yaxis_title=SCORE_NORMALIZED,
             barmode="group",
             xaxis_tickangle=-45,
             yaxis=dict(range=[0, 1.0]),
@@ -1146,7 +1152,7 @@ class SummarizationVisualizer:
 
         # exclude Traditional Methods and both EDM groups
         excluded_models = set(
-            MODEL_GROUPS["Traditional Models"] + MODEL_GROUPS["General-purpose EDMs"] + MODEL_GROUPS["Domain-specific EDMs"]
+            MODEL_GROUPS[TRADITIONAL_MODELS] + MODEL_GROUPS[GENERAL_EDMS] + MODEL_GROUPS[DOMAIN_EDMS]
         )
 
         plot_methods = [
@@ -1211,27 +1217,27 @@ class SummarizationVisualizer:
         """Create grouped boxplot comparing execution times across general-purpose vs reasoning-oriented LLMs."""
 
         # group_map = {
-        #     "General-purpose SLMs": {
+        #     GENERAL_SLMS: {
         #         "models": deepcopy(
-        #             MODEL_GROUPS["General-purpose SLMs"]
+        #             MODEL_GROUPS[GENERAL_SLMS]
         #         )
         #     },
-        #     "General-purpose LLMs": {
+        #     GENERAL_LLMS: {
         #         "models": deepcopy(
-        #             MODEL_GROUPS["General-purpose LLMs"]
+        #             MODEL_GROUPS[GENERAL_LLMS]
         #         )
         #     },
         # }
 
         group_map = {
-            "General-purpose Models": {
+            GENERAL_MODELS: {
                 "models": deepcopy(
-                    MODEL_GROUPS["General-purpose SLMs"] + MODEL_GROUPS["General-purpose LLMs"]
+                    MODEL_GROUPS[GENERAL_SLMS] + MODEL_GROUPS[GENERAL_LLMS]
                 )
             },
-            "Reasoning-oriented Models": {
+            REASONING_MODELS: {
                 "models": deepcopy(
-                    MODEL_GROUPS["Reasoning-oriented SLMs"] + MODEL_GROUPS["Reasoning-oriented LLMs"]
+                    MODEL_GROUPS[REASONING_SLMS] + MODEL_GROUPS[REASONING_LLMS]
                 )
             },
         }
@@ -1239,13 +1245,13 @@ class SummarizationVisualizer:
         fig = go.Figure()
 
         # group_colors = {
-        #     "General-purpose SLMs": "rgba(64, 60, 83, 0.8)",
-        #     "General-purpose LLMs": "rgba(195, 61, 53, 0.8)"
+        #     GENERAL_SLMS: "rgba(64, 60, 83, 0.8)",
+        #     GENERAL_LLMS: "rgba(195, 61, 53, 0.8)"
         # }
 
         group_colors = {
-            "General-purpose Models": "rgba(64, 60, 83, 0.8)",
-            "Reasoning-oriented Models": "rgba(195, 61, 53, 0.8)"
+            GENERAL_MODELS: "rgba(64, 60, 83, 0.8)",
+            REASONING_MODELS: "rgba(195, 61, 53, 0.8)"
         }
 
         group_means = {}
@@ -1297,7 +1303,7 @@ class SummarizationVisualizer:
 
         fig.update_layout(
             yaxis_title="Time (seconds, log scale)",
-            xaxis_title="Model Group",
+            xaxis_title=MODEL_GROUP,
             boxmode="group",
             boxgap=0.4,
             boxgroupgap=0.2,
@@ -1609,7 +1615,7 @@ if __name__ == "__main__":
         cd /path/to/Repositories/exploration/LLM
         uv run Python/src/text_summarization/visualization.py
     """
-    from llm_summarization_benchmark.benchmark import SummarizationBenchmark, GOLD_STANDARD_DATA, EvaluationResult
+    from llm_summarization_benchmark.benchmark import SummarizationBenchmark, GOLD_STANDARD_DATA
     benchmark = SummarizationBenchmark([], [])
     benchmark.load_papers(GOLD_STANDARD_DATA)
     benchmark.load_results()
