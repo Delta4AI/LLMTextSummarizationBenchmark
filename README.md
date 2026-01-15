@@ -4,30 +4,31 @@ Benchmarking tool for evaluating text summarization methods on scientific papers
 
 ## Quick Start
 
-1. Clone `llm_apis` repository
-2. Clone `exploration` repository
-3. Clone this repository
-4. Install dependencies
+This project uses [uv](https://github.com/astral-sh/uv) for package management.
+
+1. Clone this repository
+2. Install dependencies
     ```bash
     cd llm_summarization_benchmark  
     uv sync
     uv run spacy download en_core_web_sm
     ```
-5. Install AlignScore-large
+3. Install AlignScore-large
     ```bash
     mkdir -p Output/llm_summarization_benchmark
     cd Output/llm_summarization_benchmark
     wget https://huggingface.co/yzha/AlignScore/resolve/main/AlignScore-large.ckpt
+    cd ../..
     ```
-6. Copy `Resources/example.env` to `Resources/.env` and adjust
-7. Run
+4. Copy `Resources/example.env` to `Resources/.env` and adjust
+5. Run
     ```bash
-   uv run benchmark
+    uv run benchmark
     ```
 
-> Individual LLM config parameters are stored in `../llm_apis/src/llm_apis/config.py` (separate `llm_apis` repository)
+> **Hint:** Individual LLM config parameters are stored in `/src/llm_apis/config.py`
 
-### Run the visualization only without benchmarking
+### Run the visualization without benchmarking
 
 The following files must be in place in order to load previous results:    
 - `Output/llm_summarization_benchmark/benchmark.pkl`
@@ -61,7 +62,7 @@ Multiple reference summaries improve evaluation robustness and reduce single-ann
 ]
 ```
 ### Reference summary sources
-- Highlight sections of Elsevier and Cell papers, joined by ". ".
+- Highlight sections of Elsevier and Cell papers, manually extracted and joined by ". ".
 
 ---
 
@@ -81,13 +82,13 @@ Multiple reference summaries improve evaluation robustness and reduce single-ann
 2. ranks sentences by avg. word frequency (excluding stopwords ([nltk](https://www.nltk.org/))
 3. selects highest-scoring sentences (in original order) within word count limits
 
-### External Platforms
-- **Ollama**, **OpenAI**, **Perplexity**, **Anthropic** and a number of models
+### LLM Providers
+- **Anthropic**, **Mistral**, **OpenAI**, **HuggingFace**, **Ollama**`
 
 ---
 
 ## Evaluation Metrics
-> Each generated summary is evaluated against all available gold-standard reference summaries of a document using a number of metrics as listed below. For each metric, mean/min/max/std are computed.
+> Each generated summary is evaluated against all available gold-standard reference summaries of a document using a number of metrics as listed below. For each metric, mean/min/max/std and individual counts are computed.
 
 ### Rouge
 Set of metrics for evaluating summary quality by comparing to reference summaries. [wiki](https://en.wikipedia.org/wiki/ROUGE_(metric)) | [package](https://github.com/google-research/google-research/tree/master/rouge) | [publication](https://aclanthology.org/W04-1013.pdf)
@@ -111,6 +112,9 @@ N-gram overlaps with brevity penalty. [paper](https://www.aclweb.org/anthology/P
 Semantic similarity using sentence transformers. Compares generated summary directly against the source document 
 (rather than reference summaries like other metrics). [model](https://huggingface.co/sentence-transformers/all-mpnet-base-v2)
 
+### AlignScore
+Factual consistency evaluation using the abstract. [paper](https://arxiv.org/abs/2305.16739) | [modified repository](https://github.com/MNikley/AlignScore)
+
 ### Further Metrics
 - **Execution Time**: Processing time
 - **Length Compliance Metrics**
@@ -118,4 +122,14 @@ Semantic similarity using sentence transformers. Compares generated summary dire
   - **Too Short/Long**: Violation statistics with percentages
   - **Average Length**: Mean word count with standard deviation
   - **Length Distribution**: Detailed statistical analysis
+
+---
+
+## Reference
+
+
+**Systematic evaluation and benchmarking of text summarization methods for biomedical literature: From word-frequency methods to language models**
+Baumgärtel F, Bono E, Fillinger L, Galou L, Kęska-Izworska K, Walter S, Andorfer P, Kratochwill K, Perco P, Ley M
+bioRxiv 2026, [doi.org/10.64898/2026.01.09.697335](https://doi.org/10.64898/2026.01.09.697335)
+
 
