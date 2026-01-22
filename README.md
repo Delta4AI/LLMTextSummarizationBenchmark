@@ -9,7 +9,6 @@ This project uses [uv](https://github.com/astral-sh/uv) for package management.
 1. Clone this repository
 2. Install dependencies
     ```bash
-    cd llm_summarization_benchmark  
     uv sync
     uv run spacy download en_core_web_sm
     ```
@@ -20,6 +19,9 @@ This project uses [uv](https://github.com/astral-sh/uv) for package management.
     wget https://huggingface.co/yzha/AlignScore/resolve/main/AlignScore-large.ckpt
     cd ../..
     ```
+    > **Note:** In case wget fails, you can download AlignScore-large manually from:
+    > https://github.com/yuh-zha/AlignScore (download provided in section "Checkpoints")
+    > and place it in `Output/llm_summarization_benchmark/`.
 4. Copy `Resources/example.env` to `Resources/.env` and adjust
 5. Run
     ```bash
@@ -83,7 +85,7 @@ Multiple reference summaries improve evaluation robustness and reduce single-ann
 3. selects highest-scoring sentences (in original order) within word count limits
 
 ### LLM Providers
-- **Anthropic**, **Mistral**, **OpenAI**, **HuggingFace**, **Ollama**`
+- **Anthropic**, **Mistral**, **OpenAI**, **HuggingFace**, **Ollama**
 
 ---
 
@@ -115,20 +117,13 @@ Semantic similarity using sentence transformers. Compares generated summary dire
 ### AlignScore
 Factual consistency evaluation using the abstract. [paper](https://arxiv.org/abs/2305.16739) | [modified repository](https://github.com/MNikley/AlignScore)
 
-### Further Metrics
-- **Execution Time**: Processing time
-- **Length Compliance Metrics**
-  - **Within Bounds**: Percentage meeting length constraints
-  - **Too Short/Long**: Violation statistics with percentages
-  - **Average Length**: Mean word count with standard deviation
-  - **Length Distribution**: Detailed statistical analysis
 
 ---
 
 ## Reference
 
 
-**Systematic evaluation and benchmarking of text summarization methods for biomedical literature: From word-frequency methods to language models**
+**A Systematic evaluation and benchmarking of text summarization methods for biomedical literature: From word-frequency methods to language models**
 Baumgärtel F, Bono E, Fillinger L, Galou L, Kęska-Izworska K, Walter S, Andorfer P, Kratochwill K, Perco P, Ley M
 bioRxiv 2026, [doi.org/10.64898/2026.01.09.697335](https://doi.org/10.64898/2026.01.09.697335)
 
