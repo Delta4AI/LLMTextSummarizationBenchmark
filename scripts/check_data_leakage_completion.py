@@ -23,11 +23,13 @@ Expects API keys in Resources/.env (see Resources/example.env).
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import logging
 import os
 import re
+import tempfile
 import threading
 import time
 from collections import defaultdict
@@ -54,6 +56,10 @@ DATASET_JSON = ROOT / "Resources" / "text_summarization_goldstandard_data.json"
 CACHE_PATH   = ROOT / "Output" / "scripts" / "data_leakage_completion_cache.json"
 OUTPUT_JSON  = ROOT / "Output" / "scripts" / "data_leakage_completion_probe.json"
 OUTPUT_HTML  = ROOT / "Output" / "scripts" / "data_leakage_completion_probe.html"
+BATCH_TRACKING_PATH = ROOT / "Output" / "scripts" / "data_leakage_completion_batches.json"
+
+# Platforms that support batch APIs
+BATCH_PLATFORMS = {"openai", "anthropic"}
 
 # ── configuration ────────────────────────────────────────────────────────────
 
@@ -175,6 +181,25 @@ def load_cache() -> dict:
 def save_cache(cache: dict) -> None:
     with open(CACHE_PATH, "w") as f:
         json.dump(cache, f, indent=2, ensure_ascii=False)
+
+
+# ── batch tracking ───────────────────────────────────────────────────────────
+
+def load_batch_tracking() -> list[dict]:
+    if BATCH_TRACKING_PATH.exists():
+        with open(BATCH_TRACKING_PATH) as f:
+            return json.load(f)
+    return []
+
+
+def save_batch_tracking(batches: list[dict]) -> None:
+    BATCH_TRACKING_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(BATCH_TRACKING_PATH, "w") as f:
+        json.dump(batches, f, indent=2, ensure_ascii=False)
+
+
+class BatchNotReady(Exception):
+    """Raised when a batch has not finished processing yet."""
 
 
 # ── thread-safe cache & rate limiting ────────────────────────────────────────
@@ -720,9 +745,377 @@ ms.forEach(m=>{
 </html>'''
 
 
+# ── batch operations ─────────────────────────────────────────────────────────
+
+def _build_openai_batch_body(model: str, prompt: str) -> dict:
+    """Build the request body for an OpenAI /v1/responses batch line."""
+    body: dict = {
+        "model": model,
+        "instructions": SYSTEM_PROMPT,
+        "input": prompt,
+    }
+    if model.startswith("gpt-5"):
+        body["text"] = {"verbosity": "low"}
+        body["reasoning"] = {"effort": "minimal"}
+    else:
+        body["temperature"] = TEMPERATURE
+    return body
+
+
+def _submit_openai_batch(model: str, tasks: list[dict]) -> str:
+    """Submit an OpenAI batch and return the batch ID."""
+    client = _get_openai()
+
+    lines = []
+    for task in tasks:
+        body = _build_openai_batch_body(model, task["prompt"])
+        lines.append(json.dumps({
+            "custom_id": task["cache_key"],
+            "method": "POST",
+            "url": "/v1/responses",
+            "body": body,
+        }))
+
+    jsonl_content = "\n".join(lines)
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".jsonl")
+    try:
+        with os.fdopen(tmp_fd, "w") as f:
+            f.write(jsonl_content)
+        with open(tmp_path, "rb") as f:
+            file_obj = client.files.create(file=f, purpose="batch")
+        log.info(f"  Uploaded batch file: {file_obj.id}")
+    finally:
+        os.unlink(tmp_path)
+
+    batch = client.batches.create(
+        input_file_id=file_obj.id,
+        endpoint="/v1/responses",
+        completion_window="24h",
+        metadata={"description": f"data-leakage-completion-probe:{model}"},
+    )
+    return batch.id
+
+
+def _submit_anthropic_batch(model: str, tasks: list[dict]) -> str:
+    """Submit an Anthropic message batch and return the batch ID."""
+    client = _get_anthropic()
+
+    requests = [
+        {
+            "custom_id": task["cache_key"],
+            "params": {
+                "model": model,
+                "system": SYSTEM_PROMPT,
+                "messages": [{"role": "user", "content": task["prompt"]}],
+                "max_tokens": MAX_TOKENS,
+                "temperature": TEMPERATURE,
+            },
+        }
+        for task in tasks
+    ]
+
+    batch = client.messages.batches.create(requests=requests)
+    return batch.id
+
+
+def _retrieve_openai_batch(batch_id: str) -> dict[str, str]:
+    """Retrieve results from a completed OpenAI batch.
+
+    Returns ``{custom_id: completion_text}``.
+    """
+    client = _get_openai()
+    batch = client.batches.retrieve(batch_id)
+
+    if batch.status != "completed":
+        raise BatchNotReady(f"status={batch.status}")
+
+    if not batch.output_file_id:
+        raise RuntimeError(f"Batch {batch_id} completed but has no output file")
+
+    content = client.files.content(batch.output_file_id)
+    results: dict[str, str] = {}
+    for line in content.text.strip().split("\n"):
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        custom_id = record["custom_id"]
+        if record.get("error"):
+            log.warning(f"  OpenAI batch error for {custom_id}: {record['error']}")
+            continue
+        resp_body = record["response"]["body"]
+        text = resp_body.get("output_text", "")
+        if not text:
+            # fallback: dig into the output array
+            for item in resp_body.get("output", []):
+                if item.get("type") == "message":
+                    for ci in item.get("content", []):
+                        if ci.get("type") == "output_text":
+                            text = ci.get("text", "")
+                            break
+                if text:
+                    break
+        results[custom_id] = text
+    return results
+
+
+def _retrieve_anthropic_batch(batch_id: str) -> dict[str, str]:
+    """Retrieve results from a completed Anthropic batch.
+
+    Returns ``{custom_id: completion_text}``.
+    """
+    client = _get_anthropic()
+    batch = client.messages.batches.retrieve(batch_id)
+
+    if batch.processing_status != "ended":
+        raise BatchNotReady(f"processing_status={batch.processing_status}")
+
+    results: dict[str, str] = {}
+    for result in client.messages.batches.results(batch_id):
+        custom_id = result.custom_id
+        if result.result.type == "succeeded":
+            message = result.result.message
+            text = message.content[0].text if message.content else ""
+            results[custom_id] = text
+        else:
+            log.warning(
+                f"  Anthropic batch error for {custom_id}: "
+                f"{result.result.type}"
+            )
+    return results
+
+
+def batch_submit(
+    at_risk: list[dict], samples: list[dict], cache: dict
+) -> None:
+    """Build batch requests, ask for confirmation, submit, and persist IDs."""
+
+    # Group uncached tasks by (platform, model)
+    groups: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    skipped_platforms: set[str] = set()
+
+    for model_info in at_risk:
+        platform = model_info["platform"]
+        model = model_info["model"]
+
+        if platform not in BATCH_PLATFORMS:
+            skipped_platforms.add(platform)
+            continue
+
+        for sample in samples:
+            remaining = sample["remaining_text"]
+            if not remaining.strip():
+                continue
+            art_id = sample["article"]["id"]
+            ckey = _cache_key(model, art_id)
+
+            if cache.get(ckey) is not None:
+                continue
+
+            prompt = USER_PROMPT_TEMPLATE.format(
+                first_sentence=sample["first_sentence"]
+            )
+            groups[(platform, model)].append({
+                "cache_key": ckey,
+                "article_id": art_id,
+                "prompt": prompt,
+            })
+
+    if not groups:
+        log.info("No uncached requests to submit — all probes are already cached.")
+        return
+
+    # ── show plan ──
+    print("\n" + "=" * 70)
+    print("BATCH SUBMISSION PLAN")
+    print("=" * 70)
+    total_requests = 0
+    for (platform, model), tasks in sorted(groups.items()):
+        print(f"  {platform:>10} | {model:<40} | {len(tasks)} requests")
+        total_requests += len(tasks)
+    print(f"\n  Total: {total_requests} requests across {len(groups)} batch(es)")
+    if skipped_platforms:
+        print(
+            f"\n  ⚠  Skipped platforms (no batch API): "
+            f"{', '.join(sorted(skipped_platforms))}"
+        )
+        print("    Run without --batch to process those models synchronously.")
+    print()
+
+    # ── confirmation ──
+    answer = input("Submit these batches? [y/N] ").strip().lower()
+    if answer != "y":
+        print("Aborted.")
+        return
+
+    # ── submit ──
+    tracking = load_batch_tracking()
+
+    for (platform, model), tasks in sorted(groups.items()):
+        request_map = {t["cache_key"]: t["article_id"] for t in tasks}
+
+        try:
+            if platform == "openai":
+                batch_id = _submit_openai_batch(model, tasks)
+            elif platform == "anthropic":
+                batch_id = _submit_anthropic_batch(model, tasks)
+            else:
+                continue
+        except Exception as exc:
+            log.error(f"Failed to submit batch for {platform}/{model}: {exc}")
+            continue
+
+        tracking.append({
+            "batch_id": batch_id,
+            "platform": platform,
+            "model": model,
+            "submitted_at": datetime.now(timezone.utc).isoformat(),
+            "n_requests": len(tasks),
+            "request_map": request_map,
+            "retrieved": False,
+        })
+        log.info(
+            f"  ✓ {platform}/{model}: batch {batch_id} "
+            f"({len(tasks)} requests)"
+        )
+
+    save_batch_tracking(tracking)
+
+    print(f"\nBatch IDs saved to {BATCH_TRACKING_PATH.relative_to(ROOT)}")
+    print("Use  --batch status   to monitor progress.")
+    print("Use  --batch retrieve to download results when ready.")
+
+
+def batch_status() -> None:
+    """Check and display the status of all tracked batches."""
+    tracking = load_batch_tracking()
+    if not tracking:
+        print("No batches tracked.")
+        return
+
+    print("\n" + "=" * 100)
+    print("BATCH STATUS")
+    print("=" * 100)
+    header = (
+        f"  {'Batch ID':<40} {'Platform':>10} "
+        f"{'Model':<35} {'Reqs':>5} {'Status':<16} Retr"
+    )
+    print(header)
+    print("-" * 100)
+
+    for entry in tracking:
+        batch_id = entry["batch_id"]
+        platform = entry["platform"]
+        status = "unknown"
+
+        try:
+            if platform == "openai":
+                client = _get_openai()
+                batch = client.batches.retrieve(batch_id)
+                status = batch.status
+            elif platform == "anthropic":
+                client = _get_anthropic()
+                batch = client.messages.batches.retrieve(batch_id)
+                status = batch.processing_status
+        except Exception as exc:
+            status = f"error ({exc})"
+
+        retrieved = "✓" if entry.get("retrieved") else "—"
+        print(
+            f"  {batch_id:<40} {platform:>10} "
+            f"{entry['model']:<35} {entry['n_requests']:>5} "
+            f"{status:<16} {retrieved}"
+        )
+
+    print("-" * 100)
+    print()
+
+
+def batch_retrieve() -> None:
+    """Download results from completed batches into the local cache."""
+    tracking = load_batch_tracking()
+    if not tracking:
+        print("No batches tracked.")
+        return
+
+    cache = load_cache()
+    pending = [e for e in tracking if not e.get("retrieved")]
+
+    if not pending:
+        print("All tracked batches have already been retrieved.")
+        print("Run without --batch to generate reports from cached results.")
+        return
+
+    retrieved_count = 0
+
+    for entry in pending:
+        batch_id = entry["batch_id"]
+        platform = entry["platform"]
+        model = entry["model"]
+        request_map: dict[str, str] = entry["request_map"]
+
+        log.info(f"Checking {platform} batch {batch_id} for {model} …")
+
+        try:
+            if platform == "openai":
+                results = _retrieve_openai_batch(batch_id)
+            elif platform == "anthropic":
+                results = _retrieve_anthropic_batch(batch_id)
+            else:
+                log.warning(f"  Unknown platform: {platform}")
+                continue
+        except BatchNotReady as exc:
+            log.info(f"  Batch not ready yet: {exc}")
+            continue
+        except Exception as exc:
+            log.error(f"  Error retrieving batch {batch_id}: {exc}")
+            continue
+
+        # Populate cache
+        n_ok = 0
+        for custom_id, completion_text in results.items():
+            if custom_id not in request_map:
+                log.warning(f"  Unknown custom_id in results: {custom_id}")
+                continue
+            article_id = request_map[custom_id]
+            cache[custom_id] = {
+                "completion": completion_text,
+                "model": model,
+                "article_id": article_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "source": "batch",
+                "batch_id": batch_id,
+            }
+            n_ok += 1
+
+        entry["retrieved"] = True
+        retrieved_count += 1
+        log.info(
+            f"  ✓ Cached {n_ok}/{len(request_map)} results for {model}"
+        )
+
+    save_cache(cache)
+    save_batch_tracking(tracking)
+
+    still_pending = len(pending) - retrieved_count
+    print(f"\nRetrieved: {retrieved_count}/{len(pending)} batch(es).")
+    if still_pending:
+        print(f"Still pending: {still_pending} batch(es) — re-run later.")
+    else:
+        print("All batches retrieved.")
+    print("Run without --batch to generate reports from cached results.")
+
+
 # ── main ─────────────────────────────────────────────────────────────────────
 
-def main() -> None:
+def main(batch_mode: str | None = None) -> None:
+    # ── fast-path: status & retrieve need no dataset loading ──
+    if batch_mode == "status":
+        batch_status()
+        return
+    if batch_mode == "retrieve":
+        batch_retrieve()
+        return
+
     # NLTK tokeniser
     try:
         nltk.data.find("tokenizers/punkt_tab")
@@ -759,6 +1152,11 @@ def main() -> None:
 
     # ── load cache ──
     cache = load_cache()
+
+    # ── batch submit: build tasks, confirm, submit, exit ──
+    if batch_mode == "submit":
+        batch_submit(at_risk, samples, cache)
+        return
 
     # ── build task list ──
     tasks: list[dict] = []
@@ -987,4 +1385,21 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--batch",
+        choices=["submit", "status", "retrieve"],
+        default=None,
+        metavar="ACTION",
+        help=(
+            "Batch processing mode. "
+            "submit  — send requests as API batches (OpenAI & Anthropic). "
+            "status  — check the status of pending batches. "
+            "retrieve — download completed results into the local cache."
+        ),
+    )
+    args = parser.parse_args()
+    main(batch_mode=args.batch)
