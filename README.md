@@ -1,6 +1,23 @@
 # Scientific Paper Summarization Benchmark
 
-Benchmarking tool for evaluating text summarization methods on scientific papers.
+A comprehensive benchmarking framework for evaluating text summarization methods on scientific papers.
+It systematically compares **60+ summarization approaches** — from classical extractive algorithms (TextRank, word-frequency)
+through encoder–decoder models (BART, T5, PEGASUS) to modern large language models (GPT-4.1, Claude 4, Mistral, LLaMA, DeepSeek-R1, and more) —
+against expert-written reference summaries using a multi-metric evaluation suite.
+
+The benchmark is designed for reproducibility: every LLM response is cached, model training-data cutoff dates are
+tracked automatically, and results are exported as interactive HTML reports with per-model breakdowns.
+
+### Key features
+
+- **Multi-provider LLM support** — OpenAI, Anthropic, Mistral, HuggingFace, and Ollama via a unified API layer
+- **Rich evaluation metrics** — ROUGE-1/2/L, BERTScore, METEOR, BLEU, semantic similarity (MPNet), and factual consistency (AlignScore)
+- **Length-constrained generation** — configurable min/max word counts with compliance tracking
+- **Training cutoff tracking** — automatically collects model knowledge cutoff dates from the
+  [community LLM knowledge-cutoff dataset](https://github.com/HaoooWang/llm-knowledge-cutoff-dates),
+  HuggingFace model cards, and provider documentation
+- **Publication date enrichment** — fetches paper publication dates from [CrossRef](https://www.crossref.org/) to enable temporal analyses of model knowledge vs. paper novelty
+- **Interactive visualisations** — per-metric box plots, radar charts, and sortable HTML tables
 
 ## Quick Start
 
@@ -117,6 +134,62 @@ Semantic similarity using sentence transformers. Compares generated summary dire
 ### AlignScore
 Factual consistency evaluation using the abstract. [paper](https://arxiv.org/abs/2305.16739) | [modified repository](https://github.com/MNikley/AlignScore)
 
+
+---
+
+## Models with Unknown Training Cutoffs
+
+The following models have no publicly documented training-data cutoff date.
+If you can confirm a date, please update `Resources/model_training_cutoffs.json`
+and re-run `scripts/fetch_training_cutoffs.py` to regenerate the HTML report.
+
+| Platform | Model | Model card / docs |
+|----------|-------|-------------------|
+| `ollama` | `granite4:{micro,micro-h,tiny-h,small-h}` | [IBM Granite](https://www.ibm.com/granite) |
+| `ollama` | `mistral:7b` | [HuggingFace](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3) |
+| `ollama` | `mistral-nemo:12b` | [HuggingFace](https://huggingface.co/mistralai/Mistral-Nemo-Instruct-2407) |
+| `ollama` | `mistral-small3.2:24b` | [HuggingFace](https://huggingface.co/mistralai/Mistral-Small-3.2-24B-Instruct-2506) |
+| `ollama` | `qwen3:{4b,8b}` | [HuggingFace](https://huggingface.co/Qwen/Qwen3-8B) · [Blog](https://qwenlm.github.io/blog/qwen3/) |
+| `mistral` | `mistral-large-2411` | [Mistral docs](https://docs.mistral.ai/getting-started/models/premier/) |
+| `mistral` | `mistral-medium-2505` | [Mistral docs](https://docs.mistral.ai/getting-started/models/premier/) |
+| `mistral` | `mistral-medium-2508` | [Mistral docs](https://docs.mistral.ai/getting-started/models/premier/) |
+| `mistral` | `mistral-small-2506` | [Mistral docs](https://docs.mistral.ai/getting-started/models/premier/) |
+| `mistral` | `magistral-medium-2509` | [Mistral docs](https://docs.mistral.ai/getting-started/models/premier/) |
+
+> **Note on estimated cutoffs:** Some models have cutoff dates marked as *estimated* rather than
+> confirmed. These are inferred from the training pipeline rather than stated explicitly by the
+> provider. For example, **Granite 3.3** is estimated at ~April 2024 because its
+> [README](https://huggingface.co/ibm-granite/granite-3.3-8b-instruct) attributes its dataset to
+> `ibm-granite/granite-3.0-language-models` and its additional training uses only synthetic data
+> (no new world-knowledge); Granite 3.0's cutoff was
+> [confirmed as April 2024](https://github.com/orgs/ibm-granite/discussions/18) by an IBM
+> maintainer, but no explicit cutoff has been published for 3.3 itself.
+
+---
+
+## Utility Scripts
+
+| Script | Description |
+|--------|-------------|
+| `scripts/fetch_training_cutoffs.py` | Collects model training-data cutoff dates from multiple sources (community dataset, HuggingFace model cards, provider docs) and generates a JSON + interactive HTML report. |
+| `scripts/add_publication_dates.py` | Enriches the gold-standard dataset with publication dates fetched from the CrossRef API using DOIs. |
+| `scripts/download_models.py` | Parses `benchmark.py` and pre-downloads all required Ollama and HuggingFace models. |
+
+---
+
+## Acknowledgements & Data Sources
+
+This project builds on and gratefully acknowledges the following external resources:
+
+| Resource | Usage | Link |
+|----------|-------|------|
+| **LLM Knowledge Cutoff Dates** (HaoooWang) | Primary source for model training-data cutoff dates, crowd-sourced with citations to official docs and papers | [github.com/HaoooWang/llm-knowledge-cutoff-dates](https://github.com/HaoooWang/llm-knowledge-cutoff-dates) |
+| **CrossRef API** | Publication date retrieval for gold-standard papers via DOI lookup | [crossref.org](https://www.crossref.org/) |
+| **HuggingFace Hub** | Model hosting, model cards used for cutoff date extraction, and inference for encoder–decoder models | [huggingface.co](https://huggingface.co/) |
+| **Ollama** | Local inference runtime for open-weight LLMs (LLaMA, Gemma, DeepSeek, Phi, Qwen, etc.) | [ollama.com](https://ollama.com/) |
+| **AlignScore** | Factual consistency evaluation metric | [Zha et al. 2023](https://arxiv.org/abs/2305.16739) · [modified repo](https://github.com/MNikley/AlignScore) |
+| **BERTScore** | Semantic similarity evaluation using contextual embeddings | [Zhang et al. 2020](https://arxiv.org/abs/1904.09675) |
+| **ROUGE** | N-gram overlap metrics for summarization evaluation | [Lin 2004](https://aclanthology.org/W04-1013.pdf) |
 
 ---
 
