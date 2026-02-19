@@ -1107,7 +1107,7 @@ def batch_retrieve() -> None:
 
 # ── main ─────────────────────────────────────────────────────────────────────
 
-def main(batch_mode: str | None = None) -> None:
+def main(batch_mode: str | None = None, skip_ollama: bool = False) -> None:
     # ── fast-path: status & retrieve need no dataset loading ──
     if batch_mode == "status":
         batch_status()
@@ -1136,6 +1136,10 @@ def main(batch_mode: str | None = None) -> None:
         and m["pct_potentially_leaked"] is not None
         and m["pct_potentially_leaked"] > MIN_OVERLAP_PCT
     ]
+    if skip_ollama:
+        at_risk = [m for m in at_risk if m["platform"] != "ollama"]
+        log.info("Skipping ollama models (--skip-ollama)")
+
     if not at_risk:
         log.warning("No at-risk models found.  Nothing to do.")
         return
@@ -1432,5 +1436,11 @@ if __name__ == "__main__":
             "retrieve — download completed results into the local cache."
         ),
     )
+    parser.add_argument(
+        "--skip-ollama",
+        action="store_true",
+        default=False,
+        help="Skip all ollama models (useful when ollama is not running).",
+    )
     args = parser.parse_args()
-    main(batch_mode=args.batch)
+    main(batch_mode=args.batch, skip_ollama=args.skip_ollama)
