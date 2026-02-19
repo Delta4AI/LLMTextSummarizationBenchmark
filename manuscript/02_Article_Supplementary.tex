@@ -1,0 +1,29 @@
+%  CONFIGURE NEW SINGLE-PAGE FORMAT 
+
+\onecolumn % go back to one column
+\fancyhead{} % make sure we get no headers
+\renewcommand{\floatpagefraction}{0.1}
+\lfoot[\bSupInf]{\dAuthor}
+\rfoot[\dAuthor]{\cSupInf}
+\newpage
+
+\captionsetup*{format=largeformat} % make figure legend slightly larger than in the paper
+\setcounter{figure}{0} % reset figure counter for Supp. Figures
+\setcounter{equation}{0} % reset equation counter for Supp. Equations
+%\setcounter{page}{1} % reset page count
+\makeatletter 
+\renewcommand{\thefigure}{S\@arabic\c@figure} % make Figure legend start with Figure S
+\makeatother
+\def\theequation{S\arabic{equation}}
+
+%  MAIN TEXT 
+
+\newpage
+\section*{Supplementary Information}
+
+\begin{figure*}[!ht]
+    \centering
+    \includegraphics[width=1.0\textwidth]{Visualizations/supplementary1.png}
+    \caption{\textbf{Model performance across metrics:} Overview of the performance of all evaluated models across all metrics.}
+    \label{fig:supplementary_overview}
+\end{figure*}

@@ -1,0 +1,77 @@
+\PassOptionsToPackage{numbers,sort&compress,square}{natbib}
+
+%% select between bioRxiv style or submission style by commenting either line
+\documentclass[twocolumn]{bioRxiv}
+%\documentclass[submit]{bioRxiv}
+\renewcommand\familydefault{\sfdefault}
+\usepackage{lipsum}
+
+%% setup specific to this preprint -- add or remove as you need.
+\hyphenation{empire} % prevents word "empire" being split across lines
+\sisetup{range-units = single,
+        separate-uncertainty = true,
+        multi-part-units = single,
+        range-phrase = --} % units setup
+\usepackage{multirow} % allows merging of cells in tables
+
+\usepackage[nohyperlinks]{acronym}
+
+\usepackage{float}
+\usepackage{tabularx}
+\usepackage{booktabs}
+
+\usepackage[explicit]{titlesec}
+
+\usepackage{fvextra}
+
+\usepackage{amsmath}
+
+\usepackage{caption}
+\captionsetup[table]{justification=raggedright,singlelinecheck=false}
+\captionsetup[figure]{justification=raggedright,singlelinecheck=false}
+
+\setlength{\textfloatsep}{16pt plus 4pt minus 4pt}
+\setlength{\dbltextfloatsep}{20pt plus 6pt minus 6pt}
+\setlength{\floatsep}{12pt plus 4pt minus 4pt}
+\setlength{\dblfloatsep}{16pt plus 6pt minus 6pt}
+
+\makeatletter
+\renewcommand{\abstract}{
+  \section*{Abstract}
+  \ifbfabstract\normalsize\bfseries\else\normalsize\fi
+}
+\makeatother
+
+\begin{document}
+
+% ---------------- MAIN TEXT: normal numbering ----------------
+\renewcommand{\thesection}{\arabic{section}}
+\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\thesubsection.\arabic{subsubsection}}
+\setcounter{secnumdepth}{3}
+
+\titleformat{\section}
+  {\Large\sffamily\bfseries}
+  {\thesection}
+  {0.5em}
+  {#1}
+\titleformat{\subsection}
+  {\sffamily\bfseries}
+  {\thesubsection}
+  {0.5em}
+  {#1}
+\titleformat{\subsubsection}[runin]
+  {\sffamily\small\bfseries\itshape}
+  {\thesubsubsection}
+  {0.5em}
+  {#1. }
+
+\setcitestyle{numbers,square,comma,sort&compress}
+
+%% comment out any files that you don't want to include as sections
+\include{01_Article_MainText}
+\include{02_Article_Supplementary}
+%\include{03_Article_SupplementaryVideos}
+%\include{04_Article_SupplementaryTables}
+
+\end{document}

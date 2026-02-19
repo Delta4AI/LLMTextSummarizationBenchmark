@@ -1,0 +1,77 @@
+\leadauthor{Baumgärtel and Bono}
+
+\title{A systematic evaluation and benchmarking of text summarization methods for biomedical literature: From word-frequency methods to language models}
+\shorttitle{Benchmarking biomedical text summarization}
+
+\author[1,*]{Fabio Baumgärtel \orcidlink{0009-0000-0243-2673}}
+\author[1,2,*]{Enrico Bono \orcidlink{0009-0007-7272-5034}}
+\author[1]{Lucas Fillinger \orcidlink{0000-0001-5341-8097}}
+\author[1,2]{Louiza Galou \orcidlink{0009-0008-5176-2802}}
+\author[1]{Kinga Kęska-Izworska \orcidlink{0000-0002-4329-1499}}
+\author[1]{Samuel Walter \orcidlink{0000-0002-6868-5654}}
+\author[1]{Peter Andorfer \orcidlink{0009-0003-3492-4017}}
+\author[1,2]{Klaus Kratochwill \orcidlink{0000-0003-0803-614X}}
+\author[1,3]{Paul Perco \orcidlink{0000-0003-2087-5691}}
+\author[1,2,\Letter]{Matthias Ley \orcidlink{0000-0001-6853-8542}}
+
+\affil[1]{Delta4 GmbH, Vienna, Austria}
+\affil[2]{Division of Pediatric Nephrology and Gastroenterology, Department of Pediatrics and Adolescent Medicine, Comprehensive Center for Pediatrics, Medical University Vienna, Vienna, Austria}
+\affil[3]{Department of Internal Medicine IV, Medical University Innsbruck, Innsbruck, Austria}
+\affil[*]{These authors contributed equally to this work.}
+
+\date{}
+
+\maketitle
+
+\begin{abstract}
+The rapid expansion of biomedical literature demands automated summarization tools that can reliably condense research articles into concise, accurate overviews. We benchmarked 62 text summarization methods – ranging from frequency-based and TextRank extractors to modern \acp{EDM} and \acp{LLM} – on a set of 1,000 biomedical abstracts for which author-generated highlights sections were available as reference summaries. Models were evaluated using a composite suite of metrics covering lexical overlap (ROUGE-1/2/L, BLEU, METEOR), embedding-based semantic similarity (RoBERTa, DeBERTa, all-mpnet-base-v2), and factual consistency (AlignScore). Our results indicate that general-purpose \acp{LM} achieve the highest overall scores across both lexical and semantic metrics, outperforming both reasoning-oriented and domain-specific models. Within the general-purpose group, medium-sized models, typically runnable on a single node, often outperform frontier-scale counterparts, suggesting an optimal balance between model capacity and computational efficiency. Statistical extractive methods lag behind all neural approaches. These findings provide a systematic reference for selecting summarization tools in biomedical research and highlight that broad pretraining remains more effective than narrow domain adaptation for generating high-quality scientific summaries.
+\end{abstract}
+
+\begin{keywords}
+biomedical text summarization | natural language processing | large language models benchmarking
+\end{keywords}
+
+\begin{corrauthor}
+matthias.ley@delta4.ai
+\end{corrauthor}
+
+\input{acronyms}
+
+\input{Sections/introduction}
+
+\input{Sections/materials_methods}
+
+\input{Sections/results}
+
+\input{Sections/discussion}
+
+
+
+\section*{Acknowledgments}
+Enrico Bono is supported by a grant from the European Union’s Horizon Europe Marie Skłodowska-Curie Actions Doctoral Networks program project PICKED (HORIZON--MSCA--2023--DN-01, grant number 101168626). 
+Louiza Galou is supported by a grant from the European Union’s Horizon Europe Marie Skłodowska-Curie Actions Doctoral Networks Industrial Doctorates program project PROMOTE (HORIZON--MSCA--2023--DN-01, grant number 101169245). 
+Paul Perco and Matthias Ley are members of and would like to cordially thank the COST Action PerMediK, CA21165, supported by COST (European Cooperation in Science and Technology).
+We gratefully acknowledge Dorota Wojenska for her support in optimizing the overview workflow figure (Figure~\ref{fig:workflow_graphic}).
+
+\section*{Author Contributions}
+Conceptualization: M.L., P.P., E.B. and F.B.; 
+Methodology: M.L., P.P., E.B. and F.B.; 
+Software: M.L.; 
+Formal analysis: F.B., E.B., P.P. and M.L.; 
+Validation: E.B., F.B., L.F., P.P., M.L., L.G., K.K.-I., S.W., P.A. and K.K.; 
+Writing---original draft: F.B., E.B., M.L. and P.P.; 
+Writing---review \& editing: E.B., F.B., P.P., M.L., K.K., L.G., L.F., K.K.-I., P.A. and S.W.; 
+Visualization: F.B. and E.B.; 
+Supervision: M.L. and P.P.;
+All authors have read and agreed to the published version of the manuscript.
+
+\section*{Conflicts of Interest}
+K.K. is co-founder and shareholder of Delta4 GmbH (Vienna, Austria). 
+F.B., E.B., L.F., L.G., K.K.-I., S.W., P.A., P.P. and M.L. are employees of Delta4 GmbH (Vienna, Austria).
+
+\section*{Declaration of generative AI and AI-assisted technologies in the writing process}
+During the preparation of this work the author(s) used Anthropic (Claude 4.5 Opus) and OpenAI (ChatGPT-5) in order to enhance textual clarity and readability without introducing of new hypotheses or data. After using this tool/service, the author(s) reviewed and edited the content as needed and take(s) full responsibility for the content of the published article.
+
+\section*{Bibliography}
+\bibliographystyle{unsrtnat}
+\bibliography{refs.bib}
