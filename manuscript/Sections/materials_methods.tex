@@ -2,7 +2,7 @@
 
 Figure~\ref{fig:workflow_graphic} provides an overview of the complete benchmarking workflow of this study from dataset construction and model inference to metric computation, score aggregation, and statistical analysis.
 
-\begin{figure*}[t]
+\begin{figure*}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{Visualizations/workflow_graphic.png}
 \captionsetup{skip=6pt}
@@ -24,7 +24,9 @@ We generated a gold-standard benchmarking dataset comprising 1,000 biomedical pe
 
 Articles were collected systematically across a variety of journals from the two publishers to ensure coverage of different fields within molecular sciences, including among others drug discovery, genomics, proteomics, biotechnology, and biochemistry. We selected 50 articles from each of 20 different journals across the two publishers, resulting in 1,000 papers as shown in Table~\ref{tab:goldstandard}.
 
-\begin{table*}[t]
+This setup provided standardized pairs of abstracts and reference summaries subsequently used in our systematic evaluation and benchmarking of \ac{ATS} methods.
+
+\begin{table*}[H]
 \centering
 \caption{\textbf{Overview of journals included in the gold-standard dataset.}
 Each journal contributed 50 articles, resulting in 500 articles from \textit{ScienceDirect} and 500 articles from \textit{Cell Press}. \label{tab:goldstandard}}
@@ -46,15 +48,13 @@ Cell Systems \\
 \end{tabularx}
 \end{table*}
 
-This setup provided standardized pairs of abstracts and reference summaries subsequently used in our systematic evaluation and benchmarking of \ac{ATS} methods.
-
 \subsection{Summarization Methods}
 
 We in total evaluated 62 summarization models, ranging from simple frequency-based algorithms to \acp{SLM} \& \acp{LLM}. These models were classified into five categories, as listed in Table~\ref{tab:models}. We obtained the pre-trained \acp{EDM} through the Hugging Face library, selecting architectures widely used for abstractive summarization tasks to represent well established neural approaches within our benchmark. Additionally, we evaluated a range of popular \acp{SLM} and \acp{LLM}, defining \acp{SLM} as models with fewer than 10 billion parameters \cite{belcak2025smalllanguagemodelsfuture}. Both \acp{SLM} and \acp{LLM} with advanced reasoning capabilites were categorized as "reasoning-oriented" to investigate how multi-step problem solving affects summarization performance. Similarly, models fine-tuned on scientific/biomedical data or specifically tailored for text summarization were classified as "domain-specific" to assess the impact of domain adaptation. Overall, this selection covers various model sizes and release dates, ensuring a representative mix of both, widely adopted and recent, architectures.
 
 Exceptionally large models, such as LLaMA 3.1 405B, were excluded as their computational requirements exceed those of practical summarization pipelines. Each of the 62 models was tasked with generating summaries for the 1,000 abstracts in the dataset, resulting in a total of 62,000 generated summaries for evaluation.
 
-\begin{table*}[t]
+\begin{table*}[H]
 \centering
 \caption{\textbf{Overview of summarization methods evaluated in this study:} Models organized by category.\label{tab:models}}
 \begin{tabularx}{\linewidth}{lX}

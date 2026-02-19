@@ -12,9 +12,9 @@ In addition, AlignScore, a factual consistency metric, correlated moderately wit
 
 Overall, these relationships demonstrate that the various metrics are broadly consistent while providing complementary perspectives. This supports the use of an aggregated ``Overall Performance Score'' as a balanced indicator of overall summarization performance.
 
-\begin{figure*}[t]
+\begin{figure*}[H]
 \centering
-\includegraphics[width=1.0\textwidth]{Visualizations/metric_correlation.png}
+\includegraphics[width=0.85\textwidth]{Visualizations/metric_correlation.png}
 \captionsetup{skip=6pt}
 \caption{
 \textbf{Spearman Correlation between Metrics:}
@@ -31,9 +31,9 @@ Among the 10 top-ranked models, six were general-purpose \acp{LLM} and four were
 
 Considering each metric dimension separately, some Mistral models ranked high in the lexical dimension with GPT-5-nano, a reasoning-oriented \ac{LLM} from the \ac{GPT} family, ranked third. In the semantic dimension, Mistral models achieved high ranks, but the highest positions were occupied by the Phi4:14b general-purpose \ac{LLM} and some models from the Granite family, such as granite4:tiny-h and granite3.3:2b. Finally, the highest ranks based on the factual dimension were covered by traditional and encoder-decoder models. Detailed performance indications for each model across all individual ranked metrics are provided in supplementary Figure~\ref{fig:supplementary_overview}.
 
-\begin{figure*}[t]
+\begin{figure*}[H]
 \centering
-\includegraphics[width=0.8\textwidth]{Visualizations/rank_heatmap.png}
+\includegraphics[width=0.7\textwidth]{Visualizations/rank_heatmap.png}
 \captionsetup{skip=6pt}
 \caption{
 \textbf{Ranking of Summarization Models:}
@@ -48,11 +48,11 @@ All general-purpose \acp{LLM} achieved high overall scores thus forming the top 
 
 Domain-specific \acp{EDM}, domain-specific \acp{SLM}, traditional models, and general-purpose \acp{EDM} performed significantly worse as compared to general-purpose \acp{LM}. Domain-specific \acp{EDM} and domain-specific \acp{SLM} displayed the widest spread of performance as can be seen in Figure~\ref{fig:category_boxplots_and_gameshowell}a.
 
-\begin{figure*}[t]
+\begin{figure*}[!htbp]
 \centering
-\includegraphics[width=0.87\textwidth]{Visualizations/category_boxplot.png}
+\includegraphics[width=0.85\textwidth]{Visualizations/category_boxplot.png}
 \vspace{8pt}
-\includegraphics[width=0.87\textwidth]{Visualizations/category_gameshowell.png}
+\includegraphics[width=0.85\textwidth]{Visualizations/category_gameshowell.png}
 \captionsetup{skip=6pt}
 \caption{
 \textbf{(a)} 
@@ -77,11 +77,11 @@ In particular, the \ac{GPT} and \ac{Llama} families showed lower performance sco
 
 Regarding the Games-Howell post-hoc matrix in the family comparison (Figure~\ref{fig:family_boxplots_and_gameshowell}b), a combination of significant and non-significant differences between families was observed, reflecting the greater heterogeneity within some lineages. While many high-performing families differed significantly from traditional and encoder-decoder dominated families, several comparisons among modern \acp{SLM} and \acp{LLM} dominated families did not reach statistical significance.
 
-\begin{figure*}[t]
+\begin{figure*}[!htbp]
 \centering
-\includegraphics[width=0.87\textwidth]{Visualizations/family_boxplot.png}
+\includegraphics[width=0.85\textwidth]{Visualizations/family_boxplot.png}
 \vspace{8pt}
-\includegraphics[width=0.87\textwidth]{Visualizations/family_gameshowell.png}
+\includegraphics[width=0.85\textwidth]{Visualizations/family_gameshowell.png}
 \captionsetup{skip=6pt}
 \caption{
 \textbf{a)} 
@@ -115,7 +115,7 @@ We selected mistral-small3.2:24b as a high-performing model (ranked 2nd overall)
 
 Table~\ref{tab:concept_coverage} summarizes the concept-level coverage and overall performance for both models. While both models capture the switch-like behavior (H1) and the percolation transition (H3), the lower-performing model fails to explicitly link the threshold to surface density/spacing (H2) and omits the complexity-based decision-making framework (H4). In contrast, mistral-small3.2:24b achieves full coverage by explicitly connecting the physical density to the "decisions" made by the complex protein network. The overall performance scores, derived using the weighted metric aggregation introduced in Section~\ref{subsec:overall_performance_metric}, further reflect this difference, with mistral-small3.2:24b achieving a higher score compared to medllama2:7b.
 
-\begin{table*}[t]
+\begin{table*}[H]
 \centering
 \caption{\textbf{Concept coverage analysis of model-generated summaries.} Symbols: \checkmark = fully covered; $\sim$ = partially covered; $\times$ = not covered. Overall performance scores are derived using the weighted metric aggregation described in Section~\ref{subsec:overall_performance_metric}.}
 \label{tab:concept_coverage}
