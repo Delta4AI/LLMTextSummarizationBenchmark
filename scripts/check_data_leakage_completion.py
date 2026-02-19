@@ -18,8 +18,8 @@ model's training cutoff → could be in training data) or *post_cutoff*
 groups is evidence of memorization.
 
 Outputs:
-  Resources/data_leakage_completion_probe.json
-  Resources/data_leakage_completion_probe.html
+  Output/scripts/data_leakage_completion_probe.json
+  Output/scripts/data_leakage_completion_probe.html
 
 Expects API keys in Resources/.env (see Resources/example.env).
 """
@@ -48,11 +48,11 @@ for _env in [ROOT / "Resources" / ".env", ROOT / ".env"]:
         load_dotenv(_env, override=False)
         break
 
-LEAKAGE_JSON = ROOT / "Resources" / "data_leakage_cutoff_check.json"
+LEAKAGE_JSON = ROOT / "Output" / "scripts" / "data_leakage_cutoff_check.json"
 DATASET_JSON = ROOT / "Resources" / "text_summarization_goldstandard_data.json"
-CACHE_PATH   = ROOT / "Resources" / "data_leakage_completion_cache.json"
-OUTPUT_JSON  = ROOT / "Resources" / "data_leakage_completion_probe.json"
-OUTPUT_HTML  = ROOT / "Resources" / "data_leakage_completion_probe.html"
+CACHE_PATH   = ROOT / "Output" / "scripts" / "data_leakage_completion_cache.json"
+OUTPUT_JSON  = ROOT / "Output" / "scripts" / "data_leakage_completion_probe.json"
+OUTPUT_HTML  = ROOT / "Output" / "scripts" / "data_leakage_completion_probe.html"
 
 # ── configuration ────────────────────────────────────────────────────────────
 

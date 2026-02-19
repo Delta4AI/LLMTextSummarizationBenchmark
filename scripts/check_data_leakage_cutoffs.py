@@ -6,8 +6,8 @@ to identify potential overlap (articles published before a model's cutoff
 could theoretically be in its training data).
 
 Outputs:
-  - Resources/data_leakage_cutoff_check.json   (machine-readable)
-  - Resources/data_leakage_cutoff_check.html   (interactive dashboard)
+  - Output/scripts/data_leakage_cutoff_check.json   (machine-readable)
+  - Output/scripts/data_leakage_cutoff_check.html   (interactive dashboard)
   - prints a human-readable summary to stdout
 """
 
@@ -19,8 +19,8 @@ from collections import defaultdict
 ROOT = Path(__file__).resolve().parent.parent
 CUTOFFS_PATH = ROOT / "Resources" / "model_training_cutoffs.json"
 DATASET_PATH = ROOT / "Resources" / "text_summarization_goldstandard_data.json"
-OUTPUT_JSON  = ROOT / "Resources" / "data_leakage_cutoff_check.json"
-OUTPUT_HTML  = ROOT / "Resources" / "data_leakage_cutoff_check.html"
+OUTPUT_JSON  = ROOT / "Output" / "scripts" / "data_leakage_cutoff_check.json"
+OUTPUT_HTML  = ROOT / "Output" / "scripts" / "data_leakage_cutoff_check.html"
 
 CLOSED_PLATFORMS = {"openai", "anthropic", "mistral"}
 
