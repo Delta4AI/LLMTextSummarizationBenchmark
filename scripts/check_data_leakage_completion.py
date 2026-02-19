@@ -90,7 +90,7 @@ REQUEST_DELAY = 0.5         # seconds between API calls (per-platform minimum)
 PLATFORM_CONCURRENCY: dict[str, tuple[int, float]] = {
     "openai":    (4, 0.5),   # 4 concurrent, 0.5s between dispatches
     "anthropic": (4, 0.5),
-    "ollama":    (2, 0.2),   # local, lower concurrency to avoid OOM
+    "ollama":    (1, 0.2),   # sequential to avoid model swapping on server
 }
 DEFAULT_CONCURRENCY = (2, 0.5)
 
@@ -1181,62 +1181,24 @@ def main(batch_mode: str | None = None) -> None:
     log.info(f"Prepared {total} probe tasks across {len(at_risk)} models "
              f"and {len(samples)} articles")
 
-    # ── worker function ──
-    _progress_lock = threading.Lock()
-    _done_counter = [0]          # mutable counter shared across threads
-
-    def _run_probe(task: dict) -> dict | None:
-        platform  = task["platform"]
-        model     = task["model"]
-        cutoff    = task["cutoff"]
-        cutoff_dt = task["cutoff_dt"]
+    # ── helper: build probe result from a completion ──
+    def _build_result(task: dict, completion: str) -> dict:
         sample    = task["sample"]
-        art_id    = sample["article"]["id"]
         first     = sample["first_sentence"]
         remaining = sample["remaining_text"]
-        ckey      = _cache_key(model, art_id)
-        prompt    = USER_PROMPT_TEMPLATE.format(first_sentence=first)
-
-        with _progress_lock:
-            _done_counter[0] += 1
-            idx = _done_counter[0]
-
-        # cache lookup (thread-safe)
-        cached = cache_get(cache, ckey)
-        if cached is not None:
-            completion = cached["completion"]
-            log.info(f"  [{idx}/{total}] cache hit   {model}  {art_id[:50]}")
-        else:
-            _rate_limiter.acquire(platform)
-            try:
-                log.info(f"  [{idx}/{total}] querying    {model}  {art_id[:50]}")
-                completion = query_model(platform, model, prompt)
-                cache_set_and_save(cache, ckey, {
-                    "completion": completion,
-                    "model": model,
-                    "article_id": art_id,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
-            except Exception as exc:
-                log.error(f"  [{idx}/{total}] ERROR — {model}: {exc}")
-                return None
-            finally:
-                _rate_limiter.release(platform)
-
-        cleaned = clean_completion(completion, first)
-        scores  = score_completion(remaining, cleaned)
-
-        pub_dt = parse_partial_date(sample["pub_date"])
+        cutoff_dt = task["cutoff_dt"]
+        cleaned   = clean_completion(completion, first)
+        scores    = score_completion(remaining, cleaned)
+        pub_dt    = parse_partial_date(sample["pub_date"])
         if pub_dt and cutoff_dt:
             t_class = "pre_cutoff" if pub_dt <= cutoff_dt else "post_cutoff"
         else:
             t_class = "unknown"
-
         return {
-            "model": model,
-            "platform": platform,
-            "training_cutoff": cutoff,
-            "article_id": art_id,
+            "model": task["model"],
+            "platform": task["platform"],
+            "training_cutoff": task["cutoff"],
+            "article_id": sample["article"]["id"],
             "article_title": sample["article"].get("title", ""),
             "journal_id": sample["journal_id"],
             "publication_date": sample["pub_date"],
@@ -1248,22 +1210,91 @@ def main(batch_mode: str | None = None) -> None:
             **scores,
         }
 
-    # ── run probes concurrently ──
-    # Total workers = sum of per-platform max_workers (each platform is
-    # independently throttled by the rate limiter).
-    platforms_used = {t["platform"] for t in tasks}
-    max_workers = sum(
-        PLATFORM_CONCURRENCY.get(p, DEFAULT_CONCURRENCY)[0]
-        for p in platforms_used
-    )
-    log.info(f"Launching ThreadPoolExecutor with {max_workers} workers "
-             f"(platforms: {', '.join(sorted(platforms_used))})")
-
+    # ── resolve cached probes upfront (no API calls) ──
+    log.info("Pre-resolving cached probes …")
     all_probes: list[dict] = []
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        futures = {pool.submit(_run_probe, t): t for t in tasks}
-        for fut in as_completed(futures):
-            result = fut.result()
+    uncached_tasks: list[dict] = []
+    for task in tasks:
+        art_id = task["sample"]["article"]["id"]
+        ckey   = _cache_key(task["model"], art_id)
+        cached = cache.get(ckey)
+        if cached is not None:
+            all_probes.append(_build_result(task, cached["completion"]))
+        else:
+            uncached_tasks.append(task)
+    log.info(f"  {len(all_probes)} cached, {len(uncached_tasks)} to query")
+
+    # ── split uncached: ollama (sequential, grouped by model) vs rest ──
+    ollama_tasks = sorted(
+        [t for t in uncached_tasks if t["platform"] == "ollama"],
+        key=lambda t: t["model"],
+    )
+    other_tasks = [t for t in uncached_tasks if t["platform"] != "ollama"]
+    uncached_total = len(uncached_tasks)
+
+    _progress_lock = threading.Lock()
+    _done_counter  = [0]
+
+    def _query_probe(task: dict) -> dict | None:
+        """Call the API, cache the result, return the probe dict."""
+        platform = task["platform"]
+        model    = task["model"]
+        sample   = task["sample"]
+        art_id   = sample["article"]["id"]
+        first    = sample["first_sentence"]
+        ckey     = _cache_key(model, art_id)
+        prompt   = USER_PROMPT_TEMPLATE.format(first_sentence=first)
+
+        with _progress_lock:
+            _done_counter[0] += 1
+            idx = _done_counter[0]
+
+        _rate_limiter.acquire(platform)
+        try:
+            log.info(f"  [{idx}/{uncached_total}] querying    "
+                     f"{model}  {art_id[:50]}")
+            completion = query_model(platform, model, prompt)
+            cache_set_and_save(cache, ckey, {
+                "completion": completion,
+                "model": model,
+                "article_id": art_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
+        except Exception as exc:
+            log.error(f"  [{idx}/{uncached_total}] ERROR — {model}: {exc}")
+            return None
+        finally:
+            _rate_limiter.release(platform)
+
+        return _build_result(task, completion)
+
+    # ── run non-ollama tasks concurrently ──
+    if other_tasks:
+        platforms_used = {t["platform"] for t in other_tasks}
+        max_workers = sum(
+            PLATFORM_CONCURRENCY.get(p, DEFAULT_CONCURRENCY)[0]
+            for p in platforms_used
+        )
+        log.info(f"Running {len(other_tasks)} non-ollama probes with "
+                 f"{max_workers} workers "
+                 f"({', '.join(sorted(platforms_used))})")
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = {pool.submit(_query_probe, t): t for t in other_tasks}
+            for fut in as_completed(futures):
+                result = fut.result()
+                if result is not None:
+                    all_probes.append(result)
+
+    # ── run ollama tasks sequentially, grouped by model ──
+    if ollama_tasks:
+        current_model = None
+        log.info(f"Running {len(ollama_tasks)} ollama probes sequentially "
+                 f"(grouped by model)")
+        for task in ollama_tasks:
+            if task["model"] != current_model:
+                current_model = task["model"]
+                log.info(f"  Ollama: loading model {current_model}")
+            result = _query_probe(task)
             if result is not None:
                 all_probes.append(result)
 
