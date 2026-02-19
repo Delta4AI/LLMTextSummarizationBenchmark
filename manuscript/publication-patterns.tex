@@ -5,6 +5,7 @@
 %%%  Build:  latexmk -pdf publication-patterns.tex
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\newif\ifpatterns \patternstrue        % flag consumed by shared sections
 \PassOptionsToPackage{left}{lineno}   % must precede authblk
 \documentclass[12pt,letterpaper]{article}
 \usepackage[a4paper, total={7in, 10in}]{geometry}
