@@ -56,3 +56,29 @@ Output/
 !Resources/model_training_cutoffs.html
 !Resources/model_training_cutoffs.json
 .env
+
+# ── LaTeX build artifacts (manuscript/) ──
+manuscript/*.aux
+manuscript/*.bbl
+manuscript/*.blg
+manuscript/*.fdb_latexmk
+manuscript/*.fls
+manuscript/*.log
+manuscript/*.out
+manuscript/*.synctex.gz
+manuscript/*.toc
+manuscript/*.lof
+manuscript/*.lot
+manuscript/*.nav
+manuscript/*.snm
+manuscript/*.vrb
+manuscript/*.run.xml
+manuscript/*.bcf
+manuscript/*.idx
+manuscript/*.ilg
+manuscript/*.ind
+manuscript/*.pdf
+!manuscript/Definitions/*.pdf
+manuscript/Sections/*.log
+# Word temporary files
+~$*.docx
