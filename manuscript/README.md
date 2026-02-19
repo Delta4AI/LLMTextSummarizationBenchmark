@@ -1,47 +1,83 @@
-# manuscript-templates
-LaTeX templates for manuscripts (switchable bioRxiv preprint and journal submission templates), for use on Overleaf.
+# Manuscript
 
-## Basic idea
+LaTeX source for the publication:
 
-An ideal manuscript LaTeX template should be able to generate two versions of the manuscript:
+> **A Systematic evaluation and benchmarking of text summarization methods for biomedical literature:
+> From word-frequency methods to language models**
+>
+> Baumgärtel F, Bono E, Fillinger L, Galou L, Kęska-Izworska K, Walter S, Andorfer P, Kratochwill K, Perco P, Ley M
+> bioRxiv 2026, [doi.org/10.64898/2026.01.09.697335](https://doi.org/10.64898/2026.01.09.697335)
 
-1. a preprint version - typeset to look like a finished paper
-2. a journal submission version - better for reviewing, with line numbers and different spacing, etc.
+## Manuscript versions
 
-The ideal template should be able to switch between these two manuscript layouts. A preview of both outputs is shown below.
+| Entry point | Template | Usage |
+|-------------|----------|-------|
+| `publication-patterns.tex` | Patterns (Cell Press) | **Primary** — journal submission |
+| `publication-biorxiv.tex` | bioRxiv two-column preprint | Preprint server |
 
-## Use
+Both versions share the same `Sections/`, `Visualizations/`, `acronyms.tex`, and `refs.bib`.
 
-To use, just clone this repo and import into Overleaf or a directory on your own computer to use a local LaTeX installation.
-The following files and folders are not required: `img`, `Examples`, `README`.
+## Prerequisites
 
-Write your manuscript in `01_Article_MainText.tex` and then comment either line 2 or 3 of `00_Article_Merge.tex` to select between outputs.
-There are optional Supplementary tex files that can also be edited.
-If they are not required, comment the appropriate lines in `00_Article_Merge.tex`.
+A TeX Live (or equivalent) installation with `pdflatex` and `bibtex`:
 
-Tested on Overleaf - TeXLive 2023 with pdfLaTeX compiler.
+- **Ubuntu / Debian:** `sudo apt install texlive-full`
+- **Fedora:** `sudo dnf install texlive-scheme-full`
+- **macOS (Homebrew):** `brew install --cask mactex`
+- **Windows:** [MiKTeX](https://miktex.org/) or [TeX Live](https://tug.org/texlive/)
 
+## Building
 
-## Contributions
+### Patterns version (primary)
 
-The initial overleaf template was forked from the template created by Henriques lab [available here](https://www.overleaf.com/latex/templates/henriqueslab-biorxiv-template/nyprsybwffws).
-This is a modification of the PNAS template (also available on Overleaf) which is widely used on bioRxiv.
-We have made a few changes to the HenriquesLab bioRxiv template and made it possible to easily generate a journal submission version.
+```bash
+cd manuscript
+latexmk -pdf publication-patterns.tex
+```
 
-Changes include:
+### bioRxiv version
 
-- genuine bioRxiv logo used in the footer
-- support for ORCiDs using `\orcidlink`
-- Helvetica for readability
-- greater range of custom units
-- refactored into one single class - thank you to Dominik Straub for his work on [this fork](https://github.com/dominikstrb/manuscript-templates).
+```bash
+cd manuscript
+latexmk -pdf publication-biorxiv.tex
+```
 
-## What do they look like?
+Both commands run the full `pdflatex → bibtex → pdflatex → pdflatex` cycle automatically.
 
-### Preprint version (for bioRxiv)
+To clean up all intermediate files:
+```bash
+latexmk -C
+```
 
-![img](img/Example_bioRxiv.png?raw=true "image")
+## Project structure
 
-### Journal submission version
-
-![img](img/Example_submit.png?raw=true "image")
+```
+manuscript/
+├── publication-patterns.tex     # Entry point — Patterns / Cell Press
+├── publication-biorxiv.tex      # Entry point — bioRxiv preprint
+├── 01_Article_MainText.tex      # Main text (used by biorxiv entry point)
+├── 02_Article_Supplementary.tex # Supplementary (used by biorxiv entry point)
+├── acronyms.tex                 # Acronym definitions (shared)
+├── refs.bib                     # BibTeX references (shared)
+├── bioRxiv.cls                  # bioRxiv document class
+├── bxv_abbrvnat.bst             # bioRxiv bibliography style
+├── bioRxiv_logo.png             # bioRxiv logo asset
+├── orcidlink.sty                # ORCID link support
+├── numbered.bst                 # Patterns bibliography style
+├── numcompress.sty              # Numeric citation compression
+├── Sections/                    # Content sections (shared)
+│   ├── introduction.tex
+│   ├── materials_methods.tex
+│   ├── results.tex
+│   ├── discussion.tex
+│   └── conclusions.tex
+└── Visualizations/              # Figures (shared)
+    ├── category_boxplot.png
+    ├── category_gameshowell.png
+    ├── family_boxplot.png
+    ├── family_gameshowell.png
+    ├── metric_correlation.png
+    ├── rank_heatmap.png
+    ├── supplementary1.png
+    └── workflow_graphic.png
+```

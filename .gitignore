@@ -66,6 +66,7 @@ manuscript/*.fls
 manuscript/*.log
 manuscript/*.out
 manuscript/*.synctex.gz
+manuscript/*.synctex(busy)
 manuscript/*.toc
 manuscript/*.lof
 manuscript/*.lot
@@ -79,5 +80,6 @@ manuscript/*.ilg
 manuscript/*.ind
 manuscript/*.pdf
 manuscript/Sections/*.log
+manuscript/Sections/*.aux
 # Word temporary files
 ~$*.docx

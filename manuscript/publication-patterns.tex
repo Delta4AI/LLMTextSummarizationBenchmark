@@ -1,0 +1,151 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%  Patterns (Cell Press) template — adapted to
+%%%  share section files with the bioRxiv build.
+%%%
+%%%  Build:  latexmk -pdf publication-patterns.tex
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\PassOptionsToPackage{left}{lineno}   % must precede authblk
+\documentclass[12pt,letterpaper]{article}
+\usepackage[a4paper, total={7in, 10in}]{geometry}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{helvet}
+\usepackage{authblk}
+\usepackage{hyperref}
+
+\usepackage[nohyperlinks]{acronym}
+\newcommand{\loadacronyms}{\input{acronyms}}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amssymb}
+\usepackage{tabularx}
+\usepackage{amsmath}
+\usepackage{fvextra}          % shared sections use \begin{Verbatim}
+\usepackage{caption}
+\captionsetup[table]{justification=raggedright,singlelinecheck=false}
+\captionsetup[figure]{justification=raggedright,singlelinecheck=false}
+
+\usepackage{lineno}
+\linenumbers
+
+%%% ── Compatibility shims for shared sections ──
+%%% Sections use \section{} (numbered, bioRxiv style).
+%%% Patterns wants unnumbered headings → override:
+\setcounter{secnumdepth}{0}
+
+%%% Sections use figure*/table* (two-column spanning, bioRxiv).
+%%% Single-column Patterns → map them to plain figure/table:
+\let\oldfigurestar\figure
+\let\endoldfigurestar\endfigure
+\renewenvironment{figure*}{\begin{figure}}{\end{figure}}
+\let\oldtablestar\table
+\let\endoldtablestar\endtable
+\renewenvironment{table*}{\begin{table}}{\end{table}}
+
+\makeatletter
+\renewcommand{\maketitle}{\bgroup\setlength{\parindent}{0pt}
+\begin{flushleft}
+  \textbf{\@title}
+  
+  \@author
+\end{flushleft}\egroup}
+\makeatother
+
+%%%  Title
+
+\title{A systematic evaluation and benchmarking of text summarization methods for biomedical literature: From word-frequency methods to language models}
+\date{}
+
+%%%  Authors and affiliations
+
+\author[1,4]{Fabio Baumgärtel}
+\author[1,2,4]{Enrico Bono}
+\author[1]{Lucas Fillinger}
+\author[1,2]{Louiza Galou}
+\author[1]{Kinga Keska-Izworska}
+\author[1]{Samuel Walter}
+\author[1]{Peter Andorfer}
+\author[1,2]{Klaus Kratochwill}
+\author[1,3]{Paul Perco}
+\author[1,2,5,*]{Matthias Ley}
+
+\affil[1]{Delta4 GmbH, Vienna, Austria}
+\affil[2]{Division of Pediatric Nephrology and Gastroenterology, Department of Pediatrics and Adolescent Medicine, Comprehensive Center for Pediatrics, Medical University Vienna, Vienna, Austria}
+\affil[3]{Department of Internal Medicine IV, Medical University Innsbruck, Innsbruck, Austria}
+\affil[4]{These authors contributed equally}
+\affil[5]{Lead contact}
+\affil[*]{matthias.ley@delta4.ai}
+
+%%%  Bibliography — Numbered (AMA) style
+\usepackage[super,comma,sort&compress]{natbib}\bibliographystyle{numbered}
+
+
+\begin{document}
+
+\maketitle
+
+\loadacronyms
+
+\section*{Summary}
+
+The rapid expansion of biomedical literature demands automated summarization tools that can reliably condense research articles into concise, accurate overviews. We benchmarked 62 text summarization methods – ranging from frequency-based and TextRank extractors to encoder-decoder models (EDMs) and large language models (LLMs) – on 1,000 biomedical abstracts with author-generated highlights as reference summaries. Models were evaluated using a composite suite of lexical, semantic, and factual metrics, including ROUGE, BLEU, METEOR, embedding-based similarity scores, and AlignScore. Our results indicate that general-purpose language models (LMs) achieve the highest overall performance across lexical and semantic dimensions, outperforming both reasoning-oriented and domain-specific models. Notably, medium-sized models often outperform frontier-scale counterparts, suggesting an optimal balance between model capacity and computational efficiency. Statistical extractive methods consistently lag behind neural approaches. These findings provide a systematic reference for selecting biomedical summarization tools and highlight that broad pretraining remains more effective than narrow domain adaptation for generating high-quality scientific summaries.
+
+\section*{Keywords}
+
+biomedical text summarization, natural language processing, large language models benchmarking
+
+%%% ── Shared sections (with their own \section{} headers) ──
+
+\input{Sections/introduction}
+
+\input{Sections/materials_methods}
+
+\input{Sections/results}
+
+\input{Sections/discussion}
+
+\input{Sections/conclusions}
+
+%%% ── Back matter ──
+
+\section*{Supplemental information}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Visualizations/supplementary1.png}
+    \caption{\textbf{Model performance across metrics:} Overview of the performance of all evaluated models across all metrics.}
+    \label{fig:supplementary_overview}
+\end{figure}
+
+\section*{Acknowledgments}
+
+Enrico Bono is supported by a grant from the European Union's Horizon Europe Marie Skłodowska-Curie Actions Doctoral Networks program project PICKED (HORIZON--MSCA--2023--DN-01, grant number 101168626). 
+Louiza Galou is supported by a grant from the European Union's Horizon Europe Marie Skłodowska-Curie Actions Doctoral Networks Industrial Doctorates program project PROMOTE (HORIZON--MSCA--2023--DN-01, grant number 101169245). 
+Paul Perco and Matthias Ley are members of and would like to cordially thank the COST Action PerMediK, CA21165, supported by COST (European Cooperation in Science and Technology).
+We gratefully acknowledge Dorota Wojenska for her support in optimizing the overview workflow figure (Figure~\ref{fig:workflow_graphic}).
+
+\section*{Author contributions}
+
+Conceptualization: M.L., P.P., E.B. and F.B.; 
+Methodology: M.L., P.P., E.B. and F.B.; 
+Software: M.L.; 
+Formal analysis: F.B., E.B., P.P. and M.L.; 
+Validation: E.B., F.B., L.F., P.P., M.L., L.G., K.K.-I., S.W., P.A. and K.K.; 
+Writing---original draft: F.B., E.B., M.L. and P.P.; 
+Writing---review \& editing: E.B., F.B., P.P., M.L., K.K., L.G., L.F., K.K.-I., P.A. and S.W.; 
+Visualization: F.B. and E.B.; 
+Supervision: M.L. and P.P.;
+All authors have read and agreed to the published version of the manuscript.
+
+\section*{Declaration of interests}
+
+K.K. is co-founder and shareholder of Delta4 GmbH (Vienna, Austria). 
+F.B., E.B., L.F., L.G., K.K.-I., S.W., P.A., P.P. and M.L. are employees of Delta4 GmbH (Vienna, Austria).
+
+\section*{Declaration of generative AI and AI-assisted technologies in the writing process}
+
+During the preparation of this work the author(s) used Anthropic (Claude 4.5 Opus) and OpenAI (ChatGPT-5) in order to enhance textual clarity and readability without introducing of new hypotheses or data. After using this tool/service, the author(s) reviewed and edited the content as needed and take(s) full responsibility for the content of the published article.
+
+\bibliography{refs}
+
+\end{document}
