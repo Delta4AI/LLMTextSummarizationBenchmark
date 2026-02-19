@@ -1215,17 +1215,26 @@ def main(batch_mode: str | None = None, skip_ollama: bool = False) -> None:
         }
 
     # ── resolve cached probes upfront (no API calls) ──
-    log.info("Pre-resolving cached probes …")
+    log.info("Pre-resolving cached probes (scoring may take a minute) …")
     all_probes: list[dict] = []
     uncached_tasks: list[dict] = []
-    for task in tasks:
+    _cached_count = 0
+    _last_log_time = time.monotonic()
+    for i, task in enumerate(tasks, 1):
         art_id = task["sample"]["article"]["id"]
         ckey   = _cache_key(task["model"], art_id)
         cached = cache.get(ckey)
         if cached is not None:
             all_probes.append(_build_result(task, cached["completion"]))
+            _cached_count += 1
         else:
             uncached_tasks.append(task)
+        # progress every 5 seconds or on last item
+        _now = time.monotonic()
+        if _now - _last_log_time >= 5.0 or i == total:
+            log.info(f"  scoring progress: {i}/{total} "
+                     f"({_cached_count} cached, {len(uncached_tasks)} uncached)")
+            _last_log_time = _now
     log.info(f"  {len(all_probes)} cached, {len(uncached_tasks)} to query")
 
     # ── split uncached: ollama (sequential, grouped by model) vs rest ──
@@ -1305,6 +1314,7 @@ def main(batch_mode: str | None = None, skip_ollama: bool = False) -> None:
     save_cache(cache)
 
     # ── aggregate ──
+    log.info("Aggregating results (bootstrap CIs) …")
     model_summaries: list[dict] = []
     probes_by_model: dict[str, list[dict]] = defaultdict(list)
     for p in all_probes:
@@ -1313,6 +1323,7 @@ def main(batch_mode: str | None = None, skip_ollama: bool = False) -> None:
     for mi in at_risk:
         model = mi["model"]
         probes = probes_by_model.get(model, [])
+        log.info(f"  aggregating {model} ({len(probes)} probes) …")
         stats = aggregate_model(probes)
         model_summaries.append({
             "model": model,
