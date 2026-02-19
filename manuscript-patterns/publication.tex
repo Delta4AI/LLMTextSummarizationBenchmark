@@ -1,0 +1,196 @@
+\documentclass[11pt]{article}
+
+% -----------------------------
+% Encoding + fonts
+% -----------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+% -----------------------------
+% Layout
+% -----------------------------
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{setspace}
+\setstretch{1.15}
+
+% -----------------------------
+% Figures / tables
+% -----------------------------
+\usepackage{graphicx}
+\usepackage{float}        % for [H]
+\usepackage{booktabs}
+\usepackage{tabularx}
+
+% -----------------------------
+% Math / symbols
+% -----------------------------
+\usepackage{amsmath,amssymb}
+
+% -----------------------------
+% Links (bioRxiv-friendly)
+% -----------------------------
+\usepackage[hidelinks]{hyperref}
+
+% -----------------------------
+% Acronyms (you already use this)
+% -----------------------------
+\usepackage[nohyperlinks]{acronym}
+
+% -----------------------------
+% Citations / References (BibTeX, no biber)
+% -----------------------------
+\usepackage[numbers]{natbib}
+
+% Compact spacing + smaller font in references
+\setlength{\bibsep}{2pt}
+\renewcommand{\bibfont}{\small}
+
+% IMPORTANT: use an IEEE-like BibTeX style that truncates long author lists
+\bibliographystyle{IEEEtran}
+
+% -----------------------------
+% Optional: nicer author/affiliation handling
+% -----------------------------
+
+\usepackage{orcidlink}
+
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+
+\newcommand{\manuscriptdate}{\today}
+
+\pagestyle{fancy}
+\fancyhf{} % clear all header and footer fields
+
+% Header
+\fancyhead[L]{\small \manuscriptdate}
+\fancyhead[R]{\small Page \thepage\ of \pageref{LastPage}}
+
+% No footer
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\date{}
+
+\begin{document}
+
+\thispagestyle{plain}
+
+% -----------------------------
+% Custom left-aligned title block
+% -----------------------------
+\begin{flushleft}
+{\LARGE\bfseries
+A systematic evaluation and benchmarking of text summarization methods for biomedical literature: From word-frequency methods to language models
+\par}
+\vspace{0.75em}
+
+{\normalsize
+Fabio Baumgärtel$^{1,\dagger}$\,\orcidlink{0009-0000-0243-2673},
+Enrico Bono$^{1,2,\dagger}$\,\orcidlink{0009-0007-7272-5034},
+Lucas Fillinger$^{1}$\,\orcidlink{0000-0001-5341-8097},
+Louiza Galou$^{1,2}$\,\orcidlink{0009-0008-5176-2802},\\
+Kinga Kęska-Izworska$^{1}$\,\orcidlink{0000-0002-4329-1499},
+Samuel Walter$^{1}$\,\orcidlink{0000-0002-6868-5654},
+Peter Andorfer$^{1}$\,\orcidlink{0009-0003-3492-4017},
+Klaus Kratochwill$^{1,2}$\,\orcidlink{0000-0003-0803-614X},\\
+Paul Perco$^{1,3}$\,\orcidlink{0000-0003-2087-5691},
+Matthias Ley$^{1,2,*}$\,\orcidlink{0000-0001-6853-8542}
+\par}
+
+\vspace{0.75em}
+
+{\small
+$^{1}$ Delta4 GmbH, Vienna, Austria\\
+$^{2}$ Division of Pediatric Nephrology and Gastroenterology, Department of Pediatrics and Adolescent Medicine, Comprehensive Center for Pediatrics, Medical University Vienna, Vienna, Austria\\
+$^{3}$ Department of Internal Medicine IV, Medical University Innsbruck, Vienna, Austria\\
+$^{\dagger}$ These authors contributed equally to this work.\\
+$^{*}$ Correspondence: \href{mailto:matthias.ley@delta4.ai}{matthias.ley@delta4.ai}
+\par}
+\end{flushleft}
+
+\vspace{1em}
+
+% -----------------------------
+% Abstract + Keywords (left-aligned)
+% -----------------------------
+\noindent\textbf{Abstract:}
+The rapid expansion of biomedical literature demands automated summarization tools that can reliably condense research articles into concise, accurate overviews. We benchmarked 62 text summarization methods - ranging from frequency-based and TextRank extractors to modern \acp{EDM} and \acp{LLM} - on a set of 1,000 biomedical abstracts for which author-generated highlights sections were available as reference summaries. Models were evaluated using a composite suite of metrics covering lexical overlap (ROUGE-1/2/L, BLEU, METEOR), embedding-based semantic similarity (RoBERTa, DeBERTa, all-mpnet-base-v2), and factual consistency (AlignScore). Our results indicate that general-purpose \acp{LM} achieve the highest overall scores across both lexical and semantic metrics, outperforming both reasoning-oriented and domain-specific models. Within the general-purpose group, medium-sized models, typically runnable on a single node, often outperform frontier-scale counterparts, suggesting an optimal balance between model capacity and computational efficiency. Statistical extractive methods lag behind all neural approaches. These findings provide a systematic reference for selecting summarization tools in biomedical research and highlight that broad pretraining remains more effective than narrow domain adaptation for generating high-quality scientific summaries.
+
+\vspace{0.75em}
+\noindent\textbf{Keywords:} biomedical text summarization; natural language processing; large language models benchmarking
+
+\vspace{1em}
+
+% -----------------------------
+% Acronyms (your existing file)
+% -----------------------------
+\input{acronyms}
+
+% ============================================================
+% Main text (bioRxiv / Patterns-aligned order)
+% ============================================================
+
+\input{Sections/introduction}
+
+\input{Sections/results}
+
+\input{Sections/discussion}
+
+% NOTE: This file is currently named materials_methods.
+% We keep the filename for now, but this will become the "Methods" section.
+\input{Sections/methods}
+
+% Optional / mergeable
+\input{Sections/conclusions}
+
+% ============================================================
+% Back matter (journal-agnostic)
+% ============================================================
+
+\section*{Acknowledgments}
+Enrico Bono is supported by a grant from the European Union’s Horizon Europe Marie Skłodowska-Curie Actions Doctoral Networks program project PICKED (HORIZON--MSCA--2023--DN-01, grant number 101168626).
+Louiza Galou is supported by a grant from the European Union’s Horizon Europe Marie Skłodowska-Curie Actions Doctoral Networks Industrial Doctorates program project PROMOTE (HORIZON--MSCA--2023--DN-01, grant number 101169245).
+Paul Perco and Matthias Ley are members of and would like to cordially thank the COST Action PerMediK, CA21165, supported by COST (European Cooperation in Science and Technology).
+We gratefully acknowledge Dorota Wojenska for her support in optimizing the overview workflow figure (Figure~\ref{fig:workflow_graphic}).
+
+\section*{Author Contributions}
+Conceptualization: M.L., P.P., E.B. and F.B.;
+Methodology: M.L., P.P., E.B. and F.B.;
+Software: M.L.;
+Formal analysis: F.B., E.B., P.P. and M.L.;
+Validation: E.B., F.B., L.F., P.P., M.L., L.G., K.K.-I., S.W., P.A. and K.K.;
+Writing---original draft: F.B., E.B., M.L. and P.P.;
+Writing---review \& editing: E.B., F.B., P.P., M.L., K.K., L.G., L.F., K.K.-I., P.A. and S.W.;
+Visualization: F.B. and E.B.;
+Supervision: M.L. and P.P.
+
+\section*{Conflicts of Interest}
+K.K. is co-founder and shareholder of Delta4 GmbH (Vienna, Austria).
+F.B., E.B., L.F., L.G., K.K.-I., S.W., P.A., P.P. and M.L. are employees of Delta4 GmbH (Vienna, Austria).
+
+\section*{Use of Artificial Intelligence}
+The authors utilized Anthropic (Claude 4.5 Opus) and OpenAI (ChatGPT-5) models to enhance textual clarity and readability.
+This assistance was exclusively for language refinement without the introduction of new hypotheses or data.
+All AI-generated suggestions were critically reviewed and validated by the authors, who maintain full responsibility for the integrity and final content of the published article.
+
+% ============================================================
+% Supplemental information
+% ============================================================
+
+\section*{Supplemental Information}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.0\textwidth]{Visualizations/supplementary1.png}
+\caption{\textbf{Supplementary Figure S1.} Overview of the performance of all evaluated models across all metrics.}
+\label{fig:supplementary_overview}
+\end{figure}
+
+% ============================================================
+% References
+% ============================================================
+
+\bibliography{bibliography}
+
+\end{document}
