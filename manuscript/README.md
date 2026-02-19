@@ -44,6 +44,17 @@ latexmk -pdf publication-biorxiv.tex
 
 Both commands run the full `pdflatex → bibtex → pdflatex → pdflatex` cycle automatically.
 
+### Word (.docx) version
+
+A Word build with embedded figures, resolved citations, and a table of contents can be generated from the Patterns entry point:
+
+```bash
+cd manuscript
+./build-docx.sh
+```
+
+This creates `publication-patterns.docx`. Requires [Pandoc](https://pandoc.org/) ≥ 3.0.
+
 To clean up all intermediate files:
 ```bash
 latexmk -C
@@ -55,6 +66,7 @@ latexmk -C
 manuscript/
 ├── publication-patterns.tex     # Entry point — Patterns / Cell Press
 ├── publication-biorxiv.tex      # Entry point — bioRxiv preprint
+├── build-docx.sh               # Build Word (.docx) with figures
 ├── 01_Article_MainText.tex      # Main text (used by biorxiv entry point)
 ├── 02_Article_Supplementary.tex # Supplementary (used by biorxiv entry point)
 ├── acronyms.tex                 # Acronym definitions (shared)
