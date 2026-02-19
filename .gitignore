@@ -79,6 +79,7 @@ manuscript/*.ilg
 manuscript/*.ind
 manuscript/*.pdf
 !manuscript/Definitions/*.pdf
+manuscript/Definitions/*-eps-converted-to.pdf
 manuscript/Sections/*.log
 # Word temporary files
 ~$*.docx

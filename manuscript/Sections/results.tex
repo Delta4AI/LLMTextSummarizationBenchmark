@@ -1,5 +1,7 @@
 \section{Results}
 
+We evaluated 62 summarization models on 1,000 biomedical abstracts, using author-provided highlights as reference summaries. All models were prompted uniformly to generate 15--100 word summaries. Evaluation combined lexical overlap metrics (ROUGE-1/2/L, BLEU, METEOR), semantic similarity metrics (RoBERTa, DeBERTa, all-mpnet-base-v2), and a factual consistency metric (AlignScore). An Overall Performance Score was computed as a weighted combination of the three metric dimensions (see Methods, Section~\ref{subsec:overall_performance_metric}).
+
 Our benchmark results offer a comparative view of summarization performance across all evaluated models on biomedical abstracts. We first examine the correlations among the chosen evaluation metrics and, based on the findings, identify the best-performing model across lexical, semantic, and factual dimensions. Next, we compare model performance across categories and families to identify significant differences. Finally, we present a case study illustrating how concept coverage varies between models.
 
 \subsection{Metric Correlations}
@@ -14,13 +16,13 @@ Overall, these relationships demonstrate that the various metrics are broadly co
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.9\textwidth]{Visualizations/metric_correlation.png}
+\includegraphics[width=0.8\textwidth]{Visualizations/metric_correlation.png}
 \caption{Correlation matrix of evaluation metrics. Spearman correlation coefficients ($\rho$) between two metrics based on their mean scores across all models are given. Metric categories (lexical, semantic, factual) are indicated on the x and y axes. For visualization purposes, cells with values higher than 0.8 are shown with white text.\label{fig:metric_correlation}}
 \end{figure}
 
 \subsection{Overall Model Performance}
 
-Based on overall performance ranks, referred to as "Performance Rank" and derived from our multi-metric evaluation framework (\ref{subsec:overall_performance_metric} Overall Performance Metric), models from the Mistral family were top-ranked with high performance scores across the three evaluated metric dimensions, as depicted in Figure~\ref{fig:rank_heatmap}. 
+Based on overall performance ranks, referred to as "Performance Rank" and derived from our multi-metric evaluation framework (see Methods, Section~\ref{subsec:overall_performance_metric}), models from the Mistral family were top-ranked with high performance scores across the three evaluated metric dimensions, as depicted in Figure~\ref{fig:rank_heatmap}. 
 
 The mistral:7b model ranked first, followed by mistral-small3.2:24b and mistral-small-2506. The lowest-ranked models included bigbird-pegasus-large-pubmed and pegasus-pubmed from the \ac{PEGASUS} family, and mT5\_multilingual\_XLSum from the \ac{T5} family. Overall, domain-specific \acp{SLM} and \ac{EDM} models showed poor performance across all the different dimensions of metrics.
 
@@ -30,13 +32,13 @@ Considering each metric dimension separately, some Mistral models ranked high in
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=1.0\textwidth]{Visualizations/rank_heatmap.png}
+\includegraphics[width=0.8\textwidth]{Visualizations/rank_heatmap.png}
 \caption{Overview of the performance of all evaluated models across lexical, semantic and factual metric dimensions. Each row corresponds to one model. Columns show the overall Performance Rank and independent ranks for each metric dimension, with lower ranks indicating better performance. The figure displays each model’s family and category. Models are sorted by the overall Performance Rank. Ranks are displayed using a continuous diverging color gradient, ranging from navy-blue tones for top-performing models through light neutral shades for mid-ranked models to dark red tones for low-performing models. Text color is switched to white for the highest-ranked models (ranks $\leq 3$) to improve readability. \label{fig:rank_heatmap}}
 \end{figure}
 
 \subsection{Category Comparisons}
 
-To compare model performance across categories, we displayed the distribution of overall performance scores within each category, along with the best- and worst-performing individual models (Figure~\ref{fig:category_boxplots_and_gameshowell}a). Results of the Games-Howell post-hoc comparisons between individual groups are given in Figure~\ref{fig:category_boxplots_and_gameshowell}b.
+To compare model performance across categories (defined in Table~\ref{tab:models}), we displayed the distribution of overall performance scores within each category, along with the best- and worst-performing individual models (Figure~\ref{fig:category_boxplots_and_gameshowell}a). Results of the Games-Howell post-hoc comparisons between individual groups are given in Figure~\ref{fig:category_boxplots_and_gameshowell}b.
 
 All general-purpose \acp{LLM} achieved high overall scores thus forming the top category of models with general-purpose \acp{SLM} following second however showing a slightly wider spread in performance scores. Reasoning-oriented \acp{LLM} and domain-specific \acp{LLM} followed in third and fourth place based on average overall performance.
 
@@ -44,9 +46,9 @@ Domain-specific \acp{EDM}, domain-specific \acp{SLM}, traditional models, and ge
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.9\textwidth]{Visualizations/category_boxplot.png}
+\includegraphics[width=0.8\textwidth]{Visualizations/category_boxplot.png}
 \vspace{8pt}
-\includegraphics[width=0.9\textwidth]{Visualizations/category_gameshowell.png}
+\includegraphics[width=0.8\textwidth]{Visualizations/category_gameshowell.png}
 \caption{
 \textbf{(a)} Distributions of overall performance scores across the nine model categories,
 with each model represented by a black dot. Categories are ordered from lowest to highest-performing according to the median performance score.
@@ -68,9 +70,9 @@ Regarding the Games-Howell post-hoc matrix in the family comparison (Figure~\ref
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.9\textwidth]{Visualizations/family_boxplot.png}
+\includegraphics[width=0.8\textwidth]{Visualizations/family_boxplot.png}
 \vspace{8pt}
-\includegraphics[width=0.9\textwidth]{Visualizations/family_gameshowell.png}
+\includegraphics[width=0.8\textwidth]{Visualizations/family_gameshowell.png}
 \caption{
 \textbf{a)} Distributions of overall performance scores across all model families,
 with each model represented by a black dot. Families are ordered from lowest to highest-performing according to the performance score.
@@ -97,11 +99,11 @@ We selected \textbf{mistral-small3.2:24b} as a high-performing model (ranked 2nd
     \item \textbf{medllama2:7b:} "The main findings are that there is a sharp threshold for complement activation upon varying a fundamental material parameter and this threshold manifests at scales spanning single nanoparticles to macroscale pathologies. The study shows how a minimal subnetwork of complement proteins can give rise to percolation-type critical transitions in the complement response, which explains why some materials are more likely to trigger an immune response than others."
 \end{itemize}
 
-Table~\ref{tab:concept_coverage} summarizes the concept-level coverage and overall performance for both models. While both models capture the switch-like behavior (H1) and the percolation transition (H3), the lower-performing model fails to explicitly link the threshold to surface density/spacing (H2) and omits the complexity-based decision-making framework (H4). In contrast, \textbf{mistral-small3.2:24b} achieves full coverage by explicitly connecting the physical density to the "decisions" made by the complex protein network. The overall performance scores, derived using the weighted metric aggregation introduced in Section~\ref{subsec:overall_performance_metric}, further reflect this difference, with \textbf{mistral-small3.2:24b} achieving a higher score compared to \textbf{medllama2:7b}.
+Table~\ref{tab:concept_coverage} summarizes the concept-level coverage and overall performance for both models. While both models capture the switch-like behavior (H1) and the percolation transition (H3), the lower-performing model fails to explicitly link the threshold to surface density/spacing (H2) and omits the complexity-based decision-making framework (H4). In contrast, \textbf{mistral-small3.2:24b} achieves full coverage by explicitly connecting the physical density to the "decisions" made by the complex protein network. The overall performance scores, derived using the weighted metric aggregation defined in the Methods (Section~\ref{subsec:overall_performance_metric}), further reflect this difference, with \textbf{mistral-small3.2:24b} achieving a higher score compared to \textbf{medllama2:7b}.
 
 \begin{table}[H]
 \centering
-\caption{Concept coverage analysis of model-generated summaries. Symbols: \checkmark = fully covered; $\sim$ = partially covered; $\times$ = not covered. Overall performance scores are derived using the weighted metric aggregation described in Section~\ref{subsec:overall_performance_metric}.}
+\caption{Concept coverage analysis of model-generated summaries. Symbols: \checkmark = fully covered; $\sim$ = partially covered; $\times$ = not covered. Overall performance scores are derived using the weighted metric aggregation defined in the Methods (Section~\ref{subsec:overall_performance_metric}).}
 \label{tab:concept_coverage}
 \begin{tabularx}{0.9\textwidth}{lcc}
 \toprule
