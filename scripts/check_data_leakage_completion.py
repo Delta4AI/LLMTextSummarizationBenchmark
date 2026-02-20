@@ -656,6 +656,25 @@ if(withSignal>0){
   This suggests models are not reproducing memorized abstracts.</div>`;
 }
 
+// ── skipped articles note ──
+const skipped = DATA.skipped_articles || [];
+if(skipped.length > 0){
+  const nTotal = DATA.sample_articles.length;
+  const nUsed = nTotal - skipped.length;
+  const rows = skipped.map(a =>
+    `<tr><td>${a.journal_id}</td><td class="num-cell">${a.publication_date}</td>`
+    + `<td><span class="truncate" title="${a.title.replace(/"/g,'&quot;')}">${a.title}</span></td>`
+    + `<td><a href="${a.article_id}" target="_blank" rel="noopener" style="color:var(--accent);font-size:.8rem">link</a></td></tr>`
+  ).join("");
+  v.innerHTML += `<div class="verdict" style="border-left:4px solid var(--muted);margin-top:.6rem">
+    <strong style="color:var(--muted)">${skipped.length} of ${nTotal} articles excluded</strong> —
+    these have single-sentence abstracts with no continuation text to compare against.
+    Probes were run on the remaining <strong style="color:var(--text)">${nUsed}</strong> articles.
+    <details style="margin-top:.5rem"><summary style="font-size:.82rem;padding:.3rem .6rem">Show excluded articles</summary>
+    <table style="font-size:.82rem"><thead><tr><th>Journal</th><th>Pub Date</th><th>Title</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></details></div>`;
+}
+
 // ── model summary table ──
 const tbody = document.getElementById("modelBody");
 ms.forEach(m=>{
@@ -1154,6 +1173,21 @@ def main(batch_mode: str | None = None, skip_ollama: bool = False) -> None:
     samples = select_samples(articles)
     log.info(f"Using all {len(samples)} articles from the dataset")
 
+    # Track articles excluded from probing (single-sentence abstracts)
+    skipped_articles = [
+        {
+            "article_id": s["article"]["id"],
+            "title": s["article"].get("title", ""),
+            "journal_id": s["journal_id"],
+            "publication_date": s["pub_date"],
+            "reason": "single_sentence_abstract",
+        }
+        for s in samples if not s["remaining_text"].strip()
+    ]
+    if skipped_articles:
+        log.info(f"  {len(skipped_articles)} articles skipped "
+                 f"(single-sentence abstract, no continuation to compare)")
+
     # ── load cache ──
     cache = load_cache()
 
@@ -1214,28 +1248,19 @@ def main(batch_mode: str | None = None, skip_ollama: bool = False) -> None:
             **scores,
         }
 
-    # ── resolve cached probes upfront (no API calls) ──
-    log.info("Pre-resolving cached probes (scoring may take a minute) …")
-    all_probes: list[dict] = []
+    # ── partition cached vs uncached (no scoring yet) ──
+    log.info("Partitioning cached vs uncached probes …")
+    cached_pairs: list[tuple[dict, str]] = []
     uncached_tasks: list[dict] = []
-    _cached_count = 0
-    _last_log_time = time.monotonic()
-    for i, task in enumerate(tasks, 1):
+    for task in tasks:
         art_id = task["sample"]["article"]["id"]
         ckey   = _cache_key(task["model"], art_id)
         cached = cache.get(ckey)
         if cached is not None:
-            all_probes.append(_build_result(task, cached["completion"]))
-            _cached_count += 1
+            cached_pairs.append((task, cached["completion"]))
         else:
             uncached_tasks.append(task)
-        # progress every 5 seconds or on last item
-        _now = time.monotonic()
-        if _now - _last_log_time >= 5.0 or i == total:
-            log.info(f"  scoring progress: {i}/{total} "
-                     f"({_cached_count} cached, {len(uncached_tasks)} uncached)")
-            _last_log_time = _now
-    log.info(f"  {len(all_probes)} cached, {len(uncached_tasks)} to query")
+    log.info(f"  {len(cached_pairs)} cached, {len(uncached_tasks)} to query")
 
     # ── split uncached: ollama (sequential, grouped by model) vs rest ──
     ollama_tasks = sorted(
@@ -1248,8 +1273,8 @@ def main(batch_mode: str | None = None, skip_ollama: bool = False) -> None:
     _progress_lock = threading.Lock()
     _done_counter  = [0]
 
-    def _query_probe(task: dict) -> dict | None:
-        """Call the API, cache the result, return the probe dict."""
+    def _query_probe(task: dict) -> tuple[dict, str] | None:
+        """Call the API, cache the result, return (task, completion)."""
         platform = task["platform"]
         model    = task["model"]
         sample   = task["sample"]
@@ -1279,9 +1304,10 @@ def main(batch_mode: str | None = None, skip_ollama: bool = False) -> None:
         finally:
             _rate_limiter.release(platform)
 
-        return _build_result(task, completion)
+        return (task, completion)
 
     # ── run non-ollama tasks concurrently ──
+    fetched_pairs: list[tuple[dict, str]] = []
     if other_tasks:
         platforms_used = {t["platform"] for t in other_tasks}
         max_workers = sum(
@@ -1296,7 +1322,7 @@ def main(batch_mode: str | None = None, skip_ollama: bool = False) -> None:
             for fut in as_completed(futures):
                 result = fut.result()
                 if result is not None:
-                    all_probes.append(result)
+                    fetched_pairs.append(result)
 
     # ── run ollama tasks sequentially, grouped by model ──
     if ollama_tasks:
@@ -1309,9 +1335,21 @@ def main(batch_mode: str | None = None, skip_ollama: bool = False) -> None:
                 log.info(f"  Ollama: loading model {current_model}")
             result = _query_probe(task)
             if result is not None:
-                all_probes.append(result)
+                fetched_pairs.append(result)
 
     save_cache(cache)
+
+    # ── score all completions ──
+    all_pairs = cached_pairs + fetched_pairs
+    log.info(f"Scoring {len(all_pairs)} completions …")
+    all_probes: list[dict] = []
+    _last_log_time = time.monotonic()
+    for i, (task, completion) in enumerate(all_pairs, 1):
+        all_probes.append(_build_result(task, completion))
+        _now = time.monotonic()
+        if _now - _last_log_time >= 5.0 or i == len(all_pairs):
+            log.info(f"  scoring progress: {i}/{len(all_pairs)}")
+            _last_log_time = _now
 
     # ── aggregate ──
     log.info("Aggregating results (bootstrap CIs) …")
@@ -1365,6 +1403,7 @@ def main(batch_mode: str | None = None, skip_ollama: bool = False) -> None:
             }
             for s in samples
         ],
+        "skipped_articles": skipped_articles,
         "model_summaries": model_summaries,
         "probe_results": all_probes,
     }
