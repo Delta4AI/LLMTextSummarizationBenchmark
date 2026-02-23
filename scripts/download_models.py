@@ -70,6 +70,26 @@ def download_ollama(models: list[str]) -> None:
             print(f"  ⚠  Failed to pull {model} (exit {result.returncode})")
 
 
+def download_metric_models() -> None:
+    """Download models required by evaluation metrics (SummaC, FactCC)."""
+    print("\n>>> Downloading SummaC model (vitc) ...")
+    try:
+        from summac.model_summac import SummaCZS
+        SummaCZS(model_name="vitc", granularity="sentence", device="cpu")
+        print("  ✓  SummaC model cached")
+    except Exception as e:
+        print(f"  ⚠  Failed to download SummaC model: {e}")
+
+    print("\n>>> Downloading FactCC model (manueldeprada/FactCC) ...")
+    try:
+        from transformers import BertForSequenceClassification, BertTokenizer
+        BertTokenizer.from_pretrained("manueldeprada/FactCC")
+        BertForSequenceClassification.from_pretrained("manueldeprada/FactCC")
+        print("  ✓  FactCC model cached")
+    except Exception as e:
+        print(f"  ⚠  Failed to download FactCC model: {e}")
+
+
 def download_huggingface(models: list[str]) -> None:
     try:
         from huggingface_hub import snapshot_download
@@ -112,6 +132,11 @@ def main() -> None:
         print("  Downloading HuggingFace models ...")
         print(f"{'─'*60}")
         download_huggingface(huggingface)
+
+    print(f"\n{'─'*60}")
+    print("  Downloading metric models (SummaC, FactCC) ...")
+    print(f"{'─'*60}")
+    download_metric_models()
 
     print(f"\n{'='*60}")
     print("  Done!")
