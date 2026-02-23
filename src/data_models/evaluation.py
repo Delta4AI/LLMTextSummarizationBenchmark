@@ -36,15 +36,21 @@ class EvaluationResult:
     summac_scores: dict[str, float]
     factcc_scores: dict[str, float]
     full_paper_details: list[Paper]
+    input_paper_count: int | None = None  # original paper count before filtering failed responses
+
+    _ZERO_STATS = {"min": 0.0, "max": 0.0, "mean": 0.0, "std": 0.0}
 
     def __getattr__(self, name: str):
         """Fallback for fields missing on old pickled instances.
 
-        Returns a zero-value stats dict so visualization code doesn't crash
-        on old pickled results that lack the new metric fields.
+        Returns a zero-value stats dict for any *_scores field and None for
+        input_paper_count so visualization/skip logic doesn't crash on old
+        pickled results that lack newer fields.
         """
-        if name in ("summac_scores", "factcc_scores"):
-            return {"min": 0.0, "max": 0.0, "mean": 0.0, "std": 0.0}
+        if name.endswith("_scores"):
+            return dict(self._ZERO_STATS)
+        if name == "input_paper_count":
+            return None
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     def as_json(self, detailed: bool = False) -> dict[str, Any]:

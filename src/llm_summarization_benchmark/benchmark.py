@@ -94,7 +94,11 @@ class SummarizationResult:
         return self.data.get(self.papers_hash, {}).get(method_name, None) is not None
 
     def same_size_as(self, method_name: str, input_set_size: int) -> bool:
-        return len(self.data.get(self.papers_hash, {}).get(method_name, {}).full_responses) == input_set_size
+        result = self.data.get(self.papers_hash, {}).get(method_name)
+        if result is None:
+            return False
+        stored_count = result.input_paper_count if result.input_paper_count is not None else len(result.full_responses)
+        return stored_count == input_set_size
 
     def add(self, method_name: str, result: EvaluationResult):
         if not self.data.get(self.papers_hash):
@@ -389,18 +393,17 @@ class SummarizationBenchmark:
                 continue
 
             try:
-                if batch:
+                if skip_inference and (reset_metrics or needs_metric_recalc or needs_missing_metrics):
+                    logger.info(f"Recalculating metrics for existing method: {irc.method_name}")
+                    result = self._recalculate_metrics_from_cache(irc=irc)
+                elif batch:
                     result = self._check_batch(irc=irc)
                 else:
-                    if skip_inference and (reset_metrics or needs_metric_recalc or needs_missing_metrics):
-                        logger.info(f"Recalculating metrics for existing method: {irc.method_name}")
-                        result = self._recalculate_metrics_from_cache(irc=irc)
-                    else:
-                        logger.info(f"Running interference and calculating metrics for method: {irc.method_name}")
-                        result = self._run_interference_and_calculate_metrics(irc=irc)
-                        if result is None:
-                            self.run_status[_method_name] = RunStatus.NO_RESULTS
-                            continue
+                    logger.info(f"Running interference and calculating metrics for method: {irc.method_name}")
+                    result = self._run_interference_and_calculate_metrics(irc=irc)
+                    if result is None:
+                        self.run_status[_method_name] = RunStatus.NO_RESULTS
+                        continue
             except Exception as e:
                 logger.error(f"Failed to run interference and calculating metrics for method: {irc.method_name}: {e}")
                 logger.error("Re-run the benchmark to retry. Pipeline will continue now.")
@@ -452,7 +455,8 @@ class SummarizationBenchmark:
             irc=irc,
             generated_summaries=generated_summaries,
             reference_summaries=reference_summaries,
-            existing_data=None
+            existing_data=None,
+            input_paper_count=original_count
         )
 
     def _needs_recalc(self, metric_attr: str, existing_data: EvaluationResult | None) -> bool:
@@ -471,7 +475,8 @@ class SummarizationBenchmark:
             self, irc: InterferenceRunContainer,
             generated_summaries: list[str],
             reference_summaries: list[list[str]],
-            existing_data: EvaluationResult | None
+            existing_data: EvaluationResult | None,
+            input_paper_count: int | None = None
     ) -> EvaluationResult:
 
         if existing_data:
@@ -550,6 +555,12 @@ class SummarizationBenchmark:
         else:
             _factcc_scores = existing_data.factcc_scores
 
+        _input_paper_count = input_paper_count
+        if _input_paper_count is None and existing_data is not None:
+            _input_paper_count = existing_data.input_paper_count
+        if _input_paper_count is None:
+            _input_paper_count = len(generated_summaries)
+
         return EvaluationResult(
             method_name=irc.method_name,
             execution_times=_execution_times,
@@ -567,7 +578,8 @@ class SummarizationBenchmark:
             alignscore_scores=_alignscore_scores,
             summac_scores=_summac_scores,
             factcc_scores=_factcc_scores,
-            full_paper_details=deepcopy(irc.papers)
+            full_paper_details=deepcopy(irc.papers),
+            input_paper_count=_input_paper_count
         )
 
     def _warmup(self, run_params: InterferenceRunContainer) -> None:
@@ -925,11 +937,12 @@ class SummarizationBenchmark:
 
         if cache.status == BatchStatus.COMPLETED:
             self._update_papers_from_batch(irc=irc, cache=cache)
+            existing = self.results.data.get(self.papers_hash, {}).get(irc.method_name)
             return self._get_evaluation_result(
                 irc=irc,
                 generated_summaries=[p.extracted_response for p in irc.papers],
                 reference_summaries=[p.summaries for p in irc.papers],
-                existing_data=None
+                existing_data=existing
             )
 
         return None
