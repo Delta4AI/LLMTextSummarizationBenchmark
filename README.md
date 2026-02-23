@@ -11,7 +11,7 @@ tracked automatically, and results are exported as interactive HTML reports with
 ### Key features
 
 - **Multi-provider LLM support** — OpenAI, Anthropic, Mistral, HuggingFace, and Ollama via a unified API layer
-- **Rich evaluation metrics** — ROUGE-1/2/L, BERTScore, METEOR, BLEU, semantic similarity (MPNet), and factual consistency (AlignScore)
+- **Rich evaluation metrics** — ROUGE-1/2/L, BERTScore, METEOR, BLEU, semantic similarity (MPNet), and factual consistency (AlignScore, SummaC, FactCC)
 - **Length-constrained generation** — configurable min/max word counts with compliance tracking
 - **Training cutoff tracking** — automatically collects model knowledge cutoff dates from the
   [community LLM knowledge-cutoff dataset](https://github.com/HaoooWang/llm-knowledge-cutoff-dates),
@@ -176,6 +176,14 @@ Compares the generated summary directly against the **source document** (rather 
 Factual consistency evaluation — measures whether the generated summary is entailed by the abstract.
 [paper](https://arxiv.org/abs/2305.16739) | [modified repository](https://github.com/MNikley/AlignScore)
 
+### SummaC
+NLI-based sentence-level factual consistency — aggregates entailment scores between source sentences and summary sentences using a zero-shot approach (SummaC-ZS with ViTC backbone).
+[paper](https://aclanthology.org/2022.tacl-1.10/) | [repository](https://github.com/tingofurro/summac)
+
+### FactCC
+BERT-based binary factual consistency classifier — returns P(CORRECT) as a continuous score in [0, 1], indicating whether the generated summary is factually consistent with the source document.
+[paper](https://aclanthology.org/2020.emnlp-main.621/) | [model](https://huggingface.co/manueldeprada/FactCC)
+
 ---
 
 ## Training Cutoff Dates
@@ -217,6 +225,8 @@ Manual edits to the JSON are preserved across re-runs.
 | **HuggingFace Hub** | Model hosting, model cards used for cutoff date extraction, and inference for encoder–decoder models | [huggingface.co](https://huggingface.co/) |
 | **Ollama** | Local inference runtime for open-weight LLMs (LLaMA, Gemma, DeepSeek, Phi, Qwen, etc.) | [ollama.com](https://ollama.com/) |
 | **AlignScore** | Factual consistency evaluation metric | [Zha et al. 2023](https://arxiv.org/abs/2305.16739) · [modified repo](https://github.com/MNikley/AlignScore) |
+| **SummaC** | NLI-based sentence-level factual consistency metric | [Laban et al. 2022](https://aclanthology.org/2022.tacl-1.10/) · [repo](https://github.com/tingofurro/summac) |
+| **FactCC** | BERT-based binary factual consistency classifier | [Kryscinski et al. 2020](https://aclanthology.org/2020.emnlp-main.621/) · [model](https://huggingface.co/manueldeprada/FactCC) |
 | **BERTScore** | Semantic similarity evaluation using contextual embeddings | [Zhang et al. 2020](https://arxiv.org/abs/1904.09675) |
 | **ROUGE** | N-gram overlap metrics for summarization evaluation | [Lin 2004](https://aclanthology.org/W04-1013.pdf) |
 

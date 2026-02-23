@@ -34,7 +34,7 @@ OUT_DIR = get_project_root() / "Output" / "llm_summarization_benchmark"
 USE_MODEL_CACHE = False
 METRIC_TYPES = [
     "rouge_scores", "roberta_scores", "deberta_scores", "meteor_scores", "bleu_scores",
-    "mpnet_content_coverage_scores", "alignscore_scores"
+    "mpnet_content_coverage_scores", "alignscore_scores", "summac_scores", "factcc_scores"
 ]
 
 
@@ -347,6 +347,103 @@ def get_alignscore_scores(generated: list[str], references: list[str],
         logger.error(f"Make sure this file exists: {ckpt_path}")
         raise
     finally:
+        empty_cuda_cache()
+
+    return get_min_max_mean_std(scores)
+
+
+def get_summac_scores(generated: list[str], references: list[str],
+                      irc: 'InterferenceRunContainer') -> dict[str, float]:
+    """Calculate SummaC-ZS (zero-shot) factual consistency scores.
+
+    Uses NLI-based sentence-level entailment aggregation to assess whether
+    generated summaries are factually consistent with the source documents.
+    """
+    from summac.model_summac import SummaCZS
+
+    try:
+        logger.info(f"Calculating SummaC-ZS on device: {DEVICE}")
+        empty_cuda_cache()
+
+        model = SummaCZS(model_name="vitc", granularity="sentence", device=DEVICE)
+
+        scores = []
+        batch_size = 16
+        for i in range(0, len(generated), batch_size):
+            batch_gen = generated[i:i + batch_size]
+            batch_ref = references[i:i + batch_size]
+            batch_papers = irc.papers[i:i + batch_size]
+
+            result = model.score(batch_ref, batch_gen)
+            batch_scores = result["scores"]
+            scores.extend(batch_scores)
+            for score, paper in zip(batch_scores, batch_papers):
+                paper.scores["summac"].append(score)
+
+            empty_cuda_cache(silent=True)
+
+        logger.info(f"SummaC-ZS computed for {len(scores)} pairs")
+
+    except Exception as e:
+        logger.error(f"SummaC-ZS calculation failed: {e}")
+        raise
+    finally:
+        empty_cuda_cache()
+
+    return get_min_max_mean_std(scores)
+
+
+def get_factcc_scores(generated: list[str], references: list[str],
+                      irc: 'InterferenceRunContainer') -> dict[str, float]:
+    """Calculate FactCC factual consistency scores using manueldeprada/FactCC.
+
+    Uses a BERT-based binary consistency classifier that returns P(CORRECT)
+    as a continuous score in [0, 1].
+    """
+    from transformers import BertForSequenceClassification, BertTokenizer
+
+    model_path = "manueldeprada/FactCC"
+
+    try:
+        logger.info(f"Calculating FactCC on device: {DEVICE}")
+        empty_cuda_cache()
+
+        tokenizer = BertTokenizer.from_pretrained(model_path)
+        model = BertForSequenceClassification.from_pretrained(model_path).to(DEVICE)
+        model.eval()
+        correct_idx = model.config.label2id["CORRECT"]
+
+        scores = []
+        batch_size = 16
+        for i in range(0, len(generated), batch_size):
+            batch_gen = generated[i:i + batch_size]
+            batch_ref = references[i:i + batch_size]
+            batch_papers = irc.papers[i:i + batch_size]
+
+            inputs = tokenizer(batch_ref, batch_gen, max_length=512,
+                               padding="max_length", truncation="only_first",
+                               return_tensors="pt").to(DEVICE)
+
+            with torch.no_grad():
+                logits = model(**inputs).logits
+            probs = torch.softmax(logits, dim=1)
+            batch_scores = probs[:, correct_idx].tolist()
+
+            scores.extend(batch_scores)
+            for score, paper in zip(batch_scores, batch_papers):
+                paper.scores["factcc"].append(score)
+
+            del inputs, logits, probs
+            empty_cuda_cache(silent=True)
+
+        logger.info(f"FactCC computed for {len(scores)} pairs")
+
+    except Exception as e:
+        logger.error(f"FactCC calculation failed: {e}")
+        raise
+    finally:
+        del model, tokenizer
+        gc.collect()
         empty_cuda_cache()
 
     return get_min_max_mean_std(scores)

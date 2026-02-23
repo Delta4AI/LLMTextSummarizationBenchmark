@@ -33,7 +33,15 @@ class EvaluationResult:
     bleu_scores: dict[str, float]
     mpnet_content_coverage_scores: dict[str, float]
     alignscore_scores: dict[str, float]
+    summac_scores: dict[str, float]
+    factcc_scores: dict[str, float]
     full_paper_details: list[Paper]
+
+    def __getattr__(self, name: str):
+        """Fallback for fields missing on old pickled instances."""
+        if name in ("summac_scores", "factcc_scores"):
+            return {}
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     def as_json(self, detailed: bool = False) -> dict[str, Any]:
         rouge = {f"{k}_{kk}": vv for k, v in self.rouge_scores.items() for kk, vv in v.items()}
@@ -43,6 +51,8 @@ class EvaluationResult:
         bleu = {f"bleu_{k}": v for k, v in self.bleu_scores.items()}
         mpnet_content_coverage = {f"content_coverage_{k}": v for k, v in self.mpnet_content_coverage_scores.items()}
         alignscore = {f"alignscore_{k}": v for k, v in self.alignscore_scores.items()}
+        summac = {f"summac_{k}": v for k, v in self.summac_scores.items()}
+        factcc = {f"factcc_{k}": v for k, v in self.factcc_scores.items()}
         _exec_times = get_min_max_mean_std(self.execution_times)
         exec_times = {f"exec_time_{k}": v for k, v in _exec_times.items()}
         _lengths = get_min_max_mean_std(self.length_stats["all_lengths"])
@@ -68,6 +78,8 @@ class EvaluationResult:
             **bleu,
             **mpnet_content_coverage,
             **alignscore,
+            **summac,
+            **factcc,
             **exec_times,
             **_variable_results
         }

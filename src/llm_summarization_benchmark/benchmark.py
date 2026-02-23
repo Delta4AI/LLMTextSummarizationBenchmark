@@ -57,7 +57,8 @@ from llm_summarization_benchmark.metrics import (get_length_scores, get_meteor_s
                                                  get_rouge_scores,
                                                  get_bert_scores, get_bleu_scores,
                                                  get_sentence_transformer_similarity,
-                                                 get_alignscore_scores, cleanup_metrics_cache, empty_cuda_cache,
+                                                 get_alignscore_scores, get_summac_scores,
+                                                 get_factcc_scores, cleanup_metrics_cache, empty_cuda_cache,
                                                  METRIC_TYPES)
 from llm_summarization_benchmark.visualization import SummarizationVisualizer
 from data_models import RunStatus, Paper, EvaluationResult, InterferenceRunContainer
@@ -314,7 +315,9 @@ class SummarizationBenchmark:
             "meteor_scores": ["meteor"],
             "bleu_scores": ["bleu"],
             "mpnet_content_coverage_scores": ["sentence_transformer"],
-            "alignscore_scores": ["alignscore"]
+            "alignscore_scores": ["alignscore"],
+            "summac_scores": ["summac"],
+            "factcc_scores": ["factcc"]
         }
 
         if clear_api_cache:
@@ -518,6 +521,24 @@ class SummarizationBenchmark:
         else:
             _alignscore_scores = existing_data.alignscore_scores
 
+        if self._needs_recalc("summac_scores", existing_data):
+            _summac_scores = get_summac_scores(
+                generated=generated_summaries,
+                references=[p.full_text for p in irc.papers],
+                irc=irc
+            )
+        else:
+            _summac_scores = existing_data.summac_scores
+
+        if self._needs_recalc("factcc_scores", existing_data):
+            _factcc_scores = get_factcc_scores(
+                generated=generated_summaries,
+                references=[p.full_text for p in irc.papers],
+                irc=irc
+            )
+        else:
+            _factcc_scores = existing_data.factcc_scores
+
         return EvaluationResult(
             method_name=irc.method_name,
             execution_times=_execution_times,
@@ -533,6 +554,8 @@ class SummarizationBenchmark:
             bleu_scores=_bleu_scores,
             mpnet_content_coverage_scores=_mpnet_content_coverage_scores,
             alignscore_scores=_alignscore_scores,
+            summac_scores=_summac_scores,
+            factcc_scores=_factcc_scores,
             full_paper_details=deepcopy(irc.papers)
         )
 

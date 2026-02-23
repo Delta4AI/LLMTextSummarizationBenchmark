@@ -128,6 +128,8 @@ class SummarizationVisualizer:
             Metric("DeBERTa", lambda m: self.results[m].deberta_scores["f1"], None, EMBEDDING_BASED),
             Metric("all-mpnet-base-v2", lambda m: self.results[m].mpnet_content_coverage_scores, None, EMBEDDING_BASED),
             Metric("AlignScore", lambda m: self.results[m].alignscore_scores, None, EMBEDDING_BASED),
+            Metric("SummaC", lambda m: self.results[m].summac_scores, None, EMBEDDING_BASED),
+            Metric("FactCC", lambda m: self.results[m].factcc_scores, None, EMBEDDING_BASED),
         ]
 
         self.aggregates = [
@@ -733,7 +735,9 @@ class SummarizationVisualizer:
                 self.results[m].roberta_scores["f1"]["mean"],
                 self.results[m].deberta_scores["f1"]["mean"],
                 self.results[m].mpnet_content_coverage_scores["mean"],
-                self.results[m].alignscore_scores["mean"]
+                self.results[m].alignscore_scores["mean"],
+                self.results[m].summac_scores["mean"],
+                self.results[m].factcc_scores["mean"]
             ]),
             EXECUTION_TIME: lambda m: self.normalized_exec_times.get(m, {}).get("mean"),
             PCT_WITHIN_BOUNDS: lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
@@ -829,7 +833,9 @@ class SummarizationVisualizer:
                 self.results[m].roberta_scores["f1"]["mean"],
                 self.results[m].deberta_scores["f1"]["mean"],
                 self.results[m].mpnet_content_coverage_scores["mean"],
-                self.results[m].alignscore_scores["mean"]
+                self.results[m].alignscore_scores["mean"],
+                self.results[m].summac_scores["mean"],
+                self.results[m].factcc_scores["mean"]
             ]),
             PCT_WITHIN_BOUNDS: lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
             METRIC_MEAN_SCORE: lambda m: self.metric_scores.get(m, {}).get("mean")
@@ -923,7 +929,9 @@ class SummarizationVisualizer:
                 self.results[m].roberta_scores["f1"]["mean"],
                 self.results[m].deberta_scores["f1"]["mean"],
                 self.results[m].mpnet_content_coverage_scores["mean"],
-                self.results[m].alignscore_scores["mean"]
+                self.results[m].alignscore_scores["mean"],
+                self.results[m].summac_scores["mean"],
+                self.results[m].factcc_scores["mean"]
             ]),
             PCT_WITHIN_BOUNDS: lambda m: self.results[m].length_stats["within_bounds_pct"] / 100,
             METRIC_MEAN_SCORE: lambda m: self.metric_scores.get(m, {}).get("mean")
