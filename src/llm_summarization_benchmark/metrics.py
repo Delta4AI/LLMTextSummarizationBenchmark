@@ -1,8 +1,6 @@
 import logging
 import gc
-import os
 import time
-from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from nltk.translate.meteor_score import meteor_score
@@ -367,8 +365,7 @@ def get_summac_scores(generated: list[str], references: list[str],
         logger.info(f"Calculating SummaC-ZS on device: {DEVICE}")
         empty_cuda_cache()
 
-        with _allow_hf_hub():
-            model = SummaCZS(model_name="vitc", granularity="sentence", device=DEVICE)
+        model = SummaCZS(model_name="vitc", granularity="sentence", device=DEVICE)
 
         scores = []
         batch_size = 16
@@ -384,6 +381,9 @@ def get_summac_scores(generated: list[str], references: list[str],
                 paper.scores["summac"].append(score)
 
             empty_cuda_cache(silent=True)
+
+            if (i + batch_size) % 100 < batch_size:
+                logger.info(f"SummaC-ZS: processed {min(i + batch_size, len(generated))}/{len(generated)} documents")
 
         logger.info(f"SummaC-ZS computed for {len(scores)} pairs")
 
@@ -411,9 +411,8 @@ def get_factcc_scores(generated: list[str], references: list[str],
         logger.info(f"Calculating FactCC on device: {DEVICE}")
         empty_cuda_cache()
 
-        with _allow_hf_hub():
-            tokenizer = BertTokenizer.from_pretrained(model_path)
-            model = BertForSequenceClassification.from_pretrained(model_path).to(DEVICE)
+        tokenizer = BertTokenizer.from_pretrained(model_path)
+        model = BertForSequenceClassification.from_pretrained(model_path).to(DEVICE)
         model.eval()
         correct_idx = model.config.label2id["CORRECT"]
 
@@ -440,6 +439,9 @@ def get_factcc_scores(generated: list[str], references: list[str],
             del inputs, logits, probs
             empty_cuda_cache(silent=True)
 
+            if (i + batch_size) % 100 < batch_size:
+                logger.info(f"FactCC: processed {min(i + batch_size, len(generated))}/{len(generated)} documents")
+
         logger.info(f"FactCC computed for {len(scores)} pairs")
 
     except Exception as e:
@@ -451,26 +453,6 @@ def get_factcc_scores(generated: list[str], references: list[str],
         empty_cuda_cache()
 
     return get_min_max_mean_std(scores)
-
-
-@contextmanager
-def _allow_hf_hub():
-    """Temporarily disable HF_HUB_OFFLINE so from_pretrained can find cached models.
-
-    huggingface_hub caches the env var as a module-level constant at import
-    time, so we must patch both the environment AND the cached constant.
-    """
-    import huggingface_hub.constants as _hf_consts
-
-    old_env = os.environ.pop("HF_HUB_OFFLINE", None)
-    old_const = _hf_consts.HF_HUB_OFFLINE
-    _hf_consts.HF_HUB_OFFLINE = False
-    try:
-        yield
-    finally:
-        if old_env is not None:
-            os.environ["HF_HUB_OFFLINE"] = old_env
-        _hf_consts.HF_HUB_OFFLINE = old_const
 
 
 def empty_cuda_cache(sync: bool = False, silent: bool = False):

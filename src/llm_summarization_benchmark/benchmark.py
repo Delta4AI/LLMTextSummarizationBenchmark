@@ -17,7 +17,6 @@ from copy import deepcopy
 import os
 
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
-os.environ["HF_HUB_OFFLINE"] = "1"
 
 import hashlib
 import json
