@@ -372,7 +372,19 @@ class SummarizationBenchmark:
 
             needs_metric_recalc = _method_name in self.reset_metrics_for_models
 
-            if skip_inference and not reset_metrics and not needs_metric_recalc:
+            # Check if any requested metric types are missing on the existing result
+            # Uses __dict__ lookup to bypass __getattr__ fallback which returns placeholder values
+            needs_missing_metrics = False
+            if skip_inference and self.reset_metric_types != METRIC_TYPES:
+                existing = self.results.data.get(self.papers_hash, {}).get(irc.method_name)
+                if existing is not None:
+                    for metric_type in self.reset_metric_types:
+                        val = existing.__dict__.get(metric_type)
+                        if val is None or not val:
+                            needs_missing_metrics = True
+                            break
+
+            if skip_inference and not reset_metrics and not needs_metric_recalc and not needs_missing_metrics:
                 logger.info(f"Skipping interference and metrics for existing method: {irc.method_name}")
                 self.run_status[_method_name] = RunStatus.SKIPPED
                 continue
@@ -381,7 +393,7 @@ class SummarizationBenchmark:
                 if batch:
                     result = self._check_batch(irc=irc)
                 else:
-                    if skip_inference and (reset_metrics or needs_metric_recalc):
+                    if skip_inference and (reset_metrics or needs_metric_recalc or needs_missing_metrics):
                         logger.info(f"Recalculating metrics for existing method: {irc.method_name}")
                         result = self._recalculate_metrics_from_cache(irc=irc)
                     else:
@@ -449,7 +461,7 @@ class SummarizationBenchmark:
             empty_cuda_cache(sync=True)
             return True
 
-        existing_value = getattr(existing_data, metric_attr, None)
+        existing_value = existing_data.__dict__.get(metric_attr)
         if existing_value is None or not existing_value or metric_attr in self.reset_metric_types:
             empty_cuda_cache(sync=True)
             return True

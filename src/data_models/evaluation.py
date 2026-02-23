@@ -38,9 +38,13 @@ class EvaluationResult:
     full_paper_details: list[Paper]
 
     def __getattr__(self, name: str):
-        """Fallback for fields missing on old pickled instances."""
+        """Fallback for fields missing on old pickled instances.
+
+        Returns a zero-value stats dict so visualization code doesn't crash
+        on old pickled results that lack the new metric fields.
+        """
         if name in ("summac_scores", "factcc_scores"):
-            return {}
+            return {"min": 0.0, "max": 0.0, "mean": 0.0, "std": 0.0}
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     def as_json(self, detailed: bool = False) -> dict[str, Any]:
