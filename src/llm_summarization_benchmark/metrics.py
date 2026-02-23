@@ -455,13 +455,22 @@ def get_factcc_scores(generated: list[str], references: list[str],
 
 @contextmanager
 def _allow_hf_hub():
-    """Temporarily remove HF_HUB_OFFLINE so from_pretrained can find cached models."""
-    old = os.environ.pop("HF_HUB_OFFLINE", None)
+    """Temporarily disable HF_HUB_OFFLINE so from_pretrained can find cached models.
+
+    huggingface_hub caches the env var as a module-level constant at import
+    time, so we must patch both the environment AND the cached constant.
+    """
+    import huggingface_hub.constants as _hf_consts
+
+    old_env = os.environ.pop("HF_HUB_OFFLINE", None)
+    old_const = _hf_consts.HF_HUB_OFFLINE
+    _hf_consts.HF_HUB_OFFLINE = False
     try:
         yield
     finally:
-        if old is not None:
-            os.environ["HF_HUB_OFFLINE"] = old
+        if old_env is not None:
+            os.environ["HF_HUB_OFFLINE"] = old_env
+        _hf_consts.HF_HUB_OFFLINE = old_const
 
 
 def empty_cuda_cache(sync: bool = False, silent: bool = False):
