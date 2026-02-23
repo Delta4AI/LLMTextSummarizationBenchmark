@@ -601,6 +601,12 @@ wheels = [
 ]
 
 [[package]]
+name = "en-core-web-sm"
+version = "3.8.0"
+source = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0.tar.gz" }
+sdist = { hash = "sha256:14a2f31bc476af87019819ea8c9948fabdfd473a442edd6b1cba62bf0c2c0f55" }
+
+[[package]]
 name = "eval-type-backport"
 version = "0.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1164,6 +1170,7 @@ dependencies = [
     { name = "alignscore" },
     { name = "anthropic" },
     { name = "bert-score" },
+    { name = "en-core-web-sm" },
     { name = "mistralai" },
     { name = "ollama" },
     { name = "openai" },
@@ -1183,6 +1190,7 @@ requires-dist = [
     { name = "alignscore", git = "https://github.com/MNikley/AlignScore" },
     { name = "anthropic", specifier = ">=0.76.0" },
     { name = "bert-score", specifier = ">=0.3.13" },
+    { name = "en-core-web-sm", url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0.tar.gz" },
     { name = "mistralai", specifier = ">=1.10.0" },
     { name = "ollama", specifier = ">=0.6.1" },
     { name = "openai", specifier = ">=2.15.0" },
