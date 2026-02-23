@@ -23,6 +23,7 @@ API keys are read from `Resources/.env` (see `Resources/example.env`).
 | [`check_data_leakage_cutoffs.py`](#check_data_leakage_cutoffspy) | Compare cutoff dates with article dates to quantify overlap risk |
 | [`check_data_leakage_completion.py`](#check_data_leakage_completionpy) | Probe models for memorization via abstract completion |
 | [`download_models.py`](#download_modelspy) | Pre-download Ollama models referenced in the benchmark |
+| [`human_evaluation_server.py`](#human_evaluation_serverpy) | Web server for human evaluation of model-generated summaries |
 
 ### Typical execution order
 
@@ -186,3 +187,119 @@ uv run python scripts/download_models.py
 
 No options.  Must be run from the `scripts/` directory (or adjust the
 relative path to `benchmark.py` inside the script).
+
+---
+
+## human_evaluation_server.py
+
+Web server for collecting human quality assessments of model-generated
+summaries.  Complements the automated metrics (ROUGE, BERTScore, AlignScore,
+etc.) with human judgement — the gold standard for summarization evaluation.
+
+### Evaluation framework
+
+**Detailed mode** (default) uses the four dimensions from the
+[SummEval](https://direct.mit.edu/tacl/article/doi/10.1162/tacl_a_00373/100686/SummEval-Re-evaluating-Summarization-Evaluation)
+framework (Fabbri et al., 2021, *Transactions of the Association for
+Computational Linguistics*), each rated on a 1–5 Likert scale:
+
+| Dimension | Question posed to the reviewer |
+|-----------|-------------------------------|
+| **Coherence** | Is the summary well-structured and logically organized? |
+| **Consistency** | Is the summary factually consistent with the source? No hallucinations? |
+| **Fluency** | Is the summary grammatical, well-written, and readable? |
+| **Relevance** | Does the summary capture the important information from the source? |
+
+These same four dimensions are used by
+[G-Eval](https://arxiv.org/abs/2303.16634) (Liu et al., 2023) and have become
+the *de facto* standard for summarization evaluation in NLP research.
+
+**Simple mode** (`--simple-ratings`) uses a single "Acceptability" score
+(1–5), analogous to the "Overall Responsiveness" metric from DUC/TAC
+evaluations.
+
+**Side-by-side mode** (`--side-by-side`) shows all 4 model summaries
+simultaneously for each paper, labeled A/B/C/D (blinded, randomised per
+reviewer).  The reviewer **ranks** them from 1 (best) to 4 (worst).  This
+yields only **20 ranking tasks** per reviewer instead of 80 independent
+ratings, reducing fatigue and eliminating carryover bias.  Results can be
+analysed with Kendall's W (inter-rater agreement) or Bradley-Terry models.
+
+### How it works
+
+1. The server loads the gold-standard dataset and `detailed_scores_per_paper.json`,
+   then selects **one paper per journal category** (top *N* by article count)
+   that has valid generated summaries from all specified models.
+2. Each reviewer registers with a name and receives a unique **token URL**
+   (e.g. `http://localhost:9987/evaluate?token=r_a1b2c3d4e5f6`).
+3. **All reviewers evaluate the exact same papers × models** — only the
+   presentation order is shuffled per reviewer (seeded by token) to reduce
+   ordering bias.  Model identities are hidden (blinded evaluation).
+4. Progress is saved to a **per-reviewer JSON file** in the data directory
+   after every submission, so reviewers can close the browser and resume later.
+5. With the default of 20 papers and 4 models this yields **80 assessments
+   per reviewer** (detailed/simple) or **20 ranking tasks** (side-by-side).
+
+### Usage
+
+```bash
+uv run python scripts/human_evaluation_server.py MODEL1 MODEL2 MODEL3 MODEL4 [OPTIONS]
+```
+
+Exactly four model names are required (as they appear in the results file).
+
+#### Examples
+
+```bash
+# Detailed mode (SummEval 4 dimensions)
+uv run python scripts/human_evaluation_server.py \
+    openai_gpt-4o anthropic_claude-opus-4-20250514 \
+    local:textrank ollama_gemma3:270M
+
+# Simple mode (single acceptability score)
+uv run python scripts/human_evaluation_server.py \
+    openai_gpt-4o local:textrank local:frequency ollama_gemma3:1b \
+    --simple-ratings
+
+# Side-by-side ranking mode (20 tasks instead of 80)
+uv run python scripts/human_evaluation_server.py \
+    openai_gpt-4o anthropic_claude-opus-4-20250514 \
+    local:textrank ollama_gemma3:270M \
+    --side-by-side
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--port` | `9987` | Server port |
+| `--simple-ratings` | — | Use single acceptability score instead of SummEval 4 dimensions |
+| `--side-by-side` | — | Rank all 4 summaries per paper instead of rating individually |
+| `--results-file` | `Output/…/detailed_scores_per_paper.json` | Path to per-paper results |
+| `--goldstandard` | `Resources/text_summarization_goldstandard_data.json` | Path to gold-standard dataset |
+| `--data-dir` | `Output/scripts/human_evaluation_data` | Directory for reviewer JSON files |
+| `--num-papers` | `20` | Number of papers to select (one per journal category) |
+
+### Output
+
+Reviewer data is stored as one JSON file per reviewer in the data directory:
+
+```
+Output/scripts/human_evaluation_data/
+├── reviewer_r_a1b2c3d4e5f6.json
+├── reviewer_r_b7d2e4f8a9c0.json
+└── ...
+```
+
+Each file contains the reviewer's assignments (shuffled order), rating mode,
+and all submitted assessments with timestamps.
+
+### References
+
+- Fabbri, A. R., Kryściński, W., McCann, B., Xiong, C., Socher, R., & Radev, D. (2021).
+  SummEval: Re-evaluating Summarization Evaluation. *Transactions of the Association
+  for Computational Linguistics*, 9, 391–409.
+  https://doi.org/10.1162/tacl_a_00373
+
+- Liu, Y., Iter, D., Xu, Y., Wang, S., Xu, R., & Zhu, C. (2023).
+  G-Eval: NLG Evaluation using GPT-4 with Better Human Alignment.
+  *Proceedings of EMNLP 2023*.
+  https://arxiv.org/abs/2303.16634
