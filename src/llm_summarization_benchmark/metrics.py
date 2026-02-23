@@ -1,6 +1,8 @@
 import logging
 import gc
+import os
 import time
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from nltk.translate.meteor_score import meteor_score
@@ -365,7 +367,8 @@ def get_summac_scores(generated: list[str], references: list[str],
         logger.info(f"Calculating SummaC-ZS on device: {DEVICE}")
         empty_cuda_cache()
 
-        model = SummaCZS(model_name="vitc", granularity="sentence", device=DEVICE)
+        with _allow_hf_hub():
+            model = SummaCZS(model_name="vitc", granularity="sentence", device=DEVICE)
 
         scores = []
         batch_size = 16
@@ -408,8 +411,9 @@ def get_factcc_scores(generated: list[str], references: list[str],
         logger.info(f"Calculating FactCC on device: {DEVICE}")
         empty_cuda_cache()
 
-        tokenizer = BertTokenizer.from_pretrained(model_path)
-        model = BertForSequenceClassification.from_pretrained(model_path).to(DEVICE)
+        with _allow_hf_hub():
+            tokenizer = BertTokenizer.from_pretrained(model_path)
+            model = BertForSequenceClassification.from_pretrained(model_path).to(DEVICE)
         model.eval()
         correct_idx = model.config.label2id["CORRECT"]
 
@@ -447,6 +451,17 @@ def get_factcc_scores(generated: list[str], references: list[str],
         empty_cuda_cache()
 
     return get_min_max_mean_std(scores)
+
+
+@contextmanager
+def _allow_hf_hub():
+    """Temporarily remove HF_HUB_OFFLINE so from_pretrained can find cached models."""
+    old = os.environ.pop("HF_HUB_OFFLINE", None)
+    try:
+        yield
+    finally:
+        if old is not None:
+            os.environ["HF_HUB_OFFLINE"] = old
 
 
 def empty_cuda_cache(sync: bool = False, silent: bool = False):
