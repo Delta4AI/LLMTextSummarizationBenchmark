@@ -27,7 +27,6 @@ This project uses [uv](https://github.com/astral-sh/uv) for package management.
 2. Install dependencies
     ```bash
     uv sync
-    uv run spacy download en_core_web_sm
     ```
 3. Install AlignScore-large
     ```bash
@@ -39,8 +38,12 @@ This project uses [uv](https://github.com/astral-sh/uv) for package management.
     > **Note:** If wget fails, download AlignScore-large manually from
     > [github.com/yuh-zha/AlignScore](https://github.com/yuh-zha/AlignScore) (download provided in section "Checkpoints")
     > and place it in `Output/llm_summarization_benchmark/`.
-4. Copy `Resources/example.env` to `Resources/.env` and fill in your API keys
-5. Run
+4. Pre-download all models (the benchmark runs in offline mode)
+    ```bash
+    cd scripts && HF_HUB_OFFLINE=0 uv run python download_models.py && cd ..
+    ```
+5. Copy `Resources/example.env` to `Resources/.env` and fill in your API keys
+6. Run
     ```bash
     uv run benchmark
     ```
@@ -85,7 +88,7 @@ Run `uv run benchmark` again — already-processed models will be skipped and on
 
 > **Note:** The diagram shows an earlier snapshot of the project.
 > Actual word limits are 15–100 (not 15–50), the input file is `text_summarization_goldstandard_data.json`,
-> and the evaluation suite now includes BLEU, MPNet semantic similarity, and AlignScore in addition to the metrics shown.
+> and the evaluation suite now includes BLEU, MPNet semantic similarity, AlignScore, SummaC, and FactCC in addition to the metrics shown.
 
 ---
 
@@ -212,7 +215,7 @@ Manual edits to the JSON are preserved across re-runs.
 |--------|-------------|
 | `scripts/fetch_training_cutoffs.py` | Collects model training-data cutoff dates from multiple sources and generates a JSON + interactive HTML report |
 | `scripts/add_publication_dates.py` | Enriches the gold-standard dataset with publication dates fetched from the CrossRef API using DOIs |
-| `scripts/download_models.py` | Parses `benchmark.py` and pre-downloads all required Ollama and HuggingFace models |
+| `scripts/download_models.py` | Parses `benchmark.py` and pre-downloads all required Ollama, HuggingFace, and metric models (SummaC, FactCC). Required before first run since the benchmark operates in offline mode (`HF_HUB_OFFLINE=1`). |
 
 ---
 
