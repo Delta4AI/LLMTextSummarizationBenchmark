@@ -22,6 +22,7 @@ dependencies = [
 	"tiktoken>=0.12.0",
 	"en-core-web-sm",
 	"minicheck",
+	"accelerate>=1.12.0",
 ]
 
 [tool.uv.sources]

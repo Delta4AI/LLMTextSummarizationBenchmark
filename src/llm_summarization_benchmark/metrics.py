@@ -408,6 +408,8 @@ def get_factcc_scores(generated: list[str], references: list[str],
 
     model_path = "manueldeprada/FactCC"
 
+    model = None
+    tokenizer = None
     try:
         logger.info(f"Calculating FactCC on device: {DEVICE}")
         empty_cuda_cache()
@@ -449,7 +451,10 @@ def get_factcc_scores(generated: list[str], references: list[str],
         logger.error(f"FactCC calculation failed: {e}")
         raise
     finally:
-        del model, tokenizer
+        if model is not None:
+            del model
+        if tokenizer is not None:
+            del tokenizer
         gc.collect()
         empty_cuda_cache()
 
@@ -475,6 +480,7 @@ def get_minicheck_scores(generated: list[str], references: list[str],
 
     score_key = "minicheck_ft5" if "flan" in model_name.lower() else "minicheck_7b"
 
+    scorer = None
     try:
         logger.info(f"Calculating MiniCheck ({model_name}) on device: {DEVICE}")
         empty_cuda_cache()
@@ -510,7 +516,8 @@ def get_minicheck_scores(generated: list[str], references: list[str],
         logger.error(f"MiniCheck ({model_name}) calculation failed: {e}")
         raise
     finally:
-        del scorer
+        if scorer is not None:
+            del scorer
         gc.collect()
         empty_cuda_cache()
 
