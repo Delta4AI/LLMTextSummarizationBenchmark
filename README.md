@@ -99,7 +99,9 @@ Run `uv run benchmark` again — already-processed models will be skipped and on
 
 ## Workflow
 
-![Workflow](Resources/text_summarization_benchmark_diagram.svg)
+<p align="center">
+  <img src="Resources/text_summarization_benchmark_diagram.svg" alt="Workflow" width="700">
+</p>
 
 ---
 
