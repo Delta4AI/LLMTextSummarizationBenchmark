@@ -26,7 +26,8 @@ This project uses [uv](https://github.com/astral-sh/uv) for package management.
 1. Clone this repository
 2. Install dependencies
     ```bash
-    uv sync
+    uv sync               # CPU-only (MiniCheck-FT5, all other metrics)
+    uv sync --extra gpu   # with vLLM for MiniCheck-7B (requires CUDA)
     ```
 3. Install AlignScore-large
     ```bash

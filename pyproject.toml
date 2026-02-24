@@ -25,6 +25,9 @@ dependencies = [
 	"accelerate>=1.12.0",
 ]
 
+[project.optional-dependencies]
+gpu = ["vllm>=0.8.0"]
+
 [tool.uv.sources]
 alignscore = { git = "https://github.com/MNikley/AlignScore" }
 summac = { git = "https://github.com/tingofurro/summac" }
