@@ -481,12 +481,16 @@ def get_minicheck_scores(generated: list[str], references: list[str],
 
         scorer = MiniCheck(model_name=model_name, device=DEVICE)
 
+        total = len(generated)
+        skipped = 0
         scores = []
-        for gen, ref, paper in zip(generated, references, irc.papers):
+        for idx, (gen, ref, paper) in enumerate(zip(generated, references, irc.papers)):
             sentences = sent_tokenize(gen)
             if not sentences:
+                logger.warning(f"MiniCheck ({model_name}): paper {idx + 1}/{total} has no sentences, assigning 0.0")
                 scores.append(0.0)
                 paper.scores[score_key].append(0.0)
+                skipped += 1
                 continue
 
             docs = [ref] * len(sentences)
@@ -496,7 +500,11 @@ def get_minicheck_scores(generated: list[str], references: list[str],
             scores.append(paper_score)
             paper.scores[score_key].append(paper_score)
 
-        logger.info(f"MiniCheck ({model_name}) computed for {len(scores)} papers")
+            if (idx + 1) % 100 == 0:
+                logger.info(f"MiniCheck ({model_name}): processed {idx + 1}/{total} papers")
+
+        logger.info(f"MiniCheck ({model_name}) computed for {len(scores)} papers"
+                     f"{f', skipped {skipped} (no sentences)' if skipped else ''}")
 
     except Exception as e:
         logger.error(f"MiniCheck ({model_name}) calculation failed: {e}")
