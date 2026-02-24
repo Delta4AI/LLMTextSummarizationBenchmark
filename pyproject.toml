@@ -3,7 +3,7 @@ name = "llm-summarization-benchmark"
 version = "0.3.7"
 description = "Scientific Paper Summarization Benchmark"
 readme = "README.md"
-requires-python = ">=3.11,<4.0"
+requires-python = ">=3.12,<3.13"
 dependencies = [
 	"alignscore",
 	"summac",
@@ -23,10 +23,8 @@ dependencies = [
 	"en-core-web-sm",
 	"minicheck",
 	"accelerate>=1.12.0",
+	"vllm>=0.8.0",
 ]
-
-[project.optional-dependencies]
-gpu = ["vllm>=0.8.0"]
 
 [tool.uv.sources]
 alignscore = { git = "https://github.com/MNikley/AlignScore" }
