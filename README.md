@@ -11,7 +11,7 @@ tracked automatically, and results are exported as interactive HTML reports with
 ### Key features
 
 - **Multi-provider LLM support** — OpenAI, Anthropic, Mistral, HuggingFace, and Ollama via a unified API layer
-- **Rich evaluation metrics** — ROUGE-1/2/L, BERTScore, METEOR, BLEU, semantic similarity (MPNet), and factual consistency (AlignScore, SummaC, FactCC)
+- **Rich evaluation metrics** — ROUGE-1/2/L, BERTScore, METEOR, BLEU, semantic similarity (MPNet), and factual consistency (AlignScore, SummaC, FactCC, MiniCheck)
 - **Length-constrained generation** — configurable min/max word counts with compliance tracking
 - **Training cutoff tracking** — automatically collects model knowledge cutoff dates from the
   [community LLM knowledge-cutoff dataset](https://github.com/HaoooWang/llm-knowledge-cutoff-dates),
@@ -85,10 +85,6 @@ Run `uv run benchmark` again — already-processed models will be skipped and on
 ## Workflow
 
 ![Workflow](Resources/text_summarization_benchmark_diagram.svg)
-
-> **Note:** The diagram shows an earlier snapshot of the project.
-> Actual word limits are 15–100 (not 15–50), the input file is `text_summarization_goldstandard_data.json`,
-> and the evaluation suite now includes BLEU, MPNet semantic similarity, AlignScore, SummaC, and FactCC in addition to the metrics shown.
 
 ---
 
@@ -187,6 +183,12 @@ NLI-based sentence-level factual consistency — aggregates entailment scores be
 BERT-based binary factual consistency classifier — returns P(CORRECT) as a continuous score in [0, 1], indicating whether the generated summary is factually consistent with the source document.
 [paper](https://aclanthology.org/2020.emnlp-main.621/) | [model](https://huggingface.co/manueldeprada/FactCC)
 
+### MiniCheck
+Sentence-level factual consistency via synthetic claim decomposition and verification. Each summary is split into sentences (`nltk.sent_tokenize`), scored individually against the source abstract, and aggregated via mean. Two variants are used:
+[paper](https://arxiv.org/abs/2404.10774) | [repository](https://github.com/Liyan06/MiniCheck)
+- **MiniCheck-FT5** — fine-tuned Flan-T5-Large (770M) ([model](https://huggingface.co/lytang/MiniCheck-Flan-T5-Large))
+- **MiniCheck-7B** — Bespoke-MiniCheck-7B, a Mistral-7B fine-tune achieving SOTA on factual consistency benchmarks ([model](https://huggingface.co/bespokelabs/Bespoke-MiniCheck-7B))
+
 ---
 
 ## Training Cutoff Dates
@@ -215,7 +217,7 @@ Manual edits to the JSON are preserved across re-runs.
 |--------|-------------|
 | `scripts/fetch_training_cutoffs.py` | Collects model training-data cutoff dates from multiple sources and generates a JSON + interactive HTML report |
 | `scripts/add_publication_dates.py` | Enriches the gold-standard dataset with publication dates fetched from the CrossRef API using DOIs |
-| `scripts/download_models.py` | Parses `benchmark.py` and pre-downloads all required Ollama, HuggingFace, and metric models (SummaC, FactCC). Required before first run since the benchmark operates in offline mode (`HF_HUB_OFFLINE=1`). |
+| `scripts/download_models.py` | Parses `benchmark.py` and pre-downloads all required Ollama, HuggingFace, and metric models (SummaC, FactCC, MiniCheck). Required before first run since the benchmark operates in offline mode (`HF_HUB_OFFLINE=1`). |
 
 ---
 
@@ -230,6 +232,7 @@ Manual edits to the JSON are preserved across re-runs.
 | **AlignScore** | Factual consistency evaluation metric | [Zha et al. 2023](https://arxiv.org/abs/2305.16739) · [modified repo](https://github.com/MNikley/AlignScore) |
 | **SummaC** | NLI-based sentence-level factual consistency metric | [Laban et al. 2022](https://aclanthology.org/2022.tacl-1.10/) · [repo](https://github.com/tingofurro/summac) |
 | **FactCC** | BERT-based binary factual consistency classifier | [Kryscinski et al. 2020](https://aclanthology.org/2020.emnlp-main.621/) · [model](https://huggingface.co/manueldeprada/FactCC) |
+| **MiniCheck** | Sentence-level factual consistency via claim decomposition and verification (FT5 + 7B variants) | [Tang et al. 2024](https://arxiv.org/abs/2404.10774) · [repo](https://github.com/Liyan06/MiniCheck) |
 | **BERTScore** | Semantic similarity evaluation using contextual embeddings | [Zhang et al. 2020](https://arxiv.org/abs/1904.09675) |
 | **ROUGE** | N-gram overlap metrics for summarization evaluation | [Lin 2004](https://aclanthology.org/W04-1013.pdf) |
 
