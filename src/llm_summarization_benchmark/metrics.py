@@ -1,5 +1,6 @@
 import logging
 import gc
+import os
 import time
 from typing import TYPE_CHECKING
 
@@ -520,6 +521,124 @@ def get_minicheck_scores(generated: list[str], references: list[str],
             del scorer
         gc.collect()
         empty_cuda_cache()
+
+    return get_min_max_mean_std(scores)
+
+
+# ---------------------------------------------------------------------------
+# MiniCheck-7B via Ollama (quantised GGUF, fits on <=16 GB VRAM GPUs)
+# ---------------------------------------------------------------------------
+
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MINICHECK_MODEL = os.environ.get(
+    "OLLAMA_MINICHECK_MODEL", "bespoke-minicheck"
+)
+
+
+def _score_claim_via_ollama(doc: str, claim: str) -> float:
+    """Score a single (doc, claim) pair via Ollama bespoke-minicheck.
+
+    Returns 1.0 when the model responds "Yes" (claim is consistent),
+    0.0 otherwise.
+    """
+    import requests
+
+    response = requests.post(
+        f"{OLLAMA_BASE_URL}/api/chat",
+        json={
+            "model": OLLAMA_MINICHECK_MODEL,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"Document: {doc}\nClaim: {claim}",
+                },
+            ],
+            "options": {"temperature": 0, "num_predict": 1},
+            "stream": False,
+        },
+    )
+    response.raise_for_status()
+
+    content = response.json()["message"]["content"].strip().lower()
+    if content.startswith("yes"):
+        return 1.0
+    if content.startswith("no"):
+        return 0.0
+
+    logger.warning(
+        "MiniCheck-7B (Ollama): unexpected response %r, treating as 0.0", content
+    )
+    return 0.0
+
+
+def get_minicheck_ollama_scores(
+    generated: list[str],
+    references: list[str],
+    irc: 'InterferenceRunContainer',
+) -> dict[str, float]:
+    """Calculate MiniCheck-7B factual consistency scores via Ollama.
+
+    Uses the same sentence-level decomposition as the upstream ``minicheck``
+    library, but routes inference through a locally running Ollama instance
+    (quantised GGUF model).
+
+    Configure via environment variables:
+        OLLAMA_BASE_URL  – default ``http://localhost:11434``
+        OLLAMA_MINICHECK_MODEL – default ``bespoke-minicheck``
+    """
+    from nltk.tokenize import sent_tokenize
+
+    score_key = "minicheck_7b"
+    scores: list[float] = []
+    total = len(generated)
+    skipped = 0
+
+    logger.info(
+        "Calculating MiniCheck-7B via Ollama (%s at %s) ...",
+        OLLAMA_MINICHECK_MODEL,
+        OLLAMA_BASE_URL,
+    )
+
+    try:
+        for idx, (gen, ref, paper) in enumerate(
+            zip(generated, references, irc.papers)
+        ):
+            sentences = sent_tokenize(gen)
+            if not sentences:
+                logger.warning(
+                    "MiniCheck-7B (Ollama): paper %d/%d has no sentences, "
+                    "assigning 0.0",
+                    idx + 1,
+                    total,
+                )
+                scores.append(0.0)
+                paper.scores[score_key].append(0.0)
+                skipped += 1
+                continue
+
+            sent_scores = [
+                _score_claim_via_ollama(ref, sent) for sent in sentences
+            ]
+            paper_score = sum(sent_scores) / len(sent_scores)
+            scores.append(paper_score)
+            paper.scores[score_key].append(paper_score)
+
+            if (idx + 1) % 100 == 0:
+                logger.info(
+                    "MiniCheck-7B (Ollama): processed %d/%d papers",
+                    idx + 1,
+                    total,
+                )
+
+        logger.info(
+            "MiniCheck-7B (Ollama) computed for %d papers%s",
+            len(scores),
+            f", skipped {skipped} (no sentences)" if skipped else "",
+        )
+
+    except Exception as e:
+        logger.error("MiniCheck-7B (Ollama) calculation failed: %s", e)
+        raise
 
     return get_min_max_mean_std(scores)
 

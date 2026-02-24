@@ -58,6 +58,7 @@ from llm_summarization_benchmark.metrics import (get_length_scores, get_meteor_s
                                                  get_sentence_transformer_similarity,
                                                  get_alignscore_scores, get_summac_scores,
                                                  get_factcc_scores, get_minicheck_scores,
+                                                 get_minicheck_ollama_scores,
                                                  cleanup_metrics_cache, empty_cuda_cache,
                                                  METRIC_TYPES)
 from llm_summarization_benchmark.visualization import SummarizationVisualizer
@@ -587,11 +588,10 @@ class SummarizationBenchmark:
             _minicheck_ft5_scores = existing_data.minicheck_ft5_scores
 
         if self._needs_recalc("minicheck_7b_scores", existing_data):
-            _minicheck_7b_scores = get_minicheck_scores(
+            _minicheck_7b_scores = get_minicheck_ollama_scores(
                 generated=generated_summaries,
                 references=[p.abstract for p in irc.papers],
                 irc=irc,
-                model_name="Bespoke-MiniCheck-7B"
             )
         else:
             _minicheck_7b_scores = existing_data.minicheck_7b_scores

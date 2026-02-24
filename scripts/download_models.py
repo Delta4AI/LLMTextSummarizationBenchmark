@@ -98,13 +98,12 @@ def download_metric_models() -> None:
     except Exception as e:
         print(f"  ⚠  Failed to download MiniCheck-FT5 model: {e}")
 
-    print("\n>>> Downloading MiniCheck-7B model (bespokelabs/Bespoke-MiniCheck-7B) ...")
-    try:
-        from huggingface_hub import snapshot_download
-        path = snapshot_download(repo_id="bespokelabs/Bespoke-MiniCheck-7B")
-        print(f"  ✓  MiniCheck-7B model cached at {path}")
-    except Exception as e:
-        print(f"  ⚠  Failed to download MiniCheck-7B model: {e}")
+    print("\n>>> Downloading MiniCheck-7B model via Ollama (bespoke-minicheck) ...")
+    result = subprocess.run(["ollama", "pull", "bespoke-minicheck"])
+    if result.returncode == 0:
+        print("  ✓  MiniCheck-7B (Ollama) model cached")
+    else:
+        print(f"  ⚠  Failed to pull bespoke-minicheck (exit {result.returncode})")
 
 
 def download_huggingface(models: list[str]) -> None:
