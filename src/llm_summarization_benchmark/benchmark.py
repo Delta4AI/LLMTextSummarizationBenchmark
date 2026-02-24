@@ -465,8 +465,7 @@ class SummarizationBenchmark:
             empty_cuda_cache(sync=True)
             return True
 
-        existing_value = existing_data.__dict__.get(metric_attr)
-        if existing_value is None or not existing_value or metric_attr in self.reset_metric_types:
+        if metric_attr in self.reset_metric_types:
             empty_cuda_cache(sync=True)
             return True
 
