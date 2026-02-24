@@ -21,12 +21,14 @@ dependencies = [
 	"sentence-transformers>=5.1.1",
 	"tiktoken>=0.12.0",
 	"en-core-web-sm",
+	"minicheck",
 ]
 
 [tool.uv.sources]
 alignscore = { git = "https://github.com/MNikley/AlignScore" }
 summac = { git = "https://github.com/tingofurro/summac" }
 en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0.tar.gz" }
+minicheck = { git = "https://github.com/Liyan06/MiniCheck", tag = "main" }
 
 [build-system]
 requires = ["hatchling"]

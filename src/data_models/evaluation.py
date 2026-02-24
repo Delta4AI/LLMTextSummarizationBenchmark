@@ -35,6 +35,8 @@ class EvaluationResult:
     alignscore_scores: dict[str, float]
     summac_scores: dict[str, float]
     factcc_scores: dict[str, float]
+    minicheck_ft5_scores: dict[str, float]
+    minicheck_7b_scores: dict[str, float]
     full_paper_details: list[Paper]
     input_paper_count: int | None = None  # original paper count before filtering failed responses
 
@@ -63,6 +65,8 @@ class EvaluationResult:
         alignscore = {f"alignscore_{k}": v for k, v in self.alignscore_scores.items()}
         summac = {f"summac_{k}": v for k, v in self.summac_scores.items()}
         factcc = {f"factcc_{k}": v for k, v in self.factcc_scores.items()}
+        minicheck_ft5 = {f"minicheck_ft5_{k}": v for k, v in self.minicheck_ft5_scores.items()}
+        minicheck_7b = {f"minicheck_7b_{k}": v for k, v in self.minicheck_7b_scores.items()}
         _exec_times = get_min_max_mean_std(self.execution_times)
         exec_times = {f"exec_time_{k}": v for k, v in _exec_times.items()}
         _lengths = get_min_max_mean_std(self.length_stats["all_lengths"])
@@ -90,6 +94,8 @@ class EvaluationResult:
             **alignscore,
             **summac,
             **factcc,
+            **minicheck_ft5,
+            **minicheck_7b,
             **exec_times,
             **_variable_results
         }

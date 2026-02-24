@@ -34,7 +34,8 @@ OUT_DIR = get_project_root() / "Output" / "llm_summarization_benchmark"
 USE_MODEL_CACHE = False
 METRIC_TYPES = [
     "rouge_scores", "roberta_scores", "deberta_scores", "meteor_scores", "bleu_scores",
-    "mpnet_content_coverage_scores", "alignscore_scores", "summac_scores", "factcc_scores"
+    "mpnet_content_coverage_scores", "alignscore_scores", "summac_scores", "factcc_scores",
+    "minicheck_ft5_scores", "minicheck_7b_scores"
 ]
 
 
@@ -449,6 +450,59 @@ def get_factcc_scores(generated: list[str], references: list[str],
         raise
     finally:
         del model, tokenizer
+        gc.collect()
+        empty_cuda_cache()
+
+    return get_min_max_mean_std(scores)
+
+
+def get_minicheck_scores(generated: list[str], references: list[str],
+                         irc: 'InterferenceRunContainer',
+                         model_name: str) -> dict[str, float]:
+    """Calculate MiniCheck factual consistency scores via sentence-level verification.
+
+    Decomposes each summary into sentences, scores each (source, sentence) pair,
+    and aggregates per-paper scores via mean.
+
+    Args:
+        generated: Generated summaries.
+        references: Source documents (abstracts) to verify against.
+        irc: Interference run container with paper objects.
+        model_name: MiniCheck model variant — "flan-t5-large" or "Bespoke-MiniCheck-7B".
+    """
+    from minicheck.minicheck import MiniCheck
+    from nltk.tokenize import sent_tokenize
+
+    score_key = "minicheck_ft5" if "flan" in model_name.lower() else "minicheck_7b"
+
+    try:
+        logger.info(f"Calculating MiniCheck ({model_name}) on device: {DEVICE}")
+        empty_cuda_cache()
+
+        scorer = MiniCheck(model_name=model_name, device=DEVICE)
+
+        scores = []
+        for gen, ref, paper in zip(generated, references, irc.papers):
+            sentences = sent_tokenize(gen)
+            if not sentences:
+                scores.append(0.0)
+                paper.scores[score_key].append(0.0)
+                continue
+
+            docs = [ref] * len(sentences)
+            _, sent_scores, _ = scorer.score(docs=docs, claims=sentences)
+
+            paper_score = sum(sent_scores) / len(sent_scores)
+            scores.append(paper_score)
+            paper.scores[score_key].append(paper_score)
+
+        logger.info(f"MiniCheck ({model_name}) computed for {len(scores)} papers")
+
+    except Exception as e:
+        logger.error(f"MiniCheck ({model_name}) calculation failed: {e}")
+        raise
+    finally:
+        del scorer
         gc.collect()
         empty_cuda_cache()
 

@@ -1171,6 +1171,7 @@ dependencies = [
     { name = "anthropic" },
     { name = "bert-score" },
     { name = "en-core-web-sm" },
+    { name = "minicheck" },
     { name = "mistralai" },
     { name = "ollama" },
     { name = "openai" },
@@ -1191,6 +1192,7 @@ requires-dist = [
     { name = "anthropic", specifier = ">=0.76.0" },
     { name = "bert-score", specifier = ">=0.3.13" },
     { name = "en-core-web-sm", url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0.tar.gz" },
+    { name = "minicheck", git = "https://github.com/Liyan06/MiniCheck?tag=main" },
     { name = "mistralai", specifier = ">=1.10.0" },
     { name = "ollama", specifier = ">=0.6.1" },
     { name = "openai", specifier = ">=2.15.0" },
@@ -1350,6 +1352,20 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/04/30/3afaa31c757f34b7725ab9d2ba8b48b5e89c2019c003e7d0ead143aabc5a/matplotlib-3.10.8-pp311-pypy311_pp73-macosx_10_15_x86_64.whl", hash = "sha256:6da7c2ce169267d0d066adcf63758f0604aa6c3eebf67458930f9d9b79ad1db1", size = 8249198, upload-time = "2025-12-10T22:56:45.584Z" },
     { url = "https://files.pythonhosted.org/packages/48/2f/6334aec331f57485a642a7c8be03cb286f29111ae71c46c38b363230063c/matplotlib-3.10.8-pp311-pypy311_pp73-macosx_11_0_arm64.whl", hash = "sha256:9153c3292705be9f9c64498a8872118540c3f4123d1a1c840172edf262c8be4a", size = 8136817, upload-time = "2025-12-10T22:56:47.339Z" },
     { url = "https://files.pythonhosted.org/packages/73/e4/6d6f14b2a759c622f191b2d67e9075a3f56aaccb3be4bb9bb6890030d0a0/matplotlib-3.10.8-pp311-pypy311_pp73-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:1ae029229a57cd1e8fe542485f27e7ca7b23aa9e8944ddb4985d0bc444f1eca2", size = 8713867, upload-time = "2025-12-10T22:56:48.954Z" },
+]
+
+[[package]]
+name = "minicheck"
+version = "0.1.0"
+source = { git = "https://github.com/Liyan06/MiniCheck?tag=main#b58b9fa69acbd1015ec970fa65dd752413a053d2" }
+dependencies = [
+    { name = "datasets" },
+    { name = "nltk" },
+    { name = "numpy" },
+    { name = "openai" },
+    { name = "pandas" },
+    { name = "torch" },
+    { name = "transformers" },
 ]
 
 [[package]]

@@ -57,7 +57,8 @@ from llm_summarization_benchmark.metrics import (get_length_scores, get_meteor_s
                                                  get_bert_scores, get_bleu_scores,
                                                  get_sentence_transformer_similarity,
                                                  get_alignscore_scores, get_summac_scores,
-                                                 get_factcc_scores, cleanup_metrics_cache, empty_cuda_cache,
+                                                 get_factcc_scores, get_minicheck_scores,
+                                                 cleanup_metrics_cache, empty_cuda_cache,
                                                  METRIC_TYPES)
 from llm_summarization_benchmark.visualization import SummarizationVisualizer
 from data_models import RunStatus, Paper, EvaluationResult, InterferenceRunContainer
@@ -555,6 +556,26 @@ class SummarizationBenchmark:
         else:
             _factcc_scores = existing_data.factcc_scores
 
+        if self._needs_recalc("minicheck_ft5_scores", existing_data):
+            _minicheck_ft5_scores = get_minicheck_scores(
+                generated=generated_summaries,
+                references=[p.abstract for p in irc.papers],
+                irc=irc,
+                model_name="flan-t5-large"
+            )
+        else:
+            _minicheck_ft5_scores = existing_data.minicheck_ft5_scores
+
+        if self._needs_recalc("minicheck_7b_scores", existing_data):
+            _minicheck_7b_scores = get_minicheck_scores(
+                generated=generated_summaries,
+                references=[p.abstract for p in irc.papers],
+                irc=irc,
+                model_name="Bespoke-MiniCheck-7B"
+            )
+        else:
+            _minicheck_7b_scores = existing_data.minicheck_7b_scores
+
         _input_paper_count = input_paper_count
         if _input_paper_count is None and existing_data is not None:
             _input_paper_count = existing_data.input_paper_count
@@ -578,6 +599,8 @@ class SummarizationBenchmark:
             alignscore_scores=_alignscore_scores,
             summac_scores=_summac_scores,
             factcc_scores=_factcc_scores,
+            minicheck_ft5_scores=_minicheck_ft5_scores,
+            minicheck_7b_scores=_minicheck_7b_scores,
             full_paper_details=deepcopy(irc.papers),
             input_paper_count=_input_paper_count
         )

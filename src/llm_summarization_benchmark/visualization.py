@@ -130,6 +130,8 @@ class SummarizationVisualizer:
             Metric("AlignScore", lambda m: self.results[m].alignscore_scores, None, EMBEDDING_BASED),
             Metric("SummaC", lambda m: self.results[m].summac_scores, None, EMBEDDING_BASED),
             Metric("FactCC", lambda m: self.results[m].factcc_scores, None, EMBEDDING_BASED),
+            Metric("MiniCheck-FT5", lambda m: self.results[m].minicheck_ft5_scores, None, EMBEDDING_BASED),
+            Metric("MiniCheck-7B", lambda m: self.results[m].minicheck_7b_scores, None, EMBEDDING_BASED),
         ]
 
         self.aggregates = [
