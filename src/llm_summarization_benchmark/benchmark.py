@@ -269,7 +269,8 @@ class SummarizationBenchmark:
             clear_api_cache = True
             clear_metrics = True
 
-        if f"{platform}_{model_name}" in self.reset_metrics_for_models:
+        _key = f"{platform}_{model_name}" if model_name else platform
+        if _key in self.reset_metrics_for_models:
             clear_metrics = True
 
         self._clear_cache(platform=platform, model_name=model_name,
@@ -321,7 +322,9 @@ class SummarizationBenchmark:
             "mpnet_content_coverage_scores": ["sentence_transformer"],
             "alignscore_scores": ["alignscore"],
             "summac_scores": ["summac"],
-            "factcc_scores": ["factcc"]
+            "factcc_scores": ["factcc"],
+            "minicheck_ft5_scores": ["minicheck_ft5"],
+            "minicheck_7b_scores": ["minicheck_7b"]
         }
 
         if clear_api_cache:
@@ -355,7 +358,11 @@ class SummarizationBenchmark:
                 logger.warning(f"Failed to clear results database for {method_name}: {exc}")
 
     def run(self, reset_metrics: bool = False):
+        self._force_recalc_all = reset_metrics
         logger.info(f"Running benchmark for {len(self.models)} models ..")
+
+        # Whether user explicitly requested specific metric types (not the default)
+        has_explicit_metric_types = self.reset_metric_types != METRIC_TYPES
 
         for idx, (platform, model_name, model_param_overrides, tokenizer_param_overrides,
                   batch) in enumerate(self.models):
@@ -376,25 +383,27 @@ class SummarizationBenchmark:
 
             needs_metric_recalc = _method_name in self.reset_metrics_for_models
 
-            # Check if any requested metric types are missing on the existing result
+            # Check if any metric types are missing on the existing result
             # Uses __dict__ lookup to bypass __getattr__ fallback which returns placeholder values
             needs_missing_metrics = False
-            if skip_inference and self.reset_metric_types != METRIC_TYPES:
+            if skip_inference:
                 existing = self.results.data.get(self.papers_hash, {}).get(irc.method_name)
                 if existing is not None:
-                    for metric_type in self.reset_metric_types:
+                    for metric_type in METRIC_TYPES:
                         val = existing.__dict__.get(metric_type)
                         if val is None or not val:
                             needs_missing_metrics = True
                             break
 
-            if skip_inference and not reset_metrics and not needs_metric_recalc and not needs_missing_metrics:
+            if skip_inference and not reset_metrics and not needs_metric_recalc \
+                    and not needs_missing_metrics and not has_explicit_metric_types:
                 logger.info(f"Skipping interference and metrics for existing method: {irc.method_name}")
                 self.run_status[_method_name] = RunStatus.SKIPPED
                 continue
 
             try:
-                if skip_inference and (reset_metrics or needs_metric_recalc or needs_missing_metrics):
+                if skip_inference and (reset_metrics or needs_metric_recalc
+                                       or needs_missing_metrics or has_explicit_metric_types):
                     logger.info(f"Recalculating metrics for existing method: {irc.method_name}")
                     result = self._recalculate_metrics_from_cache(irc=irc)
                 elif batch:
@@ -465,7 +474,19 @@ class SummarizationBenchmark:
             empty_cuda_cache(sync=True)
             return True
 
-        if metric_attr in self.reset_metric_types:
+        # --reset-all-metrics: force recalculate everything
+        if self._force_recalc_all:
+            empty_cuda_cache(sync=True)
+            return True
+
+        # --reset-metric-types X Y: force recalculate explicitly requested metrics
+        if self.reset_metric_types != METRIC_TYPES and metric_attr in self.reset_metric_types:
+            empty_cuda_cache(sync=True)
+            return True
+
+        # Auto-detect: recalculate if the metric value is missing or empty
+        val = existing_data.__dict__.get(metric_attr)
+        if val is None or not val:
             empty_cuda_cache(sync=True)
             return True
 

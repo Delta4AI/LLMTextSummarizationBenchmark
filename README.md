@@ -63,9 +63,24 @@ uv run benchmark [--clear] [--test N]
 | `--clear` | Delete all existing results (responses + metrics) and re-run from scratch |
 | `--test N` | Run on the first *N* publications only (useful for quick sanity checks) |
 | `--reset-all-metrics` | Recompute all metrics while keeping cached LLM responses |
-| `--reset-metrics-for-models` | Recompute metrics for specific models only (space-separated) |
-| `--reset-metric-types` | Recompute only specific metric types (default: all) |
+| `--reset-metrics-for-models` | Delete stored results for specific models and re-run from API cache (space-separated) |
+| `--reset-metric-types` | Force recompute only specific metric types (default: all) |
 | `--gold-standard-data` | Override the gold-standard data file(s) |
+
+By default, `uv run benchmark` automatically detects and recomputes any missing or empty
+metrics without requiring extra flags. The reset flags above can be combined to force
+recomputation of specific metrics for specific models:
+
+```bash
+# Recompute minicheck scores for all models
+uv run benchmark --reset-metric-types minicheck_ft5_scores minicheck_7b_scores
+
+# Recompute all metrics for two specific models
+uv run benchmark --reset-metrics-for-models local:textrank local:frequency
+
+# Recompute only minicheck scores for a specific model
+uv run benchmark --reset-metric-types minicheck_ft5_scores --reset-metrics-for-models local:textrank
+```
 
 ### Configuration
 
