@@ -89,6 +89,23 @@ def download_metric_models() -> None:
     except Exception as e:
         print(f"  ⚠  Failed to download FactCC model: {e}")
 
+    print("\n>>> Downloading MiniCheck-FT5 model (lytang/MiniCheck-Flan-T5-Large) ...")
+    try:
+        from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+        AutoTokenizer.from_pretrained("lytang/MiniCheck-Flan-T5-Large")
+        AutoModelForSeq2SeqLM.from_pretrained("lytang/MiniCheck-Flan-T5-Large")
+        print("  ✓  MiniCheck-FT5 model cached")
+    except Exception as e:
+        print(f"  ⚠  Failed to download MiniCheck-FT5 model: {e}")
+
+    print("\n>>> Downloading MiniCheck-7B model (bespokelabs/Bespoke-MiniCheck-7B) ...")
+    try:
+        from huggingface_hub import snapshot_download
+        path = snapshot_download(repo_id="bespokelabs/Bespoke-MiniCheck-7B")
+        print(f"  ✓  MiniCheck-7B model cached at {path}")
+    except Exception as e:
+        print(f"  ⚠  Failed to download MiniCheck-7B model: {e}")
+
 
 def download_huggingface(models: list[str]) -> None:
     try:
@@ -134,7 +151,7 @@ def main() -> None:
         download_huggingface(huggingface)
 
     print(f"\n{'─'*60}")
-    print("  Downloading metric models (SummaC, FactCC) ...")
+    print("  Downloading metric models (SummaC, FactCC, MiniCheck) ...")
     print(f"{'─'*60}")
     download_metric_models()
 
