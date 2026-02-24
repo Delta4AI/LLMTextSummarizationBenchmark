@@ -479,7 +479,7 @@ def get_minicheck_scores(generated: list[str], references: list[str],
         logger.info(f"Calculating MiniCheck ({model_name}) on device: {DEVICE}")
         empty_cuda_cache()
 
-        scorer = MiniCheck(model_name=model_name, device=DEVICE)
+        scorer = MiniCheck(model_name=model_name)
 
         total = len(generated)
         skipped = 0
@@ -494,7 +494,7 @@ def get_minicheck_scores(generated: list[str], references: list[str],
                 continue
 
             docs = [ref] * len(sentences)
-            _, sent_scores, _ = scorer.score(docs=docs, claims=sentences)
+            _, sent_scores, _, _ = scorer.score(docs=docs, claims=sentences)
 
             paper_score = sum(sent_scores) / len(sent_scores)
             scores.append(paper_score)
