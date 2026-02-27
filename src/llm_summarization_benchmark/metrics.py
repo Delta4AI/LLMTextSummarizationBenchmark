@@ -398,6 +398,31 @@ def get_summac_scores(generated: list[str], references: list[str],
     return get_min_max_mean_std(scores)
 
 
+def _factcc_score_batch(tokenizer, model, correct_idx,
+                        refs: list[str], gens: list[str]) -> list[float]:
+    inputs = tokenizer(refs, gens, max_length=512,
+                       padding="max_length", truncation=True,
+                       return_tensors="pt").to(DEVICE)
+    with torch.no_grad():
+        logits = model(**inputs).logits
+    probs = torch.softmax(logits, dim=1)
+    result = probs[:, correct_idx].tolist()
+    del inputs, logits, probs
+    return result
+
+
+def _factcc_score_batch_individually(tokenizer, model, correct_idx,
+                                     refs: list[str], gens: list[str]) -> list[float]:
+    results = []
+    for j, (ref, gen) in enumerate(zip(refs, gens)):
+        try:
+            results.extend(_factcc_score_batch(tokenizer, model, correct_idx, [ref], [gen]))
+        except Exception as e:
+            logger.warning(f"FactCC sample {j} failed ({e}), scoring as 0.0")
+            results.append(0.0)
+    return results
+
+
 def get_factcc_scores(generated: list[str], references: list[str],
                       irc: 'InterferenceRunContainer') -> dict[str, float]:
     """Calculate FactCC factual consistency scores using manueldeprada/FactCC.
@@ -427,20 +452,23 @@ def get_factcc_scores(generated: list[str], references: list[str],
             batch_ref = references[i:i + batch_size]
             batch_papers = irc.papers[i:i + batch_size]
 
-            inputs = tokenizer(batch_ref, batch_gen, max_length=512,
-                               padding="max_length", truncation="only_first",
-                               return_tensors="pt").to(DEVICE)
-
-            with torch.no_grad():
-                logits = model(**inputs).logits
-            probs = torch.softmax(logits, dim=1)
-            batch_scores = probs[:, correct_idx].tolist()
+            try:
+                batch_scores = _factcc_score_batch(
+                    tokenizer, model, correct_idx, batch_ref, batch_gen
+                )
+            except Exception as batch_err:
+                logger.warning(
+                    f"FactCC batch {i // batch_size + 1} failed ({batch_err}), "
+                    f"falling back to per-sample scoring"
+                )
+                batch_scores = _factcc_score_batch_individually(
+                    tokenizer, model, correct_idx, batch_ref, batch_gen
+                )
 
             scores.extend(batch_scores)
             for score, paper in zip(batch_scores, batch_papers):
                 paper.scores["factcc"].append(score)
 
-            del inputs, logits, probs
             empty_cuda_cache(silent=True)
 
             if (i + batch_size) % 100 < batch_size:
