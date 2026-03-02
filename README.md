@@ -189,7 +189,7 @@ Compares the generated summary directly against the **source document** (rather 
 [model](https://huggingface.co/sentence-transformers/all-mpnet-base-v2)
 
 ### AlignScore
-Factual consistency evaluation — measures whether the generated summary is entailed by the abstract.
+Factual consistency evaluation — measures whether the generated summary is entailed by the source document (title + abstract).
 [paper](https://arxiv.org/abs/2305.16739) | [modified repository](https://github.com/MNikley/AlignScore)
 
 ### SummaC
@@ -201,10 +201,27 @@ BERT-based binary factual consistency classifier — returns P(CORRECT) as a con
 [paper](https://aclanthology.org/2020.emnlp-main.621/) | [model](https://huggingface.co/manueldeprada/FactCC)
 
 ### MiniCheck
-Sentence-level factual consistency via synthetic claim decomposition and verification. Each summary is split into sentences (`nltk.sent_tokenize`), scored individually against the source abstract, and aggregated via mean. Two variants are used:
+Sentence-level factual consistency via synthetic claim decomposition and verification. Each summary is split into sentences (`nltk.sent_tokenize`), scored individually against the source document (title + abstract), and aggregated via mean. Two variants are used:
 [paper](https://arxiv.org/abs/2404.10774) | [repository](https://github.com/Liyan06/MiniCheck)
 - **MiniCheck-FT5** — fine-tuned Flan-T5-Large (770M) ([model](https://huggingface.co/lytang/MiniCheck-Flan-T5-Large))
 - **MiniCheck-7B** — Bespoke-MiniCheck-7B, a Mistral-7B fine-tune achieving SOTA on factual consistency benchmarks ([model](https://huggingface.co/bespokelabs/Bespoke-MiniCheck-7B))
+
+### Note on factual consistency metric divergence
+
+All four factual consistency metrics (AlignScore, SummaC, FactCC, MiniCheck) verify generated summaries against the same source document (title + abstract), matching the input the LLMs received during generation. Despite this unified input, scores are expected to diverge due to fundamental differences in model architecture and scoring granularity:
+
+| Property | AlignScore | SummaC | FactCC | MiniCheck |
+|----------|-----------|--------|--------|-----------|
+| **Architecture** | RoBERTa-large regression | NLI entailment (ViTC) | BERT binary classifier | Flan-T5-Large / Mistral-7B |
+| **Granularity** | Document-level | Sentence-level (internal) | Document-level | Sentence-level (explicit) |
+| **Output** | Continuous [0, 1] | Continuous [0, 1] | P(CORRECT) [0, 1] | Continuous (FT5) / binary mean (7B) |
+| **Max input tokens** | 512 (RoBERTa) | 512 (ViTC) | 512 (BERT) | 4096 (FT5) |
+
+Key factors driving score differences:
+- **Scoring granularity** — AlignScore and FactCC score the entire summary as a single unit. MiniCheck decomposes summaries into sentences and averages per-sentence scores. A summary with one hallucinated sentence out of ten will score ~0.9 in MiniCheck but may score much lower in FactCC if the hallucination dominates the joint representation.
+- **Truncation** — AlignScore, SummaC, and FactCC are limited to 512 tokens (model-internal). For the longest papers in this dataset (~550 tokens source + ~220 tokens summary), the combined input exceeds this limit and is silently truncated. MiniCheck-FT5 supports 4096 tokens and is unaffected.
+- **Training data and consistency definition** — Each model was trained on different datasets with different operationalisations of "factual consistency," leading to systematic disagreements especially on borderline cases.
+- **MiniCheck-7B quantisation** — The 7B variant returns binary yes/no judgments per sentence, producing a coarser score distribution (values cluster around discrete fractions like 0.0, 0.5, 0.75, 1.0) compared to the continuous scores of the other metrics.
 
 ---
 
