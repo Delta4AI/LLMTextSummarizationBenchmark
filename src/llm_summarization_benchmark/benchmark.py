@@ -553,7 +553,7 @@ class SummarizationBenchmark:
         if self._needs_recalc("alignscore_scores", existing_data):
             _alignscore_scores = get_alignscore_scores(
                 generated=generated_summaries,
-                references=[p.abstract for p in irc.papers],
+                references=[p.full_text for p in irc.papers],
                 irc=irc
             )
         else:
@@ -580,7 +580,7 @@ class SummarizationBenchmark:
         if self._needs_recalc("minicheck_ft5_scores", existing_data):
             _minicheck_ft5_scores = get_minicheck_scores(
                 generated=generated_summaries,
-                references=[p.abstract for p in irc.papers],
+                references=[p.full_text for p in irc.papers],
                 irc=irc,
                 model_name="flan-t5-large"
             )
@@ -590,7 +590,7 @@ class SummarizationBenchmark:
         if self._needs_recalc("minicheck_7b_scores", existing_data):
             _minicheck_7b_scores = get_minicheck_ollama_scores(
                 generated=generated_summaries,
-                references=[p.abstract for p in irc.papers],
+                references=[p.full_text for p in irc.papers],
                 irc=irc,
             )
         else:

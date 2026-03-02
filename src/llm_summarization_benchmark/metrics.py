@@ -308,7 +308,7 @@ def get_sentence_transformer_similarity(generated: list[str], source_documents: 
 def get_alignscore_scores(generated: list[str], references: list[str],
                           irc: 'InterferenceRunContainer') -> dict[str, float]:
     """
-    Calculate AlignScore between generated summaries and abstracts.
+    Calculate AlignScore between generated summaries and source documents (title + abstract).
     """
     scores = []
     ckpt_path = OUT_DIR / "AlignScore-large.ckpt"
@@ -500,7 +500,7 @@ def get_minicheck_scores(generated: list[str], references: list[str],
 
     Args:
         generated: Generated summaries.
-        references: Source documents (abstracts) to verify against.
+        references: Source documents (title + abstract) to verify against.
         irc: Interference run container with paper objects.
         model_name: MiniCheck model variant — "flan-t5-large" or "Bespoke-MiniCheck-7B".
     """
