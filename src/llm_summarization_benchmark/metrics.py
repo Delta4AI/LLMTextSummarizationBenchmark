@@ -2,7 +2,14 @@ import logging
 import gc
 import os
 import time
+import warnings
 from typing import TYPE_CHECKING
+
+import transformers
+
+# Suppress noisy "some weights were not initialized" warnings from HuggingFace models
+transformers.logging.set_verbosity_error()
+warnings.filterwarnings("ignore", message="Some weights of .* were not initialized")
 
 from nltk.translate.meteor_score import meteor_score
 from nltk.translate.bleu_score import sentence_bleu
