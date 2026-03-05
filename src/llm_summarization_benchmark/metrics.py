@@ -16,7 +16,6 @@ from nltk.translate.bleu_score import sentence_bleu
 from rouge_score.rouge_scorer import RougeScorer
 from bert_score import score as bert_score, BERTScorer
 from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
 from alignscore import AlignScore
 
 from llm_apis.huggingface_client import init_hf_cache_dir
@@ -111,7 +110,7 @@ class ModelCache:
         gc.collect()
         empty_cuda_cache(sync=True)
         self._log_memory_usage("After Cleanup")
-        time.sleep(5)
+        time.sleep(1)
 
 
 _model_cache = ModelCache()
@@ -157,8 +156,6 @@ def get_rouge_scores(generated: list[str], references: list[list[str]],
         for rouge_type in ROUGE_TYPES:
             rouge_scores[rouge_type].append(max_scores[rouge_type])
 
-    time.sleep(5)
-
     return {
         rouge_type: get_min_max_mean_std(rouge_scores[rouge_type])
         for rouge_type in ROUGE_TYPES
@@ -191,8 +188,6 @@ def get_meteor_scores(generated: list[str], references: list[list[str]],
         logger.error(f"METEOR calculation failed: {str(e)}")
         raise
 
-    time.sleep(5)
-
     return get_min_max_mean_std(meteor_scores)
 
 
@@ -207,35 +202,63 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
         logger.info(f"Calculating BERTScore with model: {model}")
         empty_cuda_cache()
 
-        for idx, (gen, ref_list, paper) in enumerate(zip(generated, references, irc.papers)):
-            with torch.no_grad():
-                P, R, F1 = bert_score(
-                    cands=[gen] * len(ref_list),
-                    refs=ref_list,
-                    model_type=model,
-                    lang="en",
-                    verbose=False,
-                    device='cuda' if torch and torch.cuda.is_available() else 'cpu',
-                    batch_size=8,
-                )
+        # Flatten all (generated, reference) pairs for batched scoring
+        flat_cands = []
+        flat_refs = []
+        paper_indices = []
+        for paper_idx, (gen, ref_list) in enumerate(zip(generated, references)):
+            for ref in ref_list:
+                flat_cands.append(gen)
+                flat_refs.append(ref)
+                paper_indices.append(paper_idx)
 
-            precision = P.max().item()
-            recall = R.max().item()
-            f1 = F1.max().item()
+        device = 'cuda' if torch and torch.cuda.is_available() else 'cpu'
+        logger.info(f"BERTScore: scoring {len(flat_cands)} pairs on {device}")
 
-            best_precision.append(precision)
-            best_recall.append(recall)
+        # Adaptive batching: start large, halve on OOM
+        batch_size = 128
+        P = R = F1 = None
+        while True:
+            try:
+                with torch.no_grad():
+                    P, R, F1 = bert_score(
+                        cands=flat_cands,
+                        refs=flat_refs,
+                        model_type=model,
+                        lang="en",
+                        verbose=False,
+                        device=device,
+                        batch_size=batch_size,
+                    )
+                logger.info(f"BERTScore: completed with batch_size={batch_size}")
+                break
+            except Exception as e:
+                if not _is_oom_error(e) or batch_size <= 1:
+                    raise
+                logger.warning(f"BERTScore OOM at batch_size={batch_size}, "
+                               f"retrying with {batch_size // 2}")
+                P = R = F1 = None
+                empty_cuda_cache(sync=True)
+                time.sleep(1)
+                batch_size //= 2
+
+        # Re-aggregate: take max score per paper across its references
+        for paper_idx in range(len(generated)):
+            indices = [i for i, pi in enumerate(paper_indices) if pi == paper_idx]
+            p = max(P[i].item() for i in indices)
+            r = max(R[i].item() for i in indices)
+            f1 = max(F1[i].item() for i in indices)
+
+            best_precision.append(p)
+            best_recall.append(r)
             best_f1.append(f1)
 
-            paper.scores[f"bert_{model}_precision"].append(precision)
-            paper.scores[f"bert_{model}_recall"].append(recall)
+            paper = irc.papers[paper_idx]
+            paper.scores[f"bert_{model}_precision"].append(p)
+            paper.scores[f"bert_{model}_recall"].append(r)
             paper.scores[f"bert_{model}_f1"].append(f1)
 
-            del P, R, F1
-
-            if (idx + 1) % 100 == 0:
-                logger.info(f"Processed {idx + 1}/{len(generated)} documents for {model}")
-
+        del P, R, F1
 
     except Exception as e:
         logger.error(f"BERTScore calculation failed: {e}")
@@ -272,42 +295,53 @@ def get_bleu_scores(generated: list[str], references: list[list[str]],
 def get_sentence_transformer_similarity(generated: list[str], source_documents: list[str], model_name: str,
                                         irc: 'InterferenceRunContainer') -> dict[str, float]:
     """Calculate sentence transformer similarity using cached model."""
-    similarities = []
-
     try:
         logger.info(f"Calculating SentenceTransformer similarity with model: {model_name}")
         model = _model_cache.get_sentence_transformer(model_name)
         empty_cuda_cache()
 
-        batch_size = 4
+        # Adaptive batch encoding: encode all texts, halve batch_size on OOM
+        batch_size = 128
+        gen_embeddings = src_embeddings = None
+        while True:
+            try:
+                with torch.no_grad():
+                    gen_embeddings = model.encode(
+                        generated, batch_size=batch_size,
+                        convert_to_tensor=True, show_progress_bar=False,
+                    )
+                    src_embeddings = model.encode(
+                        source_documents, batch_size=batch_size,
+                        convert_to_tensor=True, show_progress_bar=False,
+                    )
+                logger.info(f"SentenceTransformer: encoded {len(generated)} pairs "
+                            f"(batch_size={batch_size})")
+                break
+            except Exception as e:
+                if not _is_oom_error(e) or batch_size <= 1:
+                    raise
+                logger.warning(f"SentenceTransformer OOM at batch_size={batch_size}, "
+                               f"retrying with {batch_size // 2}")
+                gen_embeddings = src_embeddings = None
+                empty_cuda_cache(sync=True)
+                time.sleep(1)
+                batch_size //= 2
 
-        for i in range(0, len(generated), batch_size):
-            if i % 100 == 0:
-                logger.info(f"Processed sentence transformer similarities for {i}/{len(generated)} documents "
-                            f"for {model_name}")
-            batch_gen = generated[i:i + batch_size]
-            batch_src = source_documents[i:i + batch_size]
-            batch_papers = irc.papers[i:i + batch_size]
+        # Vectorised element-wise cosine similarity
+        similarities_t = torch.nn.functional.cosine_similarity(
+            gen_embeddings, src_embeddings,
+        )
+        similarities = similarities_t.cpu().tolist()
 
-            for gen, src, paper in zip(batch_gen, batch_src, batch_papers):
-                with torch.no_grad():  # Disable gradient computation
-                    embeddings = model.encode([gen, src], convert_to_tensor=True)
-                    similarity = cosine_similarity(
-                        embeddings[0].cpu().numpy().reshape(1, -1),
-                        embeddings[1].cpu().numpy().reshape(1, -1)
-                    )[0][0]
-                    similarities.append(float(similarity))
-                    paper.scores["sentence_transformer"].append(similarity)
+        for sim, paper in zip(similarities, irc.papers):
+            paper.scores["sentence_transformer"].append(float(sim))
 
-                # Clean up tensors
-                del embeddings
-                empty_cuda_cache(silent=True)
+        del gen_embeddings, src_embeddings, similarities_t
 
     except Exception as e:
         logger.error(f"Sentence Transformer embedding similarity {model_name} failed: {e}")
         raise
     finally:
-        empty_cuda_cache()
         _model_cache.cleanup_all()
 
     return get_min_max_mean_std(similarities)
@@ -319,6 +353,7 @@ def get_alignscore_scores(generated: list[str], references: list[str],
     """
     scores = []
     ckpt_path = OUT_DIR / "AlignScore-large.ckpt"
+    aligner = None
 
     try:
         logger.info(f"Calculating AlignScore on device: {DEVICE}")
@@ -327,12 +362,13 @@ def get_alignscore_scores(generated: list[str], references: list[str],
         aligner = AlignScore(
             model="roberta-large",
             ckpt_path=ckpt_path,
-            batch_size=16,
+            batch_size=512,  # high ceiling; actual batch size controlled below
             device=DEVICE,
         )
 
-        batch_size = 16
-        for i in range(0, len(generated), batch_size):
+        batch_size = 64
+        i = 0
+        while i < len(generated):
             batch_gen = generated[i:i + batch_size]
             batch_ref = references[i:i + batch_size]
             batch_papers = irc.papers[i:i + batch_size]
@@ -340,12 +376,19 @@ def get_alignscore_scores(generated: list[str], references: list[str],
             try:
                 batch_scores = aligner.score(batch_ref, batch_gen)
             except Exception as e:
-                logger.warning(f"AlignScore batch {i // batch_size + 1} failed ({e}), "
+                if _is_oom_error(e) and batch_size > 1:
+                    logger.warning(f"AlignScore OOM at batch_size={batch_size}, "
+                                   f"reducing to {batch_size // 2}")
+                    empty_cuda_cache(sync=True)
+                    time.sleep(1)
+                    batch_size = max(batch_size // 2, 1)
+                    continue
+                logger.warning(f"AlignScore batch failed ({e}), "
                                f"falling back to per-sample scoring")
                 batch_scores = []
-                for j, (ref, gen) in enumerate(zip(batch_ref, batch_gen)):
+                for j, (ref, gen_text) in enumerate(zip(batch_ref, batch_gen)):
                     try:
-                        batch_scores.extend(aligner.score([ref], [gen]))
+                        batch_scores.extend(aligner.score([ref], [gen_text]))
                     except Exception as e2:
                         logger.warning(f"AlignScore sample {i + j} failed ({e2}), scoring as 0.0")
                         batch_scores.append(0.0)
@@ -354,8 +397,8 @@ def get_alignscore_scores(generated: list[str], references: list[str],
             for score, paper in zip(batch_scores, batch_papers):
                 paper.scores["alignscore"].append(score)
 
-            if torch and torch.cuda.is_available():
-                torch.cuda.empty_cache()
+            empty_cuda_cache(silent=True)
+            i += len(batch_gen)
 
         logger.info(f"AlignScore computed for {len(scores)} pairs")
 
@@ -364,7 +407,10 @@ def get_alignscore_scores(generated: list[str], references: list[str],
         logger.error(f"Make sure this file exists: {ckpt_path}")
         raise
     finally:
-        empty_cuda_cache()
+        if aligner is not None:
+            del aligner
+        gc.collect()
+        empty_cuda_cache(sync=True)
 
     return get_min_max_mean_std(scores)
 
@@ -378,6 +424,7 @@ def get_summac_scores(generated: list[str], references: list[str],
     """
     from summac.model_summac import SummaCZS
 
+    model = None
     try:
         logger.info(f"Calculating SummaC-ZS on device: {DEVICE}")
         empty_cuda_cache()
@@ -385,22 +432,44 @@ def get_summac_scores(generated: list[str], references: list[str],
         model = SummaCZS(model_name="vitc", granularity="sentence", device=DEVICE)
 
         scores = []
-        batch_size = 16
-        for i in range(0, len(generated), batch_size):
+        batch_size = 32
+        i = 0
+        while i < len(generated):
             batch_gen = generated[i:i + batch_size]
             batch_ref = references[i:i + batch_size]
             batch_papers = irc.papers[i:i + batch_size]
 
-            result = model.score(batch_ref, batch_gen)
-            batch_scores = result["scores"]
+            try:
+                result = model.score(batch_ref, batch_gen)
+                batch_scores = result["scores"]
+            except Exception as e:
+                if _is_oom_error(e) and batch_size > 1:
+                    logger.warning(f"SummaC OOM at batch_size={batch_size}, "
+                                   f"reducing to {batch_size // 2}")
+                    empty_cuda_cache(sync=True)
+                    time.sleep(1)
+                    batch_size = max(batch_size // 2, 1)
+                    continue
+                logger.warning(f"SummaC batch failed ({e}), "
+                               f"falling back to per-sample scoring")
+                batch_scores = []
+                for j, (ref, gen_text) in enumerate(zip(batch_ref, batch_gen)):
+                    try:
+                        result = model.score([ref], [gen_text])
+                        batch_scores.append(result["scores"][0])
+                    except Exception as e2:
+                        logger.warning(f"SummaC sample {i + j} failed ({e2}), scoring as 0.0")
+                        batch_scores.append(0.0)
+
             scores.extend(batch_scores)
             for score, paper in zip(batch_scores, batch_papers):
                 paper.scores["summac"].append(score)
 
             empty_cuda_cache(silent=True)
+            i += len(batch_gen)
 
-            if (i + batch_size) % 100 < batch_size:
-                logger.info(f"SummaC-ZS: processed {min(i + batch_size, len(generated))}/{len(generated)} documents")
+            if i % 100 < len(batch_gen):
+                logger.info(f"SummaC-ZS: processed {i}/{len(generated)} documents")
 
         logger.info(f"SummaC-ZS computed for {len(scores)} pairs")
 
@@ -408,7 +477,10 @@ def get_summac_scores(generated: list[str], references: list[str],
         logger.error(f"SummaC-ZS calculation failed: {e}")
         raise
     finally:
-        empty_cuda_cache()
+        if model is not None:
+            del model
+        gc.collect()
+        empty_cuda_cache(sync=True)
 
     return get_min_max_mean_std(scores)
 
@@ -461,8 +533,9 @@ def get_factcc_scores(generated: list[str], references: list[str],
         correct_idx = model.config.label2id["CORRECT"]
 
         scores = []
-        batch_size = 16
-        for i in range(0, len(generated), batch_size):
+        batch_size = 64
+        i = 0
+        while i < len(generated):
             batch_gen = generated[i:i + batch_size]
             batch_ref = references[i:i + batch_size]
             batch_papers = irc.papers[i:i + batch_size]
@@ -471,9 +544,16 @@ def get_factcc_scores(generated: list[str], references: list[str],
                 batch_scores = _factcc_score_batch(
                     tokenizer, model, correct_idx, batch_ref, batch_gen
                 )
-            except Exception as batch_err:
+            except Exception as e:
+                if _is_oom_error(e) and batch_size > 1:
+                    logger.warning(f"FactCC OOM at batch_size={batch_size}, "
+                                   f"reducing to {batch_size // 2}")
+                    empty_cuda_cache(sync=True)
+                    time.sleep(1)
+                    batch_size = max(batch_size // 2, 1)
+                    continue
                 logger.warning(
-                    f"FactCC batch {i // batch_size + 1} failed ({batch_err}), "
+                    f"FactCC batch failed ({e}), "
                     f"falling back to per-sample scoring"
                 )
                 batch_scores = _factcc_score_batch_individually(
@@ -485,9 +565,10 @@ def get_factcc_scores(generated: list[str], references: list[str],
                 paper.scores["factcc"].append(score)
 
             empty_cuda_cache(silent=True)
+            i += len(batch_gen)
 
-            if (i + batch_size) % 100 < batch_size:
-                logger.info(f"FactCC: processed {min(i + batch_size, len(generated))}/{len(generated)} documents")
+            if i % 100 < len(batch_gen):
+                logger.info(f"FactCC: processed {i}/{len(generated)} documents")
 
         logger.info(f"FactCC computed for {len(scores)} pairs")
 
@@ -500,7 +581,7 @@ def get_factcc_scores(generated: list[str], references: list[str],
         if tokenizer is not None:
             del tokenizer
         gc.collect()
-        empty_cuda_cache()
+        empty_cuda_cache(sync=True)
 
     return get_min_max_mean_std(scores)
 
@@ -563,7 +644,7 @@ def get_minicheck_scores(generated: list[str], references: list[str],
         if scorer is not None:
             del scorer
         gc.collect()
-        empty_cuda_cache()
+        empty_cuda_cache(sync=True)
 
     return get_min_max_mean_std(scores)
 
@@ -686,16 +767,24 @@ def get_minicheck_ollama_scores(
     return get_min_max_mean_std(scores)
 
 
+def _is_oom_error(e: Exception) -> bool:
+    """Check if an exception is a CUDA out-of-memory error."""
+    if torch is not None and hasattr(torch.cuda, 'OutOfMemoryError'):
+        if isinstance(e, torch.cuda.OutOfMemoryError):
+            return True
+    return isinstance(e, RuntimeError) and "out of memory" in str(e).lower()
+
+
 def empty_cuda_cache(sync: bool = False, silent: bool = False):
     if DEVICE == "cuda":
         if not silent:
             logger.info("Clearing CUDA cache ..")
         gc.collect()
-        torch.cuda.empty_cache()
         if sync:
             if not silent:
                 logger.info("Syncing CUDA cache ..")
             torch.cuda.synchronize()
+        torch.cuda.empty_cache()
 
 
 def cleanup_metrics_cache():
