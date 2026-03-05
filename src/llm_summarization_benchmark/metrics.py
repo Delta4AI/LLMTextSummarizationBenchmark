@@ -332,12 +332,20 @@ def get_alignscore_scores(generated: list[str], references: list[str],
 
             try:
                 batch_scores = aligner.score(batch_ref, batch_gen)
-                scores.extend(batch_scores)
-                for score, paper in zip(batch_scores, batch_papers):
-                    paper.scores["alignscore"].append(score)
             except Exception as e:
-                logger.warning(f"AlignScore batch {i // batch_size + 1} failed: {e}")
-                continue
+                logger.warning(f"AlignScore batch {i // batch_size + 1} failed ({e}), "
+                               f"falling back to per-sample scoring")
+                batch_scores = []
+                for j, (ref, gen) in enumerate(zip(batch_ref, batch_gen)):
+                    try:
+                        batch_scores.extend(aligner.score([ref], [gen]))
+                    except Exception as e2:
+                        logger.warning(f"AlignScore sample {i + j} failed ({e2}), scoring as 0.0")
+                        batch_scores.append(0.0)
+
+            scores.extend(batch_scores)
+            for score, paper in zip(batch_scores, batch_papers):
+                paper.scores["alignscore"].append(score)
 
             if torch and torch.cuda.is_available():
                 torch.cuda.empty_cache()

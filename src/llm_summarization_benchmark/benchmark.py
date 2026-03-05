@@ -433,6 +433,23 @@ class SummarizationBenchmark:
     def _recalculate_metrics_from_cache(self, irc: InterferenceRunContainer) -> EvaluationResult:
         existing = self.results.data[self.papers_hash][irc.method_name]
         generated_summaries = [extract_response(r) for r in existing.full_responses]
+
+        # The original run may have filtered papers with no response, so
+        # existing.full_responses can be shorter than irc.papers.  Align
+        # irc.papers to the papers that actually produced responses.
+        n_existing = len(existing.full_responses)
+        if n_existing != len(irc.papers):
+            if hasattr(existing, "full_paper_details"):
+                kept_ids = {p.id for p in existing.full_paper_details}
+                irc.papers = [p for p in irc.papers if p.id in kept_ids]
+            if len(irc.papers) != n_existing:
+                logger.warning(
+                    f"Paper count mismatch for {irc.method_name}: "
+                    f"{n_existing} existing responses vs {len(irc.papers)} papers. "
+                    f"Truncating to match existing responses."
+                )
+                irc.papers = irc.papers[:n_existing]
+
         reference_summaries = [p.summaries for p in irc.papers]
 
         # Restore response data onto fresh papers (not set during metric-only recalc)
