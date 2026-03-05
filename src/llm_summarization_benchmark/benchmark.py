@@ -602,6 +602,15 @@ class SummarizationBenchmark:
         if _input_paper_count is None:
             _input_paper_count = len(generated_summaries)
 
+        # Merge old per-paper scores into the fresh irc.papers so that
+        # metrics that were NOT recalculated (served from cache) are still
+        # present in full_paper_details → detailed_scores_per_model.json.
+        if existing_data is not None and hasattr(existing_data, "full_paper_details"):
+            for new_paper, old_paper in zip(irc.papers, existing_data.full_paper_details):
+                for key, values in old_paper.scores.items():
+                    if key not in new_paper.scores:
+                        new_paper.scores[key] = values
+
         return EvaluationResult(
             method_name=irc.method_name,
             execution_times=_execution_times,
