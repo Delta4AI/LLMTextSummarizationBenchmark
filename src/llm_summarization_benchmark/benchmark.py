@@ -435,6 +435,11 @@ class SummarizationBenchmark:
         generated_summaries = [extract_response(r) for r in existing.full_responses]
         reference_summaries = [p.summaries for p in irc.papers]
 
+        # Restore response data onto fresh papers (not set during metric-only recalc)
+        for paper, raw_resp, extracted in zip(irc.papers, existing.full_responses, generated_summaries):
+            paper.raw_response = raw_resp
+            paper.extracted_response = extracted
+
         return self._get_evaluation_result(
             irc=irc,
             generated_summaries=generated_summaries,
