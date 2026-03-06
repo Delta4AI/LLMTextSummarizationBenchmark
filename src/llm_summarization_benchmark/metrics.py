@@ -14,7 +14,7 @@ warnings.filterwarnings("ignore", message="Some weights of .* were not initializ
 from nltk.translate.meteor_score import meteor_score
 from nltk.translate.bleu_score import sentence_bleu
 from rouge_score.rouge_scorer import RougeScorer
-from bert_score import score as bert_score, BERTScorer
+from bert_score import score as bert_score
 from sentence_transformers import SentenceTransformer
 from alignscore import AlignScore
 
@@ -23,6 +23,10 @@ from llm_apis.huggingface_client import init_hf_cache_dir
 from utilities import get_project_root, get_min_max_mean_std
 
 try:
+    # Reduce CUDA memory fragmentation (must be set before first torch.cuda call)
+    if "PYTORCH_CUDA_ALLOC_CONF" not in os.environ:
+        os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+
     import torch
 
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -38,7 +42,6 @@ logger = logging.getLogger(__name__)
 ROUGE_TYPES = ['rouge1', 'rouge2', 'rougeL']
 ROUGE_SCORER = RougeScorer(ROUGE_TYPES, use_stemmer=True)
 OUT_DIR = get_project_root() / "Output" / "llm_summarization_benchmark"
-USE_MODEL_CACHE = False
 METRIC_TYPES = [
     "rouge_scores", "roberta_scores", "deberta_scores", "meteor_scores", "bleu_scores",
     "mpnet_content_coverage_scores", "alignscore_scores", "summac_scores", "factcc_scores",
@@ -47,73 +50,6 @@ METRIC_TYPES = [
 
 
 init_hf_cache_dir()
-
-
-class ModelCache:
-    """Cache for reusing models to avoid reloading"""
-
-    def __init__(self) -> None:
-        self.sentence_transformers = {}
-        self.bert_models = {}
-
-    def get_sentence_transformer(self, model_name: str) -> SentenceTransformer:
-        """Get or create a SentenceTransformer model"""
-        if not USE_MODEL_CACHE:
-            return SentenceTransformer(model_name, device=self._get_best_device())
-
-        if model_name not in self.sentence_transformers:
-            logger.info(f"Loading SentenceTransformer model: {model_name}")
-
-            device = self._get_best_device()
-
-            self.sentence_transformers[model_name] = SentenceTransformer(
-                model_name,
-                device=device
-            )
-
-            self._log_memory_usage(f"After loading {model_name}")
-
-        return self.sentence_transformers[model_name]
-
-    @staticmethod
-    def _get_best_device() -> str:
-        """Determine the best device to use"""
-        if torch and torch.cuda.is_available():
-            # Check available GPU memory
-            gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024 ** 3
-            allocated = torch.cuda.memory_allocated(0) / 1024 ** 3
-            free_memory = gpu_memory - allocated
-
-            # Use GPU only if we have enough free memory (at least 1GB)
-            if free_memory > 1.0:
-                return 'cuda'
-            else:
-                logger.warning(f"Low GPU memory ({free_memory:.2f}GB), using CPU for SentenceTransformer")
-                return 'cpu'
-        return 'cpu'
-
-    @staticmethod
-    def _log_memory_usage(context: str = ""):
-        """Log current memory usage"""
-        if torch and torch.cuda.is_available():
-            allocated = torch.cuda.memory_allocated(0) / 1024 ** 3
-            cached = torch.cuda.memory_reserved(0) / 1024 ** 3
-            total = torch.cuda.get_device_properties(0).total_memory / 1024 ** 3
-            free = total - allocated
-            logger.info(f"{context} - GPU: {allocated:.2f}GB allocated, {cached:.2f}GB cached, {free:.2f}GB free")
-
-    def cleanup_all(self):
-        """Clean up all cached models"""
-        self.sentence_transformers.clear()
-        self.bert_models.clear()
-
-        gc.collect()
-        empty_cuda_cache(sync=True)
-        self._log_memory_usage("After Cleanup")
-        time.sleep(1)
-
-
-_model_cache = ModelCache()
 
 
 def get_length_scores(summaries: list[str], min_words: int, max_words: int) -> dict:
@@ -264,9 +200,9 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
         logger.error(f"BERTScore calculation failed: {e}")
         raise
     finally:
-        if hasattr(BERTScorer, '_model'):
-            BERTScorer._model = None
-
+        # bert_score.score() creates the model as a local variable that is
+        # already out of scope by the time we reach this finally block, so
+        # gc.collect() can reclaim it and empty_cuda_cache frees the VRAM.
         gc.collect()
         empty_cuda_cache(sync=True)
 
@@ -294,11 +230,13 @@ def get_bleu_scores(generated: list[str], references: list[list[str]],
 
 def get_sentence_transformer_similarity(generated: list[str], source_documents: list[str], model_name: str,
                                         irc: 'InterferenceRunContainer') -> dict[str, float]:
-    """Calculate sentence transformer similarity using cached model."""
+    """Calculate sentence transformer similarity."""
+    model = None
     try:
         logger.info(f"Calculating SentenceTransformer similarity with model: {model_name}")
-        model = _model_cache.get_sentence_transformer(model_name)
         empty_cuda_cache()
+
+        model = SentenceTransformer(model_name, device=DEVICE)
 
         # Adaptive batch encoding: encode all texts, halve batch_size on OOM
         batch_size = 128
@@ -342,7 +280,10 @@ def get_sentence_transformer_similarity(generated: list[str], source_documents: 
         logger.error(f"Sentence Transformer embedding similarity {model_name} failed: {e}")
         raise
     finally:
-        _model_cache.cleanup_all()
+        if model is not None:
+            del model
+        gc.collect()
+        empty_cuda_cache(sync=True)
 
     return get_min_max_mean_std(similarities)
 
@@ -625,7 +566,22 @@ def get_minicheck_scores(generated: list[str], references: list[str],
                 continue
 
             docs = [ref] * len(sentences)
-            _, sent_scores, _, _ = scorer.score(docs=docs, claims=sentences)
+            try:
+                _, sent_scores, _, _ = scorer.score(docs=docs, claims=sentences)
+            except Exception as e:
+                if not _is_oom_error(e):
+                    raise
+                logger.warning(f"MiniCheck ({model_name}): OOM on paper {idx + 1}/{total} "
+                               f"({len(sentences)} sentences), falling back to per-sentence scoring")
+                empty_cuda_cache(sync=True)
+                sent_scores = []
+                for s_idx, sent in enumerate(sentences):
+                    try:
+                        _, s_scores, _, _ = scorer.score(docs=[ref], claims=[sent])
+                        sent_scores.extend(s_scores)
+                    except Exception as e2:
+                        logger.warning(f"MiniCheck ({model_name}): sentence {s_idx} failed ({e2}), scoring as 0.0")
+                        sent_scores.append(0.0)
 
             paper_score = sum(sent_scores) / len(sent_scores)
             scores.append(paper_score)
@@ -768,11 +724,18 @@ def get_minicheck_ollama_scores(
 
 
 def _is_oom_error(e: Exception) -> bool:
-    """Check if an exception is a CUDA out-of-memory error."""
-    if torch is not None and hasattr(torch.cuda, 'OutOfMemoryError'):
-        if isinstance(e, torch.cuda.OutOfMemoryError):
+    """Check if an exception (or any exception in its cause chain) is a CUDA OOM error."""
+    current: BaseException | None = e
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if torch is not None and hasattr(torch.cuda, 'OutOfMemoryError'):
+            if isinstance(current, torch.cuda.OutOfMemoryError):
+                return True
+        if isinstance(current, (RuntimeError, ValueError)) and "out of memory" in str(current).lower():
             return True
-    return isinstance(e, RuntimeError) and "out of memory" in str(e).lower()
+        current = current.__cause__ or current.__context__
+    return False
 
 
 def empty_cuda_cache(sync: bool = False, silent: bool = False):
@@ -788,6 +751,7 @@ def empty_cuda_cache(sync: bool = False, silent: bool = False):
 
 
 def cleanup_metrics_cache():
-    """Clean up all cached models in metrics"""
+    """Clean up any residual GPU memory from metric computations."""
     logger.info("Cleaning up metrics cache")
-    _model_cache.cleanup_all()
+    gc.collect()
+    empty_cuda_cache(sync=True)
