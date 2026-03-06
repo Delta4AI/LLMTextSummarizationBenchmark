@@ -405,6 +405,8 @@ class SummarizationBenchmark:
                 logger.error(f"Failed to run interference and calculating metrics for method: {irc.method_name}: {e}")
                 logger.error("Re-run the benchmark to retry. Pipeline will continue now.")
                 self.run_status[_method_name] = RunStatus.FAILED
+                self._cleanup(run_params=irc)
+                cleanup_metrics_cache()
                 continue
 
             if result:
@@ -459,6 +461,9 @@ class SummarizationBenchmark:
             except Exception as e:
                 logger.error(f"Interference failed for {irc.method_name}: {e}")
                 return None
+
+        # Unload the LLM before computing GPU-based metrics to free VRAM
+        self._cleanup(run_params=irc)
 
         original_count = len(irc.papers)
         irc.papers = [p for p in irc.papers if p.extracted_response is not None]
