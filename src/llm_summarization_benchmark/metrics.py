@@ -151,7 +151,34 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
         device = 'cuda' if torch and torch.cuda.is_available() else 'cpu'
         logger.info(f"BERTScore: scoring {len(flat_cands)} pairs on {device}")
 
-        # Adaptive batching: start large, halve on OOM
+        # Some models (e.g. DeBERTa) report tokenizer.model_max_length ≈ 10^30
+        # but only support max_position_embeddings = 512.  bert_score uses the
+        # tokenizer limit for truncation, so inputs pass through untruncated and
+        # cause OOM on the attention matrix.  Pre-truncate when needed.
+        from transformers import AutoConfig, AutoTokenizer
+        _config = AutoConfig.from_pretrained(model)
+        _max_pos = getattr(_config, "max_position_embeddings", None)
+        if _max_pos:
+            _tokenizer = AutoTokenizer.from_pretrained(model)
+            if _tokenizer.model_max_length > _max_pos:
+                logger.info(f"BERTScore: truncating inputs to {_max_pos} tokens for {model} "
+                            f"(tokenizer reports model_max_length={_tokenizer.model_max_length})")
+                flat_cands = [
+                    _tokenizer.decode(
+                        _tokenizer.encode(c, truncation=True, max_length=_max_pos),
+                        skip_special_tokens=True
+                    ) for c in flat_cands
+                ]
+                flat_refs = [
+                    _tokenizer.decode(
+                        _tokenizer.encode(r, truncation=True, max_length=_max_pos),
+                        skip_special_tokens=True
+                    ) for r in flat_refs
+                ]
+            del _tokenizer
+        del _config
+
+        # Adaptive batching: start large, halve on OOM, fall back to CPU
         batch_size = 128
         P = R = F1 = None
         while True:
@@ -166,17 +193,27 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
                         device=device,
                         batch_size=batch_size,
                     )
-                logger.info(f"BERTScore: completed with batch_size={batch_size}")
+                logger.info(f"BERTScore: completed with batch_size={batch_size} on {device}")
                 break
             except Exception as e:
-                if not _is_oom_error(e) or batch_size <= 1:
+                if not _is_oom_error(e):
                     raise
-                logger.warning(f"BERTScore OOM at batch_size={batch_size}, "
-                               f"retrying with {batch_size // 2}")
-                P = R = F1 = None
-                empty_cuda_cache(sync=True)
-                time.sleep(1)
-                batch_size //= 2
+                if batch_size > 1:
+                    logger.warning(f"BERTScore OOM at batch_size={batch_size}, "
+                                   f"retrying with {batch_size // 2}")
+                    P = R = F1 = None
+                    empty_cuda_cache(sync=True)
+                    time.sleep(1)
+                    batch_size //= 2
+                elif device != 'cpu':
+                    logger.warning(f"BERTScore OOM at batch_size=1 on {device}, "
+                                   f"falling back to CPU")
+                    P = R = F1 = None
+                    empty_cuda_cache(sync=True)
+                    device = 'cpu'
+                    batch_size = 32
+                else:
+                    raise
 
         # Re-aggregate: take max score per paper across its references
         for paper_idx in range(len(generated)):
