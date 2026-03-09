@@ -322,23 +322,17 @@ class SummarizationBenchmark:
             try:
                 if (self.results and self.papers_hash in self.results.data and method_name in self.results.data[
                     self.papers_hash]):
-                    if self.reset_metric_types == METRIC_TYPES:
-                        del self.results.data[self.papers_hash][method_name]
-                        self.results.save()
-                        logger.info(f"Cleared all metric results for {method_name}")
-                    else:
-                        for metric in self.reset_metric_types:
-                            existing_result = self.results.data[self.papers_hash][method_name]
-                            setattr(existing_result, metric, {})
+                    metrics_to_clear = self.reset_metric_types
+                    existing_result = self.results.data[self.papers_hash][method_name]
+                    for metric in metrics_to_clear:
+                        setattr(existing_result, metric, {})
+                        if hasattr(existing_result, "full_paper_details"):
                             for paper in existing_result.full_paper_details:
                                 for k in metric_type_map.get(metric, []):
                                     if k in paper.scores:
                                         del paper.scores[k]
-                                    else:
-                                        logger.warning(f"Could not clear {metric} for {method_name} as it is not "
-                                                       f"existent yet")
-                            logger.info(f"Cleared {metric} metric results for {method_name}")
-                        self.results.save()
+                        logger.info(f"Cleared {metric} metric results for {method_name}")
+                    self.results.save()
 
 
             except Exception as exc:
@@ -526,88 +520,155 @@ class SummarizationBenchmark:
             _output_tokens = [p.output_tokens for p in irc.papers if p.output_tokens is not None]
 
         _length_stats = get_length_scores(generated_summaries, self.min_words, self.max_words)
+        _failed_metrics: list[str] = []
+
+        def _fallback(metric_attr: str):
+            """Return cached value if available, otherwise empty dict."""
+            if existing_data is not None:
+                return existing_data.__dict__.get(metric_attr, {})
+            return {}
 
         if self._needs_recalc("rouge_scores", existing_data):
-            _rouge_scores = get_rouge_scores(generated_summaries, reference_summaries, irc)
+            try:
+                _rouge_scores = get_rouge_scores(generated_summaries, reference_summaries, irc)
+            except Exception as e:
+                logger.error(f"rouge_scores computation failed: {e}")
+                _rouge_scores = _fallback("rouge_scores")
+                _failed_metrics.append("rouge_scores")
         else:
             _rouge_scores = existing_data.rouge_scores
 
         if self._needs_recalc("roberta_scores", existing_data):
-            _roberta_scores = get_bert_scores(generated_summaries, reference_summaries, "roberta-large", irc)
+            try:
+                _roberta_scores = get_bert_scores(generated_summaries, reference_summaries, "roberta-large", irc)
+            except Exception as e:
+                logger.error(f"roberta_scores computation failed: {e}")
+                _roberta_scores = _fallback("roberta_scores")
+                _failed_metrics.append("roberta_scores")
         else:
             _roberta_scores = existing_data.roberta_scores
 
         if self._needs_recalc("deberta_scores", existing_data):
-            _deberta_scores = get_bert_scores(generated_summaries, reference_summaries, "microsoft/deberta-xlarge-mnli",
-                                              irc)
+            try:
+                _deberta_scores = get_bert_scores(generated_summaries, reference_summaries, "microsoft/deberta-xlarge-mnli",
+                                                  irc)
+            except Exception as e:
+                logger.error(f"deberta_scores computation failed: {e}")
+                _deberta_scores = _fallback("deberta_scores")
+                _failed_metrics.append("deberta_scores")
         else:
             _deberta_scores = existing_data.deberta_scores
 
         if self._needs_recalc("meteor_scores", existing_data):
-            _meteor_scores = get_meteor_scores(generated_summaries, reference_summaries, irc)
+            try:
+                _meteor_scores = get_meteor_scores(generated_summaries, reference_summaries, irc)
+            except Exception as e:
+                logger.error(f"meteor_scores computation failed: {e}")
+                _meteor_scores = _fallback("meteor_scores")
+                _failed_metrics.append("meteor_scores")
         else:
             _meteor_scores = existing_data.meteor_scores
 
         if self._needs_recalc("bleu_scores", existing_data):
-            _bleu_scores = get_bleu_scores(generated_summaries, reference_summaries, irc)
+            try:
+                _bleu_scores = get_bleu_scores(generated_summaries, reference_summaries, irc)
+            except Exception as e:
+                logger.error(f"bleu_scores computation failed: {e}")
+                _bleu_scores = _fallback("bleu_scores")
+                _failed_metrics.append("bleu_scores")
         else:
             _bleu_scores = existing_data.bleu_scores
 
         if self._needs_recalc("mpnet_content_coverage_scores", existing_data):
-            _mpnet_content_coverage_scores = get_sentence_transformer_similarity(
-                generated=generated_summaries,
-                source_documents=[p.full_text for p in irc.papers],
-                model_name="all-mpnet-base-v2",
-                irc=irc
-            )
+            try:
+                _mpnet_content_coverage_scores = get_sentence_transformer_similarity(
+                    generated=generated_summaries,
+                    source_documents=[p.full_text for p in irc.papers],
+                    model_name="all-mpnet-base-v2",
+                    irc=irc
+                )
+            except Exception as e:
+                logger.error(f"mpnet_content_coverage_scores computation failed: {e}")
+                _mpnet_content_coverage_scores = _fallback("mpnet_content_coverage_scores")
+                _failed_metrics.append("mpnet_content_coverage_scores")
         else:
             _mpnet_content_coverage_scores = existing_data.mpnet_content_coverage_scores
 
         if self._needs_recalc("alignscore_scores", existing_data):
-            _alignscore_scores = get_alignscore_scores(
-                generated=generated_summaries,
-                references=[p.full_text for p in irc.papers],
-                irc=irc
-            )
+            try:
+                _alignscore_scores = get_alignscore_scores(
+                    generated=generated_summaries,
+                    references=[p.full_text for p in irc.papers],
+                    irc=irc
+                )
+            except Exception as e:
+                logger.error(f"alignscore_scores computation failed: {e}")
+                _alignscore_scores = _fallback("alignscore_scores")
+                _failed_metrics.append("alignscore_scores")
         else:
             _alignscore_scores = existing_data.alignscore_scores
 
         if self._needs_recalc("summac_scores", existing_data):
-            _summac_scores = get_summac_scores(
-                generated=generated_summaries,
-                references=[p.full_text for p in irc.papers],
-                irc=irc
-            )
+            try:
+                _summac_scores = get_summac_scores(
+                    generated=generated_summaries,
+                    references=[p.full_text for p in irc.papers],
+                    irc=irc
+                )
+            except Exception as e:
+                logger.error(f"summac_scores computation failed: {e}")
+                _summac_scores = _fallback("summac_scores")
+                _failed_metrics.append("summac_scores")
         else:
             _summac_scores = existing_data.summac_scores
 
         if self._needs_recalc("factcc_scores", existing_data):
-            _factcc_scores = get_factcc_scores(
-                generated=generated_summaries,
-                references=[p.full_text for p in irc.papers],
-                irc=irc
-            )
+            try:
+                _factcc_scores = get_factcc_scores(
+                    generated=generated_summaries,
+                    references=[p.full_text for p in irc.papers],
+                    irc=irc
+                )
+            except Exception as e:
+                logger.error(f"factcc_scores computation failed: {e}")
+                _factcc_scores = _fallback("factcc_scores")
+                _failed_metrics.append("factcc_scores")
         else:
             _factcc_scores = existing_data.factcc_scores
 
         if self._needs_recalc("minicheck_ft5_scores", existing_data):
-            _minicheck_ft5_scores = get_minicheck_scores(
-                generated=generated_summaries,
-                references=[p.full_text for p in irc.papers],
-                irc=irc,
-                model_name="flan-t5-large"
-            )
+            try:
+                _minicheck_ft5_scores = get_minicheck_scores(
+                    generated=generated_summaries,
+                    references=[p.full_text for p in irc.papers],
+                    irc=irc,
+                    model_name="flan-t5-large"
+                )
+            except Exception as e:
+                logger.error(f"minicheck_ft5_scores computation failed: {e}")
+                _minicheck_ft5_scores = _fallback("minicheck_ft5_scores")
+                _failed_metrics.append("minicheck_ft5_scores")
         else:
             _minicheck_ft5_scores = existing_data.minicheck_ft5_scores
 
         if self._needs_recalc("minicheck_7b_scores", existing_data):
-            _minicheck_7b_scores = get_minicheck_ollama_scores(
-                generated=generated_summaries,
-                references=[p.full_text for p in irc.papers],
-                irc=irc,
-            )
+            try:
+                _minicheck_7b_scores = get_minicheck_ollama_scores(
+                    generated=generated_summaries,
+                    references=[p.full_text for p in irc.papers],
+                    irc=irc,
+                )
+            except Exception as e:
+                logger.error(f"minicheck_7b_scores computation failed: {e}")
+                _minicheck_7b_scores = _fallback("minicheck_7b_scores")
+                _failed_metrics.append("minicheck_7b_scores")
         else:
             _minicheck_7b_scores = existing_data.minicheck_7b_scores
+
+        if _failed_metrics:
+            logger.warning(f"Failed metrics for {irc.method_name}: {_failed_metrics}. "
+                           f"Successfully computed metrics will still be saved. "
+                           f"Re-run the benchmark to retry failed metrics.")
 
         _input_paper_count = input_paper_count
         if _input_paper_count is None and existing_data is not None:
