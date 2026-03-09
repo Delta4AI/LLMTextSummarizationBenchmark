@@ -31,6 +31,8 @@ RUN_DIR = (
 INPUT_JSON = RUN_DIR / "detailed_scores_per_model.json"
 OUTPUT_CSV = RUN_DIR / "metric_correlation_spearman.csv"
 
+EXCLUDED_MODELS = {"mistral_mistral-medium-2508"}
+
 # label mappings for csv files
 METRICS: List[Tuple[str, str]] = [
     ("rouge1", "ROUGE-1"),
@@ -72,6 +74,8 @@ def main() -> None:
     rows: List[Dict[str, float]] = []
 
     for model, metrics in data.items():
+        if model in EXCLUDED_MODELS:
+          continue
         row: Dict[str, float] = {"model": model}
 
         missing = [m for m in metric_keys if m not in metrics]
