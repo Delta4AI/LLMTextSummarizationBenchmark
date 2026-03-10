@@ -430,10 +430,12 @@ background:var(--bg);color:var(--text);line-height:1.6}
 header{margin-bottom:14px}
 h1{font-size:1.1rem;font-weight:600;margin-bottom:8px}
 .progress-wrap{background:var(--surface);border:1px solid var(--border);
-border-radius:20px;height:20px;overflow:hidden;margin-bottom:4px}
+border-radius:20px;height:20px;overflow:hidden;margin-bottom:4px;position:relative}
 .progress-bar{height:100%;background:var(--accent);border-radius:20px;
 transition:width 0.4s ease}
-.progress-text{font-size:0.8rem;color:var(--muted);text-align:right}
+.progress-text{position:absolute;inset:0;display:flex;align-items:center;
+justify-content:center;font-size:0.7rem;font-weight:600;color:var(--text);
+mix-blend-mode:difference;pointer-events:none}
 .card{background:var(--surface);border:1px solid var(--border);
 border-radius:var(--radius);padding:14px;margin-bottom:10px}
 .card-header{font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;
@@ -509,26 +511,20 @@ font-size:0.85rem;cursor:pointer}
 .modal .close-btn:hover{background:var(--accent);color:var(--btn-text)}
 .modal .ref{font-size:0.78rem;color:var(--muted);margin-top:16px;
 border-top:1px solid var(--border);padding-top:12px;font-style:italic}
-.nav-grid{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0 4px;padding:10px;
+.nav-grid{display:flex;flex-wrap:wrap;gap:2px;margin:8px 0 2px;padding:6px;
 background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
-.nav-item{width:30px;height:30px;display:flex;align-items:center;justify-content:center;
-border:2px solid var(--border);border-radius:6px;font-size:0.7rem;font-weight:600;
+.nav-item{width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+border:1.5px solid var(--border);border-radius:4px;font-size:0.6rem;font-weight:600;
 cursor:pointer;transition:all 0.15s;user-select:none;background:var(--bg)}
 .nav-item:hover:not(.locked){border-color:var(--accent);background:rgba(88,166,255,0.08)}
 .nav-item.done{background:var(--green);color:var(--btn-text);border-color:var(--green)}
-.nav-item.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(88,166,255,0.3)}
-.nav-item.done.active{box-shadow:0 0 0 2px rgba(59,185,80,0.4)}
+.nav-item.active{border-color:var(--accent);box-shadow:0 0 0 1.5px rgba(88,166,255,0.3)}
+.nav-item.done.active{box-shadow:0 0 0 1.5px rgba(59,185,80,0.4)}
 .nav-item.locked{opacity:0.35;cursor:default}
-.nav-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
-.nav-btn{padding:8px 16px;background:var(--surface);color:var(--text);
-border:1px solid var(--border);border-radius:6px;font-size:0.85rem;
-cursor:pointer;transition:all 0.15s;width:auto}
-.nav-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
-.nav-btn:disabled{opacity:0.3;cursor:not-allowed}
-.nav-legend{display:flex;gap:12px;font-size:0.72rem;color:var(--muted);margin-bottom:8px;
-padding-left:10px}
-.nav-legend-item{display:flex;align-items:center;gap:4px}
-.nav-swatch{width:10px;height:10px;border-radius:3px;border:1.5px solid var(--border)}
+.nav-legend{display:flex;gap:10px;font-size:0.68rem;color:var(--muted);margin-bottom:6px;
+padding-left:6px}
+.nav-legend-item{display:flex;align-items:center;gap:3px}
+.nav-swatch{width:8px;height:8px;border-radius:2px;border:1.5px solid var(--border)}
 .nav-swatch.sw-done{background:var(--green);border-color:var(--green)}
 .nav-swatch.sw-current{border-color:var(--accent);box-shadow:0 0 0 1px rgba(88,166,255,0.3)}
 .nav-swatch.sw-pending{background:var(--bg)}
@@ -574,8 +570,7 @@ Linguistics</em>, 9, 391&ndash;409.</p>
   <span>Your token: <code id="token-display"></code></span>
   <button class="copy-btn" onclick="copyToken(this)">Copy</button>
 </div>
-<div class="progress-wrap"><div class="progress-bar" id="pbar"></div></div>
-<div class="progress-text" id="ptext"></div>
+<div class="progress-wrap"><div class="progress-bar" id="pbar"></div><div class="progress-text" id="ptext"></div></div>
 <div class="nav-grid" id="nav-grid"></div>
 <div class="nav-legend">
 <span class="nav-legend-item"><span class="nav-swatch sw-done"></span>Completed</span>
@@ -688,8 +683,6 @@ function renderAssessment(d){
     criteriaHTML+='</div></div>';
   }
   const statusBadge=isUpdate?'<span class="status-badge completed">\u2714 completed</span>':'';
-  const canPrev=d.assessment_index>0;
-  const canNext=d.assessment_index<d.completed&&d.assessment_index<d.total-1;
   document.getElementById('main').innerHTML=
     '<div class="card"><div class="card-header">Assessment '+(d.assessment_index+1)+' of '+d.total+
     statusBadge+'</div><ul class="highlights">'+bullets+'</ul></div>'+
@@ -700,12 +693,7 @@ function renderAssessment(d){
     '<div style="margin-top:8px"><label style="font-size:0.8rem;color:var(--muted);display:block;margin-bottom:4px">Comment (optional)</label>'+
     '<textarea id="comment" placeholder="Any observations\u2026" style="width:100%;min-height:60px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.85rem;font-family:inherit;resize:vertical;outline:none"></textarea></div>'+
     '<div class="submit-row"><button id="submit-btn" onclick="submitAssessment()" disabled>'+btnLabel+'</button></div>'+
-    '</div>'+
-    '<div class="nav-row">'+
-    '<button class="nav-btn" onclick="goTo('+(d.assessment_index-1)+')"'+(canPrev?'':' disabled')+
-    '>\u2190 Previous</button>'+
-    '<button class="nav-btn" onclick="goTo('+(d.assessment_index+1)+')"'+(canNext?'':' disabled')+
-    '>Next \u2192</button></div>';
+    '</div>';
   if(d.previous_ratings){
     for(const[key,val] of Object.entries(d.previous_ratings)){
       const el=document.querySelector('.likert label[data-key="'+key+'"][data-val="'+val+'"]');
@@ -792,10 +780,12 @@ background:var(--bg);color:var(--text);line-height:1.6}
 header{margin-bottom:24px}
 h1{font-size:1.2rem;font-weight:600;margin-bottom:12px}
 .progress-wrap{background:var(--surface);border:1px solid var(--border);
-border-radius:20px;height:24px;overflow:hidden;margin-bottom:6px}
+border-radius:20px;height:20px;overflow:hidden;margin-bottom:4px;position:relative}
 .progress-bar{height:100%;background:var(--accent);border-radius:20px;
 transition:width 0.4s ease}
-.progress-text{font-size:0.85rem;color:var(--muted);text-align:right}
+.progress-text{position:absolute;inset:0;display:flex;align-items:center;
+justify-content:center;font-size:0.7rem;font-weight:600;color:var(--text);
+mix-blend-mode:difference;pointer-events:none}
 .card{background:var(--surface);border:1px solid var(--border);
 border-radius:var(--radius);padding:20px;margin-bottom:16px}
 .card-header{font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;
@@ -867,26 +857,20 @@ font-size:1rem;z-index:100;padding:0;color:var(--text);transition:all 0.2s}
 .theme-toggle:hover{border-color:var(--accent)}
 .theme-toggle::before{content:"\263E"}
 [data-theme="dark"] .theme-toggle::before{content:"\2600"}
-.nav-grid{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0 4px;padding:10px;
+.nav-grid{display:flex;flex-wrap:wrap;gap:2px;margin:8px 0 2px;padding:6px;
 background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
-.nav-item{width:30px;height:30px;display:flex;align-items:center;justify-content:center;
-border:2px solid var(--border);border-radius:6px;font-size:0.7rem;font-weight:600;
+.nav-item{width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+border:1.5px solid var(--border);border-radius:4px;font-size:0.6rem;font-weight:600;
 cursor:pointer;transition:all 0.15s;user-select:none;background:var(--bg)}
 .nav-item:hover:not(.locked){border-color:var(--accent);background:rgba(88,166,255,0.08)}
 .nav-item.done{background:var(--green);color:var(--btn-text);border-color:var(--green)}
-.nav-item.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(88,166,255,0.3)}
-.nav-item.done.active{box-shadow:0 0 0 2px rgba(59,185,80,0.4)}
+.nav-item.active{border-color:var(--accent);box-shadow:0 0 0 1.5px rgba(88,166,255,0.3)}
+.nav-item.done.active{box-shadow:0 0 0 1.5px rgba(59,185,80,0.4)}
 .nav-item.locked{opacity:0.35;cursor:default}
-.nav-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
-.nav-btn{padding:8px 16px;background:var(--surface);color:var(--text);
-border:1px solid var(--border);border-radius:6px;font-size:0.85rem;
-cursor:pointer;transition:all 0.15s;width:auto}
-.nav-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
-.nav-btn:disabled{opacity:0.3;cursor:not-allowed}
-.nav-legend{display:flex;gap:12px;font-size:0.72rem;color:var(--muted);margin-bottom:8px;
-padding-left:10px}
-.nav-legend-item{display:flex;align-items:center;gap:4px}
-.nav-swatch{width:10px;height:10px;border-radius:3px;border:1.5px solid var(--border)}
+.nav-legend{display:flex;gap:10px;font-size:0.68rem;color:var(--muted);margin-bottom:6px;
+padding-left:6px}
+.nav-legend-item{display:flex;align-items:center;gap:3px}
+.nav-swatch{width:8px;height:8px;border-radius:2px;border:1.5px solid var(--border)}
 .nav-swatch.sw-done{background:var(--green);border-color:var(--green)}
 .nav-swatch.sw-current{border-color:var(--accent);box-shadow:0 0 0 1px rgba(88,166,255,0.3)}
 .nav-swatch.sw-pending{background:var(--bg)}
@@ -904,8 +888,7 @@ padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:600}
   <span>Your token: <code id="token-display"></code></span>
   <button class="copy-btn" onclick="copyToken(this)">Copy</button>
 </div>
-<div class="progress-wrap"><div class="progress-bar" id="pbar"></div></div>
-<div class="progress-text" id="ptext"></div>
+<div class="progress-wrap"><div class="progress-bar" id="pbar"></div><div class="progress-text" id="ptext"></div></div>
 <div class="nav-grid" id="nav-grid"></div>
 <div class="nav-legend">
 <span class="nav-legend-item"><span class="nav-swatch sw-done"></span>Completed</span>
@@ -1032,14 +1015,6 @@ function renderAssessment(d){
     '<label style="font-size:0.85rem;color:var(--muted);display:block;margin-bottom:6px">Comment (optional)</label>'+
     '<textarea id="comment" placeholder="Any observations\u2026"></textarea></div>'+
     '<div class="submit-row"><button id="submit-btn" onclick="submitRanking()" disabled>'+btnLabel+'</button></div></div>';
-
-  const canPrev=d.assessment_index>0;
-  const canNext=d.assessment_index<d.completed&&d.assessment_index<d.total-1;
-  html+='<div class="nav-row">'+
-    '<button class="nav-btn" onclick="goTo('+(d.assessment_index-1)+')"'+(canPrev?'':' disabled')+
-    '>\u2190 Previous</button>'+
-    '<button class="nav-btn" onclick="goTo('+(d.assessment_index+1)+')"'+(canNext?'':' disabled')+
-    '>Next \u2192</button></div>';
 
   document.getElementById('main').innerHTML=html;
   // Pre-fill if revisiting a completed ranking
