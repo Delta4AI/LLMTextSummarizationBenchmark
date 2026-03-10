@@ -509,6 +509,32 @@ font-size:0.85rem;cursor:pointer}
 .modal .close-btn:hover{background:var(--accent);color:var(--btn-text)}
 .modal .ref{font-size:0.78rem;color:var(--muted);margin-top:16px;
 border-top:1px solid var(--border);padding-top:12px;font-style:italic}
+.nav-grid{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0 4px;padding:10px;
+background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.nav-item{width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+border:2px solid var(--border);border-radius:6px;font-size:0.7rem;font-weight:600;
+cursor:pointer;transition:all 0.15s;user-select:none;background:var(--bg)}
+.nav-item:hover:not(.locked){border-color:var(--accent);background:rgba(88,166,255,0.08)}
+.nav-item.done{background:var(--green);color:var(--btn-text);border-color:var(--green)}
+.nav-item.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(88,166,255,0.3)}
+.nav-item.done.active{box-shadow:0 0 0 2px rgba(59,185,80,0.4)}
+.nav-item.locked{opacity:0.35;cursor:default}
+.nav-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.nav-btn{padding:8px 16px;background:var(--surface);color:var(--text);
+border:1px solid var(--border);border-radius:6px;font-size:0.85rem;
+cursor:pointer;transition:all 0.15s;width:auto}
+.nav-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.nav-btn:disabled{opacity:0.3;cursor:not-allowed}
+.nav-legend{display:flex;gap:12px;font-size:0.72rem;color:var(--muted);margin-bottom:8px;
+padding-left:10px}
+.nav-legend-item{display:flex;align-items:center;gap:4px}
+.nav-swatch{width:10px;height:10px;border-radius:3px;border:1.5px solid var(--border)}
+.nav-swatch.sw-done{background:var(--green);border-color:var(--green)}
+.nav-swatch.sw-current{border-color:var(--accent);box-shadow:0 0 0 1px rgba(88,166,255,0.3)}
+.nav-swatch.sw-pending{background:var(--bg)}
+.status-badge{font-size:0.7rem;text-transform:none;letter-spacing:0;
+padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:600}
+.status-badge.completed{color:var(--green);background:rgba(26,127,55,0.1)}
 </style>
 </head>
 <body>
@@ -546,11 +572,16 @@ Linguistics</em>, 9, 391&ndash;409.</p>
 <h1>Text Summarization Evaluation</h1>
 <div class="token-bar">
   <span>Your token: <code id="token-display"></code></span>
-  <button class="copy-btn" onclick="navigator.clipboard.writeText(TOKEN)
-    .then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
+  <button class="copy-btn" onclick="copyToken(this)">Copy</button>
 </div>
 <div class="progress-wrap"><div class="progress-bar" id="pbar"></div></div>
 <div class="progress-text" id="ptext"></div>
+<div class="nav-grid" id="nav-grid"></div>
+<div class="nav-legend">
+<span class="nav-legend-item"><span class="nav-swatch sw-done"></span>Completed</span>
+<span class="nav-legend-item"><span class="nav-swatch sw-current"></span>Current</span>
+<span class="nav-legend-item"><span class="nav-swatch sw-pending"></span>Pending</span>
+</div>
 </header>
 <main id="main"><div class="loading">Loading…</div></main>
 </div>
@@ -560,9 +591,58 @@ function toggleTheme(){
   document.documentElement.dataset.theme=t;localStorage.setItem('theme',t);
 }
 const TOKEN=new URLSearchParams(window.location.search).get('token');
+function copyToken(btn){
+  function ok(){btn.textContent='Copied!';setTimeout(function(){btn.textContent='Copy'},1500)}
+  function no(){btn.textContent='Failed';setTimeout(function(){btn.textContent='Copy'},1500)}
+  if(navigator.clipboard&&window.isSecureContext){
+    navigator.clipboard.writeText(TOKEN).then(ok,no);
+  }else{
+    try{var ta=document.createElement('textarea');ta.value=TOKEN;
+    ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();document.execCommand('copy');
+    document.body.removeChild(ta);ok();}catch(e){no();}
+  }
+}
 const CRITERIA=__CRITERIA_PLACEHOLDER__;
 document.getElementById('token-display').textContent=TOKEN;
 let currentData=null;
+let overviewData=null;
+
+async function loadOverview(){
+  const r=await fetch('/api/overview?token='+encodeURIComponent(TOKEN));
+  if(r.ok) overviewData=await r.json();
+  renderNavGrid();
+}
+
+function renderNavGrid(){
+  const grid=document.getElementById('nav-grid');
+  if(!overviewData||!grid)return;
+  const activeIdx=currentData&&!currentData.done?currentData.assessment_index:-1;
+  let html='';
+  for(const item of overviewData.items){
+    const done=item.is_completed;
+    const active=item.index===activeIdx;
+    const reachable=item.index<=overviewData.completed;
+    let cls='nav-item';
+    if(done)cls+=' done';
+    if(active)cls+=' active';
+    if(!reachable&&!done)cls+=' locked';
+    const tip=escH(item.paper_title||'').substring(0,60)+(item.model_label?' \u2014 '+escH(item.model_label):'');
+    html+='<div class="'+cls+'"'+(reachable?' onclick="goTo('+item.index+')"':'')+
+      ' title="'+tip+'">'+(item.index+1)+'</div>';
+  }
+  grid.innerHTML=html;
+}
+
+async function goTo(index){
+  const r=await fetch('/api/assessment?token='+encodeURIComponent(TOKEN)+'&index='+index);
+  if(!r.ok)return;
+  const d=await r.json();
+  currentData=d;
+  updateProgress(d.completed,d.total);
+  if(d.done){renderDone(d);}else{renderAssessment(d);}
+  loadOverview();
+}
 
 async function loadAssessment(){
   const r=await fetch('/api/assessment?token='+encodeURIComponent(TOKEN));
@@ -571,8 +651,8 @@ async function loadAssessment(){
   const d=await r.json();
   currentData=d;
   updateProgress(d.completed,d.total);
-  if(d.done){renderDone(d);return}
-  renderAssessment(d);
+  if(d.done){renderDone(d);}else{renderAssessment(d);}
+  loadOverview();
 }
 
 function updateProgress(completed,total){
@@ -585,12 +665,16 @@ function renderDone(d){
   document.getElementById('main').innerHTML=
     '<div class="card done-card"><h2>All done!</h2>'+
     '<p>You have completed all '+d.total+' assessments.</p>'+
+    '<p style="margin-top:8px;color:var(--muted);font-size:0.85rem">'+
+    'Click any item in the grid above to review or change your answers.</p>'+
     '<p style="margin-top:12px;color:var(--text)">Thank you for your time, '+
     escH(d.reviewer_name)+'.</p></div>';
 }
 
 function renderAssessment(d){
   const bullets=d.reference_highlights.map(h=>'<li>'+escH(h)+'</li>').join('');
+  const isUpdate=d.is_submitted;
+  const btnLabel=isUpdate?'Update':'Submit';
   let criteriaHTML='';
   for(const c of CRITERIA){
     criteriaHTML+='<div class="criterion"><div class="criterion-header">'+
@@ -603,17 +687,35 @@ function renderAssessment(d){
     }
     criteriaHTML+='</div></div>';
   }
+  const statusBadge=isUpdate?'<span class="status-badge completed">\u2714 completed</span>':'';
+  const canPrev=d.assessment_index>0;
+  const canNext=d.assessment_index<d.completed&&d.assessment_index<d.total-1;
   document.getElementById('main').innerHTML=
-    '<div class="card"><div class="card-header">Assessment '+(d.completed+1)+' of '+d.total+
-    '</div><ul class="highlights">'+bullets+'</ul></div>'+
+    '<div class="card"><div class="card-header">Assessment '+(d.assessment_index+1)+' of '+d.total+
+    statusBadge+'</div><ul class="highlights">'+bullets+'</ul></div>'+
     '<div class="card"><div class="card-header">Generated Summary</div>'+
     '<div class="gen-text">'+escH(d.summary)+'</div></div>'+
     '<div class="card"><div class="card-header">Your Assessment <button class="info-btn" onclick="openInfo()" title="About these criteria">i</button></div>'+
     criteriaHTML+
     '<div style="margin-top:8px"><label style="font-size:0.8rem;color:var(--muted);display:block;margin-bottom:4px">Comment (optional)</label>'+
     '<textarea id="comment" placeholder="Any observations\u2026" style="width:100%;min-height:60px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.85rem;font-family:inherit;resize:vertical;outline:none"></textarea></div>'+
-    '<div class="submit-row"><button id="submit-btn" onclick="submitAssessment()" disabled>Submit</button></div>'+
-    '</div>';
+    '<div class="submit-row"><button id="submit-btn" onclick="submitAssessment()" disabled>'+btnLabel+'</button></div>'+
+    '</div>'+
+    '<div class="nav-row">'+
+    '<button class="nav-btn" onclick="goTo('+(d.assessment_index-1)+')"'+(canPrev?'':' disabled')+
+    '>\u2190 Previous</button>'+
+    '<button class="nav-btn" onclick="goTo('+(d.assessment_index+1)+')"'+(canNext?'':' disabled')+
+    '>Next \u2192</button></div>';
+  if(d.previous_ratings){
+    for(const[key,val] of Object.entries(d.previous_ratings)){
+      const el=document.querySelector('.likert label[data-key="'+key+'"][data-val="'+val+'"]');
+      if(el)el.classList.add('selected');
+    }
+  }
+  if(d.previous_comment){
+    const ta=document.getElementById('comment');
+    if(ta)ta.value=d.previous_comment;
+  }
   checkSubmittable();
 }
 
@@ -634,7 +736,8 @@ function checkSubmittable(){
 
 async function submitAssessment(){
   const btn=document.getElementById('submit-btn');
-  btn.disabled=true;btn.textContent='Saving…';
+  const wasUpdate=currentData.is_submitted;
+  btn.disabled=true;btn.textContent='Saving\u2026';
   const ratings={};
   for(const c of CRITERIA){
     const sel=document.querySelector('.likert label.selected[data-key="'+c.key+'"]');
@@ -644,8 +747,14 @@ async function submitAssessment(){
   const body={token:TOKEN,assessment_index:currentData.assessment_index,ratings,comment};
   const r=await fetch('/api/submit',{method:'POST',
     headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!r.ok){btn.textContent='Error – retry';btn.disabled=false;return}
-  loadAssessment();
+  if(!r.ok){btn.textContent='Error \u2013 retry';btn.disabled=false;return}
+  if(wasUpdate){
+    btn.textContent='Updated \u2713';
+    setTimeout(function(){btn.textContent='Update';btn.disabled=false;},1200);
+    loadOverview();
+  }else{
+    loadAssessment();
+  }
 }
 
 function openInfo(){document.getElementById('info-modal').classList.add('open')}
@@ -758,6 +867,32 @@ font-size:1rem;z-index:100;padding:0;color:var(--text);transition:all 0.2s}
 .theme-toggle:hover{border-color:var(--accent)}
 .theme-toggle::before{content:"\263E"}
 [data-theme="dark"] .theme-toggle::before{content:"\2600"}
+.nav-grid{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0 4px;padding:10px;
+background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.nav-item{width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+border:2px solid var(--border);border-radius:6px;font-size:0.7rem;font-weight:600;
+cursor:pointer;transition:all 0.15s;user-select:none;background:var(--bg)}
+.nav-item:hover:not(.locked){border-color:var(--accent);background:rgba(88,166,255,0.08)}
+.nav-item.done{background:var(--green);color:var(--btn-text);border-color:var(--green)}
+.nav-item.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(88,166,255,0.3)}
+.nav-item.done.active{box-shadow:0 0 0 2px rgba(59,185,80,0.4)}
+.nav-item.locked{opacity:0.35;cursor:default}
+.nav-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.nav-btn{padding:8px 16px;background:var(--surface);color:var(--text);
+border:1px solid var(--border);border-radius:6px;font-size:0.85rem;
+cursor:pointer;transition:all 0.15s;width:auto}
+.nav-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.nav-btn:disabled{opacity:0.3;cursor:not-allowed}
+.nav-legend{display:flex;gap:12px;font-size:0.72rem;color:var(--muted);margin-bottom:8px;
+padding-left:10px}
+.nav-legend-item{display:flex;align-items:center;gap:4px}
+.nav-swatch{width:10px;height:10px;border-radius:3px;border:1.5px solid var(--border)}
+.nav-swatch.sw-done{background:var(--green);border-color:var(--green)}
+.nav-swatch.sw-current{border-color:var(--accent);box-shadow:0 0 0 1px rgba(88,166,255,0.3)}
+.nav-swatch.sw-pending{background:var(--bg)}
+.status-badge{font-size:0.7rem;text-transform:none;letter-spacing:0;
+padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:600}
+.status-badge.completed{color:var(--green);background:rgba(26,127,55,0.1)}
 </style>
 </head>
 <body>
@@ -767,11 +902,16 @@ font-size:1rem;z-index:100;padding:0;color:var(--text);transition:all 0.2s}
 <h1>Text Summarization Evaluation &mdash; Ranking</h1>
 <div class="token-bar">
   <span>Your token: <code id="token-display"></code></span>
-  <button class="copy-btn" onclick="navigator.clipboard.writeText(TOKEN)
-    .then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
+  <button class="copy-btn" onclick="copyToken(this)">Copy</button>
 </div>
 <div class="progress-wrap"><div class="progress-bar" id="pbar"></div></div>
 <div class="progress-text" id="ptext"></div>
+<div class="nav-grid" id="nav-grid"></div>
+<div class="nav-legend">
+<span class="nav-legend-item"><span class="nav-swatch sw-done"></span>Completed</span>
+<span class="nav-legend-item"><span class="nav-swatch sw-current"></span>Current</span>
+<span class="nav-legend-item"><span class="nav-swatch sw-pending"></span>Pending</span>
+</div>
 </header>
 <main id="main"><div class="loading">Loading&hellip;</div></main>
 </div>
@@ -781,9 +921,59 @@ function toggleTheme(){
   document.documentElement.dataset.theme=t;localStorage.setItem('theme',t);
 }
 const TOKEN=new URLSearchParams(window.location.search).get('token');
+function copyToken(btn){
+  function ok(){btn.textContent='Copied!';setTimeout(function(){btn.textContent='Copy'},1500)}
+  function no(){btn.textContent='Failed';setTimeout(function(){btn.textContent='Copy'},1500)}
+  if(navigator.clipboard&&window.isSecureContext){
+    navigator.clipboard.writeText(TOKEN).then(ok,no);
+  }else{
+    try{var ta=document.createElement('textarea');ta.value=TOKEN;
+    ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();document.execCommand('copy');
+    document.body.removeChild(ta);ok();}catch(e){no();}
+  }
+}
 document.getElementById('token-display').textContent=TOKEN;
 let currentData=null;
 const rankings={};
+let overviewData=null;
+
+async function loadOverview(){
+  const r=await fetch('/api/overview?token='+encodeURIComponent(TOKEN));
+  if(r.ok) overviewData=await r.json();
+  renderNavGrid();
+}
+
+function renderNavGrid(){
+  const grid=document.getElementById('nav-grid');
+  if(!overviewData||!grid)return;
+  const activeIdx=currentData&&!currentData.done?currentData.assessment_index:-1;
+  let html='';
+  for(const item of overviewData.items){
+    const done=item.is_completed;
+    const active=item.index===activeIdx;
+    const reachable=item.index<=overviewData.completed;
+    let cls='nav-item';
+    if(done)cls+=' done';
+    if(active)cls+=' active';
+    if(!reachable&&!done)cls+=' locked';
+    const tip=escH(item.paper_title||'').substring(0,60);
+    html+='<div class="'+cls+'"'+(reachable?' onclick="goTo('+item.index+')"':'')+
+      ' title="'+tip+'">'+(item.index+1)+'</div>';
+  }
+  grid.innerHTML=html;
+}
+
+async function goTo(index){
+  Object.keys(rankings).forEach(k=>delete rankings[k]);
+  const r=await fetch('/api/assessment?token='+encodeURIComponent(TOKEN)+'&index='+index);
+  if(!r.ok)return;
+  const d=await r.json();
+  currentData=d;
+  updateProgress(d.completed,d.total);
+  if(d.done){renderDone(d);}else{renderAssessment(d);}
+  loadOverview();
+}
 
 async function loadAssessment(){
   Object.keys(rankings).forEach(k=>delete rankings[k]);
@@ -793,8 +983,8 @@ async function loadAssessment(){
   const d=await r.json();
   currentData=d;
   updateProgress(d.completed,d.total);
-  if(d.done){renderDone(d);return}
-  renderAssessment(d);
+  if(d.done){renderDone(d);}else{renderAssessment(d);}
+  loadOverview();
 }
 
 function updateProgress(completed,total){
@@ -807,6 +997,8 @@ function renderDone(d){
   document.getElementById('main').innerHTML=
     '<div class="card done-card"><h2>All done!</h2>'+
     '<p>You have completed all '+d.total+' ranking tasks.</p>'+
+    '<p style="margin-top:8px;color:var(--muted);font-size:0.85rem">'+
+    'Click any item in the grid above to review or change your rankings.</p>'+
     '<p style="margin-top:12px;color:var(--text)">Thank you for your time, '+
     escH(d.reviewer_name)+'.</p></div>';
 }
@@ -814,8 +1006,11 @@ function renderDone(d){
 function renderAssessment(d){
   const bullets=d.reference_highlights.map(h=>'<li>'+escH(h)+'</li>').join('');
   const colors={A:'a',B:'b',C:'c',D:'d'};
-  let html='<div class="card"><div class="card-header">Paper '+(d.completed+1)+' of '+d.total+
-    '</div><ul class="highlights">'+bullets+'</ul></div>'+
+  const isUpdate=d.is_submitted;
+  const btnLabel=isUpdate?'Update Rankings':'Submit Rankings';
+  const statusBadge=isUpdate?'<span class="status-badge completed">\u2714 completed</span>':'';
+  let html='<div class="card"><div class="card-header">Paper '+(d.assessment_index+1)+' of '+d.total+
+    statusBadge+'</div><ul class="highlights">'+bullets+'</ul></div>'+
     '<p class="hint">Read all four summaries below, then rank them from 1 (best) to 4 (worst).</p>';
 
   for(const label of d.labels){
@@ -836,8 +1031,34 @@ function renderAssessment(d){
   html+='<div class="card"><div style="margin-bottom:12px">'+
     '<label style="font-size:0.85rem;color:var(--muted);display:block;margin-bottom:6px">Comment (optional)</label>'+
     '<textarea id="comment" placeholder="Any observations\u2026"></textarea></div>'+
-    '<div class="submit-row"><button id="submit-btn" onclick="submitRanking()" disabled>Submit Rankings</button></div></div>';
+    '<div class="submit-row"><button id="submit-btn" onclick="submitRanking()" disabled>'+btnLabel+'</button></div></div>';
+
+  const canPrev=d.assessment_index>0;
+  const canNext=d.assessment_index<d.completed&&d.assessment_index<d.total-1;
+  html+='<div class="nav-row">'+
+    '<button class="nav-btn" onclick="goTo('+(d.assessment_index-1)+')"'+(canPrev?'':' disabled')+
+    '>\u2190 Previous</button>'+
+    '<button class="nav-btn" onclick="goTo('+(d.assessment_index+1)+')"'+(canNext?'':' disabled')+
+    '>Next \u2192</button></div>';
+
   document.getElementById('main').innerHTML=html;
+  // Pre-fill if revisiting a completed ranking
+  if(d.previous_rankings){
+    for(const[label,rank] of Object.entries(d.previous_rankings)){
+      rankings[label]=rank;
+      const card=document.getElementById('card-'+label);
+      if(card){
+        const el=card.querySelector('.rank-buttons label[data-rank="'+rank+'"]');
+        if(el){el.classList.add('selected');card.classList.add('ranked');
+          document.getElementById('badge-'+label).textContent='#'+rank;}
+      }
+    }
+  }
+  if(d.previous_comment){
+    const ta=document.getElementById('comment');
+    if(ta)ta.value=d.previous_comment;
+  }
+  checkSubmittable();
 }
 
 function selectRank(el){
@@ -872,6 +1093,7 @@ function checkSubmittable(){
 
 async function submitRanking(){
   const btn=document.getElementById('submit-btn');
+  const wasUpdate=currentData.is_submitted;
   btn.disabled=true;btn.textContent='Saving\u2026';
   const comment=(document.getElementById('comment')||{}).value||'';
   const body={token:TOKEN,assessment_index:currentData.assessment_index,
@@ -879,7 +1101,13 @@ async function submitRanking(){
   const r=await fetch('/api/submit',{method:'POST',
     headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!r.ok){btn.textContent='Error \u2013 retry';btn.disabled=false;return}
-  loadAssessment();
+  if(wasUpdate){
+    btn.textContent='Updated \u2713';
+    setTimeout(function(){btn.textContent='Update Rankings';btn.disabled=false;},1200);
+    loadOverview();
+  }else{
+    loadAssessment();
+  }
 }
 
 function escH(s){
@@ -919,6 +1147,8 @@ def make_handler(
                 self._handle_get_assessment(params)
             elif path == "/api/progress":
                 self._handle_get_progress(params)
+            elif path == "/api/overview":
+                self._handle_overview(params)
             else:
                 self._send_json({"error": "not found"}, 404)
 
@@ -990,7 +1220,31 @@ def make_handler(
             completed = len(reviewer["assessments"])
             total = len(reviewer["assignments"])
 
-            if completed >= total:
+            # Optional index param for navigating to a specific assessment
+            idx_str = (params.get("index") or [None])[0]
+            if idx_str is not None:
+                try:
+                    idx = int(idx_str)
+                except (ValueError, TypeError):
+                    self._send_json(
+                        {"error": "index must be an integer"}, 400
+                    )
+                    return
+                if idx < 0 or idx >= total:
+                    self._send_json(
+                        {"error": "index out of range"}, 400
+                    )
+                    return
+                if idx > completed:
+                    self._send_json(
+                        {"error": "cannot skip ahead past current progress"},
+                        400,
+                    )
+                    return
+            else:
+                idx = completed
+
+            if idx >= total:
                 self._send_json(
                     {
                         "done": True,
@@ -1001,8 +1255,9 @@ def make_handler(
                 )
                 return
 
-            assignment = reviewer["assignments"][completed]
+            assignment = reviewer["assignments"][idx]
             paper = eval_data["papers"][assignment["paper_index"]]
+            previous = reviewer["assessments"][idx] if idx < completed else None
 
             if rating_mode == "side-by-side":
                 label_map = assignment["label_map"]
@@ -1010,31 +1265,39 @@ def make_handler(
                     label: paper["summaries"][model]
                     for label, model in sorted(label_map.items())
                 }
-                self._send_json(
-                    {
-                        "done": False,
-                        "completed": completed,
-                        "total": total,
-                        "assessment_index": completed,
-                        "reference_highlights": paper["reference_highlights"],
-                        "summaries": summaries,
-                        "labels": sorted(label_map.keys()),
-                        "reviewer_name": reviewer["name"],
-                    }
-                )
+                resp = {
+                    "done": False,
+                    "completed": completed,
+                    "total": total,
+                    "assessment_index": idx,
+                    "is_submitted": idx < completed,
+                    "paper_title": paper["title"],
+                    "reference_highlights": paper["reference_highlights"],
+                    "summaries": summaries,
+                    "labels": sorted(label_map.keys()),
+                    "reviewer_name": reviewer["name"],
+                }
+                if previous:
+                    resp["previous_rankings"] = previous.get("rankings")
+                    resp["previous_comment"] = previous.get("comment", "")
             else:
                 summary = paper["summaries"][assignment["model"]]
-                self._send_json(
-                    {
-                        "done": False,
-                        "completed": completed,
-                        "total": total,
-                        "assessment_index": completed,
-                        "reference_highlights": paper["reference_highlights"],
-                        "summary": summary,
-                        "reviewer_name": reviewer["name"],
-                    }
-                )
+                resp = {
+                    "done": False,
+                    "completed": completed,
+                    "total": total,
+                    "assessment_index": idx,
+                    "is_submitted": idx < completed,
+                    "paper_title": paper["title"],
+                    "reference_highlights": paper["reference_highlights"],
+                    "summary": summary,
+                    "reviewer_name": reviewer["name"],
+                }
+                if previous:
+                    resp["previous_ratings"] = previous.get("ratings")
+                    resp["previous_comment"] = previous.get("comment", "")
+
+            self._send_json(resp)
 
         def _handle_get_progress(self, params):
             token = (params.get("token") or [None])[0]
@@ -1048,6 +1311,35 @@ def make_handler(
                     "name": reviewer["name"],
                     "completed": len(reviewer["assessments"]),
                     "total": len(reviewer["assignments"]),
+                }
+            )
+
+        def _handle_overview(self, params):
+            token = (params.get("token") or [None])[0]
+            reviewer = load_reviewer(data_dir, token) if token else None
+            if not reviewer:
+                self._send_json({"error": "invalid token"}, 404)
+                return
+
+            completed = len(reviewer["assessments"])
+            items = []
+            for i, assignment in enumerate(reviewer["assignments"]):
+                paper = eval_data["papers"][assignment["paper_index"]]
+                item = {
+                    "index": i,
+                    "is_completed": i < completed,
+                    "paper_title": paper["title"],
+                }
+                if rating_mode != "side-by-side":
+                    item["model_label"] = assignment.get("model", "")
+                items.append(item)
+
+            self._send_json(
+                {
+                    "completed": completed,
+                    "total": len(reviewer["assignments"]),
+                    "items": items,
+                    "reviewer_name": reviewer["name"],
                 }
             )
 
@@ -1137,9 +1429,12 @@ def make_handler(
                     return
 
                 completed = len(reviewer["assessments"])
-                if idx != completed:
+                if idx > completed:
                     self._send_json(
-                        {"error": f"expected index {completed}, got {idx}"},
+                        {
+                            "error": f"index {idx} is beyond current "
+                            f"progress ({completed})"
+                        },
                         400,
                     )
                     return
@@ -1147,6 +1442,7 @@ def make_handler(
                 assignment = reviewer["assignments"][idx]
                 paper = eval_data["papers"][assignment["paper_index"]]
 
+                now = datetime.now(timezone.utc).isoformat()
                 if rating_mode == "side-by-side":
                     entry = {
                         "paper_id": paper["id"],
@@ -1155,9 +1451,7 @@ def make_handler(
                         },
                         "label_map": assignment["label_map"],
                         "comment": comment,
-                        "submitted_at": datetime.now(
-                            timezone.utc
-                        ).isoformat(),
+                        "submitted_at": now,
                     }
                 else:
                     entry = {
@@ -1167,12 +1461,20 @@ def make_handler(
                             k: int(ratings[k]) for k in required_keys
                         },
                         "comment": comment,
-                        "submitted_at": datetime.now(
-                            timezone.utc
-                        ).isoformat(),
+                        "submitted_at": now,
                     }
 
-                reviewer["assessments"].append(entry)
+                if idx < completed:
+                    # Preserve original timestamp, record update time
+                    original = reviewer["assessments"][idx]
+                    entry["originally_submitted_at"] = original.get(
+                        "originally_submitted_at",
+                        original.get("submitted_at"),
+                    )
+                    entry["submitted_at"] = now
+                    reviewer["assessments"][idx] = entry
+                else:
+                    reviewer["assessments"].append(entry)
                 _write_reviewer(data_dir, reviewer)
 
                 new_completed = len(reviewer["assessments"])
