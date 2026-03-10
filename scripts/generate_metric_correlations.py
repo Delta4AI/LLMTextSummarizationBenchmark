@@ -45,7 +45,6 @@ METRICS: List[Tuple[str, str]] = [
     ("sentence_transformer", "all-mpnet-base-v2"),
     ("alignscore", "AlignScore"),
     ("summac", "SummaC"),
-    ("factcc", "FactCC"),
     ("minicheck_ft5", "MiniCheck-FT5"),
     ("minicheck_7b", "MiniCheck-7B"),
 ]

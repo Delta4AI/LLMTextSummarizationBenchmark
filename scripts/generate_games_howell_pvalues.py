@@ -44,10 +44,10 @@ EXCLUDED_MODELS = {"mistral_mistral-medium-2508"}
 METRICS = {
     "lexical": ["rouge1", "rouge2", "rougeL", "meteor", "bleu"],
     "semantic": ["bert_roberta-large_f1", "bert_microsoft/deberta-xlarge-mnli_f1", "sentence_transformer"],
-    "factual": ["alignscore", "summac", "factcc", "minicheck_ft5", "minicheck_7b"],
+    "factual": ["alignscore", "summac", "minicheck_ft5", "minicheck_7b"],
 }
 
-WEIGHTS = {"lexical": 0.35, "semantic": 0.40, "factual": 0.25}
+WEIGHTS = {"lexical": 1 / 3, "semantic": 1 / 3, "factual": 1 / 3}
 
 MODEL_GROUPS = {
     "traditional_models": [
@@ -243,7 +243,12 @@ def pad_to_length(arr, target_len: int, pad_value: float = 0.0) -> np.ndarray:
 
 def compute_final_score_per_model(data: dict) -> Dict[str, np.ndarray]:
     metric_mean_scores: Dict[str, np.ndarray] = {}
+    aggregate_scores: Dict[str, Dict[str, np.ndarray]] = {}
     required = METRICS["lexical"] + METRICS["semantic"] + METRICS["factual"]
+
+    all_lexical = []
+    all_semantic = []
+    all_factual = []
 
     for model, metrics in data.items():
         if model in EXCLUDED_MODELS:
@@ -271,18 +276,47 @@ def compute_final_score_per_model(data: dict) -> Dict[str, np.ndarray]:
 
         align = pad_to_length(metrics["alignscore"], max_len)
         summac = pad_to_length(metrics["summac"], max_len)
-        factcc = pad_to_length(metrics["factcc"], max_len)
         minicheck_ft5 = pad_to_length(metrics["minicheck_ft5"], max_len)
         minicheck_7b = pad_to_length(metrics["minicheck_7b"], max_len)
 
         avg_lexical = (rouge1 + rouge2 + rougeL + meteor + bleu) / 5.0
         avg_semantic = (roberta + deberta + sent_tf) / 3.0
-        avg_factual = (align + summac + factcc + minicheck_ft5 + minicheck_7b) / 5.0
+        avg_factual = (align + summac + minicheck_ft5 + minicheck_7b) / 4.0
+
+        aggregate_scores[model] = {
+            "lexical": avg_lexical,
+            "semantic": avg_semantic,
+            "factual": avg_factual,
+        }
+
+        all_lexical.append(avg_lexical)
+        all_semantic.append(avg_semantic)
+        all_factual.append(avg_factual)
+
+    all_lexical = np.concatenate(all_lexical)
+    all_semantic = np.concatenate(all_semantic)
+    all_factual = np.concatenate(all_factual)
+
+    lexical_mean = np.mean(all_lexical)
+    lexical_std = np.std(all_lexical)
+    semantic_mean = np.mean(all_semantic)
+    semantic_std = np.std(all_semantic)
+    factual_mean = np.mean(all_factual)
+    factual_std = np.std(all_factual)
+
+    for model, scores in aggregate_scores.items():
+        avg_lexical = scores["lexical"]
+        avg_semantic = scores["semantic"]
+        avg_factual = scores["factual"]
+
+        z_lexical = (avg_lexical - lexical_mean) / lexical_std
+        z_semantic = (avg_semantic - semantic_mean) / semantic_std
+        z_factual = (avg_factual - factual_mean) / factual_std
 
         final_score = (
-            WEIGHTS["lexical"] * avg_lexical
-            + WEIGHTS["semantic"] * avg_semantic
-            + WEIGHTS["factual"] * avg_factual
+            WEIGHTS["lexical"] * z_lexical
+            + WEIGHTS["semantic"] * z_semantic
+            + WEIGHTS["factual"] * z_factual
         )
 
         metric_mean_scores[model] = final_score

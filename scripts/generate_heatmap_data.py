@@ -212,6 +212,7 @@ def build_heatmap_data_from_comparison_csv(
         "roberta_recall_mean",
         "deberta_precision_mean",
         "deberta_recall_mean",
+        "factcc_mean",
     }
 
     mean_cols = [
