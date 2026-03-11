@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offline Evaluation &ndash; Text Summarization Benchmark</title>
+<script>document.documentElement.dataset.theme=localStorage.getItem("theme")||"light"</script>
+<style>
+:root{--bg:#ffffff;--surface:#f6f8fa;--border:#d0d7de;--text:#1f2328;
+--muted:#656d76;--accent:#0969da;--green:#1a7f37;--red:#cf222e;
+--yellow:#9a6700;--radius:8px;--btn-text:#ffffff;
+--label-a:#0969da;--label-b:#1a7f37;--label-c:#9a6700;--label-d:#8250df}
+[data-theme="dark"]{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;
+--muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#f85149;
+--yellow:#d29922;--btn-text:#0d1117;
+--label-a:#58a6ff;--label-b:#3fb950;--label-c:#d29922;--label-d:#bc8cff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+.container{max-width:800px;margin:0 auto;padding:16px 16px 64px}
+header{margin-bottom:14px}
+h1{font-size:1.1rem;font-weight:600;margin-bottom:8px}
+.progress-wrap{background:var(--surface);border:1px solid var(--border);
+border-radius:20px;height:20px;overflow:hidden;margin-bottom:4px;position:relative}
+.progress-bar{height:100%;background:var(--accent);border-radius:20px;
+transition:width 0.4s ease}
+.progress-text{position:absolute;inset:0;display:flex;align-items:center;
+justify-content:center;font-size:0.7rem;font-weight:600;color:var(--text);
+mix-blend-mode:difference;pointer-events:none}
+.card{background:var(--surface);border:1px solid var(--border);
+border-radius:var(--radius);padding:14px;margin-bottom:10px}
+.card-header{font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;
+color:var(--accent);margin-bottom:6px;font-weight:600}
+.highlights{list-style:none;padding:0;margin:4px 0 0}
+.highlights li{position:relative;padding:3px 10px 3px 20px;margin-bottom:3px;
+font-size:0.85rem;line-height:1.5;color:var(--text);
+background:var(--bg);border:1px solid var(--border);border-radius:4px}
+.highlights li::before{content:"\2022";position:absolute;left:8px;
+color:var(--accent);font-weight:700}
+.gen-text{background:var(--bg);border:1px solid var(--border);
+border-radius:6px;padding:10px;font-size:0.85rem;line-height:1.5;
+color:var(--text);white-space:pre-wrap}
+.criterion{margin-bottom:10px}
+.criterion-header{display:flex;align-items:baseline;gap:6px;margin-bottom:4px;flex-wrap:wrap}
+.criterion-label{font-weight:600;font-size:0.88rem}
+.criterion-desc{font-size:0.78rem;color:var(--muted)}
+.likert{display:flex;gap:4px}
+.likert label{flex:1;text-align:center;padding:6px 2px;
+border:2px solid var(--border);border-radius:6px;cursor:pointer;
+font-size:0.8rem;transition:all 0.15s;user-select:none;line-height:1.2}
+.likert label:hover{border-color:var(--accent);background:rgba(88,166,255,0.08)}
+.likert input{display:none}
+.likert label.selected{border-color:var(--accent);
+background:var(--accent);color:var(--btn-text);font-weight:600}
+.likert .anchor{display:block;font-size:0.62rem;margin-top:1px;opacity:0.8}
+.submit-row{display:flex;justify-content:flex-end;margin-top:10px}
+button{padding:10px 28px;background:var(--accent);color:var(--btn-text);border:none;
+border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;
+transition:opacity 0.15s}
+button:hover{opacity:0.9}
+button:disabled{opacity:0.35;cursor:not-allowed}
+.done-card{text-align:center;padding:48px 24px}
+.done-card h2{font-size:1.3rem;color:var(--green);margin-bottom:12px}
+.done-card p{color:var(--muted)}
+.toolbar{display:flex;align-items:center;justify-content:space-between;
+margin-bottom:14px;padding:10px 14px;background:var(--surface);
+border:1px solid var(--border);border-radius:var(--radius);font-size:0.82rem;
+flex-wrap:wrap;gap:8px}
+.toolbar .name-display{font-weight:600;color:var(--text)}
+.toolbar .btn-group{display:flex;gap:6px}
+.tool-btn{background:none;border:1px solid var(--border);
+color:var(--muted);padding:4px 10px;font-size:0.78rem;border-radius:4px;
+cursor:pointer;margin:0;font-weight:500}
+.tool-btn:hover{border-color:var(--accent);color:var(--accent);background:transparent}
+.tool-btn.primary{border-color:var(--green);color:var(--green)}
+.tool-btn.primary:hover{background:var(--green);color:var(--btn-text)}
+.loading{text-align:center;padding:48px;color:var(--muted)}
+.theme-toggle{position:fixed;top:12px;right:12px;background:var(--surface);
+border:1px solid var(--border);border-radius:50%;width:32px;height:32px;
+cursor:pointer;display:flex;align-items:center;justify-content:center;
+font-size:1rem;z-index:100;padding:0;color:var(--text);transition:all 0.2s}
+.theme-toggle:hover{border-color:var(--accent)}
+.theme-toggle::before{content:"\263E"}
+[data-theme="dark"] .theme-toggle::before{content:"\2600"}
+.info-btn{display:inline-flex;align-items:center;justify-content:center;
+width:20px;height:20px;border-radius:50%;background:transparent;
+border:1.5px solid var(--muted);color:var(--muted);font-size:0.72rem;
+font-weight:700;cursor:pointer;margin-left:8px;transition:all 0.15s;
+vertical-align:middle;line-height:1;font-style:italic;font-family:Georgia,serif;padding:0}
+.info-btn:hover{border-color:var(--accent);color:var(--accent)}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);
+z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);
+border-radius:var(--radius);max-width:600px;width:90%;max-height:80vh;
+overflow-y:auto;padding:24px}
+.modal h3{font-size:1rem;margin-bottom:16px;color:var(--accent)}
+.modal h4{font-size:0.9rem;font-weight:600;margin:16px 0 4px;color:var(--text)}
+.modal p{font-size:0.85rem;color:var(--muted);line-height:1.6;margin-bottom:8px}
+.modal .close-btn{display:block;margin:20px auto 0;padding:8px 24px;
+background:var(--border);color:var(--text);border:none;border-radius:6px;
+font-size:0.85rem;cursor:pointer}
+.modal .close-btn:hover{background:var(--accent);color:var(--btn-text)}
+.modal .ref{font-size:0.78rem;color:var(--muted);margin-top:16px;
+border-top:1px solid var(--border);padding-top:12px;font-style:italic}
+.nav-grid{display:flex;flex-wrap:wrap;gap:2px;margin:8px 0 2px;padding:6px;
+background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.nav-item{width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+border:1.5px solid var(--border);border-radius:4px;font-size:0.6rem;font-weight:600;
+cursor:pointer;transition:all 0.15s;user-select:none;background:var(--bg)}
+.nav-item:hover:not(.locked){border-color:var(--accent);background:rgba(88,166,255,0.08)}
+.nav-item.done{background:var(--green);color:var(--btn-text);border-color:var(--green)}
+.nav-item.active{border-color:var(--accent);box-shadow:0 0 0 1.5px rgba(88,166,255,0.3)}
+.nav-item.done.active{box-shadow:0 0 0 1.5px rgba(59,185,80,0.4)}
+.nav-item.locked{opacity:0.35;cursor:default}
+.nav-legend{display:flex;gap:10px;font-size:0.68rem;color:var(--muted);margin-bottom:6px;padding-left:6px}
+.nav-legend-item{display:flex;align-items:center;gap:3px}
+.nav-swatch{width:8px;height:8px;border-radius:2px;border:1.5px solid var(--border)}
+.nav-swatch.sw-done{background:var(--green);border-color:var(--green)}
+.nav-swatch.sw-current{border-color:var(--accent);box-shadow:0 0 0 1px rgba(88,166,255,0.3)}
+.nav-swatch.sw-pending{background:var(--bg)}
+.status-badge{font-size:0.7rem;text-transform:none;letter-spacing:0;
+padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:600}
+.status-badge.completed{color:var(--green);background:rgba(26,127,55,0.1)}
+/* Welcome screen */
+.welcome-center{display:flex;align-items:center;justify-content:center;min-height:80vh}
+.welcome-box{max-width:480px;width:100%;padding:24px}
+.welcome-box h1{font-size:1.4rem;font-weight:600;margin-bottom:4px}
+.welcome-box .subtitle{color:var(--muted);margin-bottom:32px;font-size:0.95rem}
+input[type=text]{width:100%;padding:10px 14px;background:var(--bg);
+border:1px solid var(--border);border-radius:6px;color:var(--text);
+font-size:1rem;outline:none}
+input[type=text]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(88,166,255,0.15)}
+input[type=text]::placeholder{color:var(--muted)}
+.start-btn{display:block;width:100%;padding:10px 20px;margin-top:12px}
+.error{color:var(--red);font-size:0.85rem;margin-top:8px;display:none}
+.divider{text-align:center;color:var(--muted);margin:20px 0;font-size:0.85rem}
+.info-text{font-size:0.85rem;color:var(--muted);margin-top:24px;text-align:center}
+/* Side-by-side specific */
+.summary-card{background:var(--surface);border:2px solid var(--border);
+border-radius:var(--radius);padding:20px;margin-bottom:16px;transition:border-color 0.2s}
+.summary-card.ranked{border-color:var(--accent)}
+.summary-label{display:inline-flex;align-items:center;gap:8px;
+font-weight:700;font-size:1rem;margin-bottom:10px}
+.summary-label .letter{display:inline-flex;align-items:center;
+justify-content:center;width:28px;height:28px;border-radius:6px;
+font-size:0.85rem;font-weight:700;color:var(--btn-text)}
+.letter-a{background:var(--label-a)}.letter-b{background:var(--label-b)}
+.letter-c{background:var(--label-c)}.letter-d{background:var(--label-d)}
+.summary-text{background:var(--bg);border:1px solid var(--border);
+border-radius:6px;padding:14px;font-size:0.92rem;line-height:1.7;
+color:var(--text);white-space:pre-wrap;margin-bottom:12px}
+.rank-row{display:flex;align-items:center;gap:10px}
+.rank-label{font-size:0.82rem;color:var(--muted);font-weight:600;min-width:40px}
+.rank-buttons{display:flex;gap:6px}
+.rank-buttons label{text-align:center;padding:8px 14px;
+border:2px solid var(--border);border-radius:8px;cursor:pointer;
+font-size:0.85rem;transition:all 0.15s;user-select:none;
+line-height:1.3;min-width:56px}
+.rank-buttons label:hover{border-color:var(--accent);background:rgba(88,166,255,0.08)}
+.rank-buttons label.selected{border-color:var(--accent);
+background:var(--accent);color:var(--btn-text);font-weight:600}
+.rank-buttons label .anchor{display:block;font-size:0.68rem;margin-top:2px;opacity:0.8}
+.rank-badge{display:none;font-size:0.78rem;padding:2px 8px;border-radius:4px;
+background:var(--accent);color:var(--btn-text);font-weight:600;margin-left:auto}
+.summary-card.ranked .rank-badge{display:inline-block}
+.hint{font-size:0.82rem;color:var(--muted);margin-bottom:16px;font-style:italic}
+textarea{width:100%;min-height:60px;padding:8px 10px;background:var(--bg);
+border:1px solid var(--border);border-radius:6px;color:var(--text);
+font-size:0.85rem;font-family:inherit;resize:vertical;outline:none}
+textarea:focus{border-color:var(--accent)}
+textarea::placeholder{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="modal-overlay" id="info-modal" onclick="if(event.target===this)closeInfo()">
+<div class="modal">
+<h3>Evaluation Criteria &mdash; SummEval Framework</h3>
+<p>These four dimensions come from the SummEval framework
+(Fabbri&nbsp;et&nbsp;al.,&nbsp;2021), the <em>de&nbsp;facto</em> standard for
+human evaluation of text summarization. Each is rated on a 1&ndash;5 Likert scale.</p>
+<h4>Coherence</h4>
+<p>The summary should be well-structured and well-organized. It should not just
+be a heap of related information, but should build from sentence to sentence to
+a coherent body of information about a topic.</p>
+<h4>Consistency</h4>
+<p>The factual alignment between the summary and the summarized source document.
+A factually consistent summary contains only statements that are entailed by the
+source document. Penalize summaries that contain hallucinated facts.</p>
+<h4>Fluency</h4>
+<p>The quality of individual sentences. They should have no formatting problems,
+capitalization errors or obviously ungrammatical sentences (e.g., fragments,
+missing components) that make the text difficult to read.</p>
+<h4>Relevance</h4>
+<p>Selection of important content from the source. The summary should include
+only important information from the source document. Penalize summaries which
+contain redundancies and excess information.</p>
+<p class="ref">Fabbri, A.&nbsp;R. et&nbsp;al. (2021). SummEval: Re-evaluating
+Summarization Evaluation. <em>Transactions of the Association for Computational
+Linguistics</em>, 9, 391&ndash;409.</p>
+<button class="close-btn" onclick="closeInfo()">Close</button>
+</div>
+</div>
+<button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme"></button>
+<div id="app"></div>
+<script type="application/json" id="eval-data">{"data_hash": "2606cb8ec5591237", "rating_mode": "detailed", "criteria": [{"key": "coherence", "label": "Coherence", "description": "Is the summary well-structured and logically organized?", "anchors": {"1": "Confusing, disorganized", "3": "Somewhat organized", "5": "Clear logical flow"}}, {"key": "consistency", "label": "Consistency", "description": "Is the summary factually consistent with the source? No hallucinations?", "anchors": {"1": "Major factual errors", "3": "Minor inaccuracies", "5": "Fully consistent"}}, {"key": "fluency", "label": "Fluency", "description": "Is the summary grammatical, well-written, and readable?", "anchors": {"1": "Difficult to understand", "3": "Mostly readable", "5": "Clear and well-written"}}, {"key": "relevance", "label": "Relevance", "description": "Does the summary capture the important information from the source?", "anchors": {"1": "Missing most key points", "3": "Captures some key points", "5": "Captures all key points"}}], "models": ["ollama_mistral-small3.2:24b", "mistral_mistral-small-2506", "huggingface_google/bigbird-pegasus-large-pubmed", "huggingface_csebuetnlp/mT5_multilingual_XLSum"], "papers": [{"id": "https://doi.org/10.1016/j.ccell.2023.11.008", "title": "B3GALT6 promotes dormant breast cancer cell survival and recurrence by enabling heparan sulfate-mediated FGF signaling", "reference_highlights": ["Dormant residual tumor cells (RTCs) upregulate heparan sulfate (HS) biosynthesis", "CRISPR-Cas9 screen identifies B3galt6 as a regulator of RTC survival and recurrence", "B3galt6 is required for glycosaminoglycan-protein linkage to generate proteoglycans", "Dormant RTCs upregulate B3galt6/Hs6st1/Fgf1/Fgfr2 signaling to maintain survival"], "summaries": {"ollama_mistral-small3.2:24b": "The study identifies B3GALT6 as a key regulator of dormant breast cancer cell survival and recurrence. Through CRISPR-Cas9 screening, it reveals that B3GALT6 promotes tumor recurrence by enabling heparan sulfate-mediated FGF signaling, specifically via the B3GALT6-HS6ST1-FGF1-FGFR2 axis. This pathway predicts poor patient outcomes, suggesting FGFR2 inhibition as a potential therapeutic strategy to target dormant cancer cells and prevent recurrence.", "mistral_mistral-small-2506": "The study identifies B3GALT6 as a critical regulator of dormant breast cancer cell survival and recurrence. B3GALT6 promotes heparan sulfate biosynthesis, enabling FGF1-FGFR2 signaling via HS6ST1-mediated heparan 6-O-sulfation. This pathway enhances dormant residual tumor cell (RTC) fitness and recurrence, linking B3GALT6 to poor patient outcomes. The findings suggest FGFR2 inhibition as a potential therapeutic strategy to target dormant RTCs and prevent recurrence.", "huggingface_google/bigbird-pegasus-large-pubmed": "progression through stages of development is programmed by the cell cycle, which allows for the generation of new cells, new tissue, and new organs. however, each cell cycle contains a subset of cells that are distinct from the others in terms of size, size distribution, proliferation rate, autonomous survival, or other properties that determine whether a cell cycle is metastatic or metastatic - confined. in metastatic cancer, there are differences in the expression of chemokines, cytokines, growth factors and other growth factors that determine the fate of the tumor. these differences in expression and fate determine whether the", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "This is a full transcript of breast cancer mortality from incurable recurrences thought to be seeded by dormant cells."}}, {"id": "https://doi.org/10.1016/j.cyto.2025.156904", "title": "Gastric mucosal CD8+TRM cells are recruited through CXCR5-CXCL13 axis in Helicobacter pylori infected subjects", "reference_highlights": ["Gastric mucosal CD8+TRM cells are recruited by CXCL13-CXCR5 in the H. pylori infected.", "Gastric mucosal CD8+TRM cells in the CagA+ H. pylori infected release more cytokines.", "Gastric CXCL13 is secreted by B cells, DCs and Mφ in H. pylori infected subjects.", "Gastric CD8+TRM cells raise as the proceed of H. pylori related gastric diseases."], "summaries": {"ollama_mistral-small3.2:24b": "The study found that gastric mucosal CD8+TRM cells are increased in H. pylori-infected subjects, particularly those with CagA+ strains, and are recruited via the CXCR5-CXCL13 axis. These cells secrete IFN-γ and TNF-α, contributing to local immune responses. Higher levels of CD8+TRM cells and CXCL13 were linked to the progression of gastric diseases in infected individuals.", "mistral_mistral-small-2506": "The study found that gastric mucosal CD8+ tissue-resident memory T (CD8+TRM) cells are increased in Helicobacter pylori (H. pylori)-infected individuals, particularly those infected with the CagA+ strain. These cells express elevated levels of CXCR5 and are recruited via the CXCL13-CXCR5 axis, primarily driven by dendritic cells and macrophages. CD8+TRM cells secrete IFN-γ and TNF-α, contributing to local immune responses. Their numbers and CXCL13 expression correlate with the progression of gastric diseases in H. pylori-infected individuals.", "huggingface_google/bigbird-pegasus-large-pubmed": "helicobacter pylori are among the most common causes of bacterial infections, and the pathomechanism responsible for their lethality is poorly understood. here, we show that in the course of histopathologic investigation of chronic gastritis and mucosa - associated lymphoid tissue (malt) lymphoma, a newly described type of helicobacter infection, an autologous, innate immune response is initiated, which leads to the accumulation of infected tissue in the lymphoid organs. initially, only a few lymphoid cells, including macrophages, are infected, but over time the number of infected cells in", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "This is a full transcript of the development of gastric diseases in the Lancet Infectious Diseases."}}, {"id": "https://doi.org/10.1016/j.febslet.2015.09.023", "title": "Genome-wide analysis of alternative splicing events in Hordeum vulgare: Highlighting retention of intron-based splicing and its possible function through network analysis", "reference_highlights": ["AS events in barley is line with the intron definition model.", "Intron retention is frequently associated with specific abiotic stresses.", "Some regulatory molecules were specific for high and low AS gene sets."], "summaries": {"ollama_mistral-small3.2:24b": "This study identified alternative splicing events in barley, highlighting frequent intron retention under abiotic stress. Network analysis revealed specific sub-networks involving miRNAs (miR156, miR157) and transcription factors (SPL2, SPL10, SPL11). Experimental validation confirmed splice variants in the elongation factor protein (MLOC_3412). The integrative approach advances functional annotation of alternative splicing through regulatory network discovery.", "mistral_mistral-small-2506": "This study identified alternative splicing events in barley (Hordeum vulgare) using homology mapping, revealing frequent intron retention under abiotic stress. Network analysis uncovered regulatory sub-networks, including interactions between SPL transcription factors and miR156/miR157 families. Experimental validation confirmed splice variants in the elongation factor protein (MLOC_3412) via qRT-PCR. The integrative approach advances functional annotation of alternative splicing through regulatory network discovery.", "huggingface_google/bigbird-pegasus-large-pubmed": "alternative splicing is a form of reverse transcriptase (rt) regulation of gene expression by nonsynonymous means. while the majority of studies have focused on rna molecules, less attention has been paid to noncoding rnas (ncrnas). here, we used a highthroughput approach to analyze the genome of the fruit fly drosophila melanogaster. we identified more than 100 rna transcripts that had diverged during alternative splicing, most of which had not been detected previously. to assess the importance of these transcripts for tissue development and disease, and to", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "A new study of intron-based splicing in Hordeum vulgare has revealed a significant increase in the number of splice variants."}}, {"id": "https://doi.org/10.1016/j.ygeno.2025.111018", "title": "Genomic insights and phylogenetics of the mitochondrial genome of Cryptocarya", "reference_highlights": ["Our research presents the first mitochondrial genome of Cryptocarya kwangtungensis, revealing its structural characteristics and comparative genomic insights.", "We identified frequent recombination events among mitogenomes of related species, contributing to our understanding of their evolutionary history.", "Phylogenetic analyses based on mitochondrial and nuclear sequences support the division of Cryptocarya species in Asia into three well-resolved clades within the family Lauraceae."], "summaries": {"ollama_mistral-small3.2:24b": "The study presents the first mitochondrial genome of Cryptocarya kwangtungensis, revealing its structure and repeat elements. Comparative analysis of five magnoliids mitogenomes identified frequent recombination events and five conserved gene clusters. Phylogenetic analyses using mitochondrial and nuclear sequences resolved Cryptocarya species into three well-supported clades, clarifying their relationships within the Lauraceae family.", "mistral_mistral-small-2506": "The study presents the first mitochondrial genome of Cryptocarya kwangtungensis (758,020 bp), including 43 protein-coding genes, 23 tRNAs, and 3 rRNAs, along with 234 SSRs, 1,275 dispersed repeats, and 35 homologous DNA fragments with the plastome. Comparative analysis revealed frequent recombination events among five magnoliid mitogenomes and only five conserved clustered genes. Phylogenetic analyses using 91 mitochondrial regions and nuclear ribosomal sequences of 21 species resolved Cryptocarya into three well-supported clades, clarifying relationships within the genus in Lauraceae.", "huggingface_google/bigbird-pegasus-large-pubmed": "the genome of the medicinal plant kwangtungensis gen. nov., belonging to the tropical genus tropicalcarya, has been sequenced, and the mitogenome has been characterized. in this study, we investigated the evolutionary history of this plant family through analysis of the mitochondrial genome, which is a highly detailed genetic map of an eukaryote. the phylogenetic relationship of this family to the distant relatives of the genus mediterranean (arthropoda) is discussed.", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "This is a full transcript of Cryptocarya kwangtungensis, a rare species of tropical trees in Asia."}}, {"id": "https://doi.org/10.1016/j.drudis.2025.104366", "title": "Artificial intelligence for RNA–ligand interaction prediction: advances and prospects", "reference_highlights": ["A comprehensive review of AI-driven strategies for predicting RNA–ligand interactions is presented.", "Advances in AI-based binding site identification, structure modeling, and virtual screening are discussed.", "Critical challenges, including limited datasets and RNA structural flexibility, are critically discussed.", "Emerging trends highlight the integration of AI with physics-based methods and expanding datasets.", "Insights into RNA dynamics and its therapeutic potential for drug discovery are provided."], "summaries": {"ollama_mistral-small3.2:24b": "This review summarizes AI advancements in RNA–ligand interaction prediction, including binding site identification, structure modeling, binding mode and affinity prediction, and virtual screening. Key challenges like data scarcity and RNA flexibility are highlighted, with future directions focusing on integrating AI with physics-based models and expanding experimental datasets to improve predictive accuracy.", "mistral_mistral-small-2506": "The review highlights AI's role in advancing RNA–ligand interaction prediction, covering binding site identification, structure modeling, binding mode/affinity prediction, and virtual screening. Key challenges include limited datasets and RNA flexibility modeling. Future directions focus on integrating AI with physics-based models and expanding experimental data to improve predictions.", "huggingface_google/bigbird-pegasus-large-pubmed": "we are at the dawn of a new era of genomics, where high - throughput, data - driven, pattern - recognition methods will drive the discovery of new medicines. this review will focus on the development of methods for making predictions of biological processes at the atomic level, as well as on the application of these methods to the field of drug discovery. in the first part of the review, we discuss the need for high - resolution, site - specific, interaction - based modeling ofligands as a means of inferring drug targets. to begin to address the challenges of this endeavor,", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "A review of artificial intelligence for RNA–ligand interaction predictions has been published by the British Medical Journal."}}, {"id": "https://doi.org/10.1016/j.gene.2025.149551", "title": "Study on the role of FN1 in chronic obstructive pulmonary disease", "reference_highlights": ["FN1 was significantly upregulated in COPD patients and rat models.", "Serum and plasma FN1 levels correlated positively with lung function decline in COPD.", "FN1 overexpression in BEAS-2B cells enhanced proliferation, inhibited apoptosis, and activated AKT signaling."], "summaries": {"ollama_mistral-small3.2:24b": "The study examines the role of Fibronectin 1 (FN1) in Chronic Obstructive Pulmonary Disease (COPD), highlighting its involvement in inflammatory responses and tissue remodeling. The findings suggest FN1's significant contribution to COPD development and progression, offering potential insights for preventive and therapeutic strategies.", "mistral_mistral-small-2506": "The study investigates the role of Fibronectin 1 (FN1), an extracellular matrix protein, in the development and progression of Chronic Obstructive Pulmonary Disease (COPD). By examining FN1's involvement in inflammatory responses and tissue remodeling, the research aims to provide insights for potential preventive and therapeutic strategies for COPD.", "huggingface_google/bigbird-pegasus-large-pubmed": "chronic obstructive pulmonary disease (copd) is a major cause of morbidity and mortality in the united states. the diagnosis of copd relies on the ability of the lung to clear as much of the carbon dioxide in the air as possible in a timely fashion. in the lung, carbon dioxide is transported across the epithelium by the respiratory tract, where it is trapped in a high - molecular - weight complex known as the extracellular matrix (ecm), which is composed of a glycosaminoglycan - rich protein known as an essential component of the endoplasmic reticulum (er) and a", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "A study on the role of a protein in the development of chronic obstructive pulmonary disease (COPD) has been launched by the University of Oxford."}}, {"id": "https://doi.org/10.1016/j.biocel.2023.106508", "title": "Molecular and cellular evidence of a direct interaction between the TRAF2 C-terminal domain and ganglioside GM1", "reference_highlights": ["The TRAF domain of TRAF2 directly interacts with GM1 in solution.", "An acidic pH favors the dissociation of the trimeric TRAF domain in stable monomers.", "Both the oligomeric and monomeric forms of the TRAF domain interact with GM1.", "Only the monomeric protein causes membrane deformation of GM1-containing vesicles.", "GM1 interacts with TRAF2 and its TRAF domain in leukemic cells undergoing apoptosis."], "summaries": {"ollama_mistral-small3.2:24b": "The study identifies a direct interaction between the TRAF domain of TRAF2 and ganglioside GM1, which occurs in both trimeric and monomeric forms of the protein. While GM1 binding is similar across pH levels, only the monomeric form induces membrane deformation in GM1-containing vesicles. In human leukemic HAP1 cells, GM1-TRAF2 complexes form under apoptotic conditions, suggesting a potential role in cellular processes linked to cytoplasmic acidification. The findings highlight a novel interaction with implications for future research on its physiological significance.", "mistral_mistral-small-2506": "The study demonstrates a direct interaction between the TRAF domain of TRAF2 and ganglioside GM1, which occurs at both acidic (pH 5.5) and neutral (pH 7.6) pH levels. While GM1 binds to both trimeric and monomeric forms of the TRAF domain, only the monomeric form induces membrane deformation and vesiculation in GM1-containing vesicles. In human leukemic HAP1 cells, GM1-TRAF2 complexes form under tunicamycin treatment, particularly in apoptotic cells with cytoplasmic acidification. These findings suggest a potential physiopathological role for the TRAF domain-GM1 interaction.", "huggingface_google/bigbird-pegasus-large-pubmed": "we report the first identification of the essential protein ubiquitin ligase (ubx), which is required for the formation of self - assembling nanostructures and is known to be involved in diverse cellular processes. we showed that ub x functions as an integral membrane protein and that its activity is regulated by interaction with receptor. through investigation of the molecular mechanism of ub - protein interaction, we discovered that it associates with the atp binding domain (abcd) of the cell membrane. upon binding atp, ub forms a complex with domain1 and is recruited into the membrane", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "This is a full transcript of a study of the TRAF2 C- terminal domain and the ganglioside protein complexes in human cells."}}, {"id": "https://doi.org/10.1016/j.jmb.2025.169184", "title": "A F420-dependent Single Domain Chemogenetic Tool for Protein De-dimerization", "reference_highlights": ["Protein-protein interactions underpin many cellular processes.", "Few chemogenetic tools are available to dissociate formed protein complexes.", "Binding of F420 de-dimerizes a domain-swapped dimer of MSMEG_2027.", "MSMEG_2027 fusion receptors allow biorthogonal control of human cell signalling.", "MSMEG_2027 and F420 are a naturally-inspired, single domain monomerization tool."], "summaries": {"ollama_mistral-small3.2:24b": "This study presents a novel chemogenetic tool for protein de-dimerization using the F420-dependent oxidoreductase MSMEG_2027 from mycobacteria. The tool exploits F420 binding to dissociate homodimeric proteins, a mechanism validated via X-ray crystallography. Applied in human cells, it successfully modulated MAPK/ERK signaling by controlling FGFR1 dimerization, offering a new approach to study protein complexes in situ.", "mistral_mistral-small-2506": "The study introduces a novel chemogenetic tool for protein de-dimerization using the F420-dependent oxidoreductase MSMEG2027 from mycobacteria. X-ray crystallography revealed that F420 binding disrupts the homodimeric structure of MSMEG2027 by rearranging its N-terminal helix, enabling its use as a bioorthogonal monomerization switch. The tool was successfully applied in human cells to control MAPK/ERK signaling downstream of a chimeric FGFR1 receptor, offering a single-domain, stoichiometric approach to study protein complexes in situ.", "huggingface_google/bigbird-pegasus-large-pubmed": "the ability of cells to sense and respond to environmental stimuli depends on their intrinsic chemical environment. this is exemplified by the sense of touch, which is a fundamental building block of touch and senses. here, we discuss how touch can mediate fundamental cellular processes, such as apoptosis, by acting as a molecular switch that controls the production and secretion of growth factors, chemokines, and receptors.", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "This is a full transcript of a new study of protein- protein interactions in human cells."}}, {"id": "https://doi.org/10.1016/j.celrep.2025.115798", "title": "Single-cell analysis of temporal immune cell dynamics in alopecia areata reveals a causal role for clonally expanded CD8+ T cells in disease", "reference_highlights": ["Single-cell RNA and TCR sequencing reveal clonal CD8+ T cell expansion during AA onset", "Effector-like CD8+ T cell subsets contribute to disease initiation and progression", "Expression of individual TCRs from expanded clones is sufficient to induce AA", "Targeted depletion of dominant TCRβ chains prevents and attenuates disease in vivo"], "summaries": {"ollama_mistral-small3.2:24b": "The study identifies a causal role for clonally expanded CD8+ T cells in alopecia areata (AA) using single-cell RNA and TCR sequencing in a mouse model. Hyper-expanded CD8+ T cell clones were linked to disease onset, and engineered TCR retrogenic mice confirmed these clones' pathogenicity. Depletion experiments further demonstrated their sufficiency in initiating AA, establishing a direct connection between CD8+ T cell clonality and disease.", "mistral_mistral-small-2506": "This study demonstrates that clonally expanded CD8+ T cells play a causal role in alopecia areata (AA) pathogenesis. Using single-cell RNA and TCR sequencing in a mouse model, the authors identified hyper-expanded CD8+ T cell clones linked to disease onset. Through TCR retrogenic mice and CRISPR-Cas9 engineering, they showed that these expanded clones are sufficient to initiate AA, establishing a direct link between CD8+ T cell clonality and disease.", "huggingface_google/bigbird-pegasus-large-pubmed": "clonally expanded cells are characterized by their expansion, often to near unity, and loss of function, eventually leading to disease. however, the mechanisms by which cells lose function and become pathogenic are not understood. here, we show that hair cells are under attack. in a mouse model of alopecia areata, skin cells derived from the lymph nodes of endorgans, including dendritic cells, are hyperexpanded, only to subsequently become deregulated, leading to alopecia. within lymph nodes, endorgan - derived antigen - presenting cells (apcs),", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "A study of temporal immune cell dynamics in alopecia areata reveals a role for clonally expanded T cells in disease, according to a new study."}}, {"id": "https://doi.org/10.1016/j.jbiotec.2025.04.023", "title": "Fermentative production of α-ketoisovalerate and α-ketoisocaproate by metabolically engineered Corynebacterium glutamicum", "reference_highlights": ["Plasmid-free C. glutamicum strain with high α-ketoisovalerate production was created.", "Enhanced α-ketoisocaproate production by overexpressing L-leucine biosynthesis operon.", "Acetate addtion increased α-ketoisocaproate production with reduced α-ketoisovalerate.", "α-Ketoisocaproate reached 79.8 g/L, significantly exceeding previous reported values.", "This work lays strong foundation for industrial production of these two α-keto acids."], "summaries": {"ollama_mistral-small3.2:24b": "This study engineered Corynebacterium glutamicum to produce α-ketoisovalerate (KIV) and α-ketoisocaproate (KIC) via fermentation. By blocking L-valine and KIC pathways, the strain produced 53.5 g/L KIV. Further modifications in the L-leucine pathway, including gene overexpression and acetate supplementation, yielded 79.8 g/L KIC, surpassing prior fermentation methods. The optimized strain demonstrated high productivity and yield, showcasing potential for industrial applications.", "mistral_mistral-small-2506": "This study engineered Corynebacterium glutamicum for fermentative production of α-ketoisovalerate (KIV) and α-ketoisocaproate (KIC) from glucose. By inactivating leucine dehydrogenase and isopropylmalate synthase, the team achieved 53.5 g/L KIV. Further metabolic engineering, including overexpression of L-leucine biosynthesis genes and acetate supplementation, enabled 79.8 g/L KIC production, surpassing prior fermentation yields and demonstrating industrial potential.", "huggingface_google/bigbird-pegasus-large-pubmed": "we engineered an alternative method for making acetyl cysteine (acp), which is the precursor of 5-bromo-2-deoxycytidine (5bd) and cyclooxygenase 2 (cox2, the enzyme catalyzing the conversion of guanosine into 5-bc) in yeast. the method involves removing the promoter (pfp) from a yeast transcription factor, activating the pfp promoter in yeast and inserting it into an inactive form in which it is inactive in cells. in this work, we examined the effects of the deletion of the promoter, as well as the", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "This is a full transcript of a new study into the production of glucose and a genetically engineered strain."}}, {"id": "https://doi.org/10.1016/j.chembiol.2024.07.018", "title": "Chemoproteomics reveals immunogenic and tumor-associated cell surface substrates of ectokinase CK2α", "reference_highlights": ["A chemoproteomic method identifies cell surface ectokinase substrates", "Surface-tethered CK2α is more active on surface proteins than a soluble analog", "Cell surface CK2α substrates are immunogenic in vivo"], "summaries": {"ollama_mistral-small3.2:24b": "The study reveals that ectokinase CK2α can hyperphosphorylate cell surface proteins in tumor-relevant conditions, creating immunogenic epitopes. Mice exposed to these hyperphosphorylated tumor cells developed B cell and CD4+ T cell responses but not CD8+ T cell responses. The work establishes a chemoproteomic workflow for studying extracellular phosphoproteomes and demonstrates the immunogenicity of extracellular phosphoproteins in a syngeneic system.", "mistral_mistral-small-2506": "This study identifies immunogenic cell surface substrates of the ectokinase CK2α in the tumor microenvironment. Using a chemoproteomic approach, the authors demonstrate that CK2α hyperphosphorylates cell surface proteins under tumor-relevant conditions, generating immunogenic epitopes. Mice exposed to these modified tumor cells developed polyreactive antisera and B cell/CD4+ T cell responses, but no CD8+ T cell response. The work highlights the immunogenicity of extracellular phosphoproteins in a syngeneic system.", "huggingface_google/bigbird-pegasus-large-pubmed": "chemoproteomics enabled us to probe the immunogenic nature of tumor cells. first, we profiled immunogenic tumor cell surface proteins: adenosine triphosphate, ectinase, and extracellular kinases and demonstrated that their activity is altered in the tumor microenvironment through phosphorylation - dependent regulation. to further study the nature of these substrates, we profiled polyproteins, which are produced by syngeneic tumor cells and mediate anti - tumor immune responses. here we demonstrate that aberrant polyprotein production is caused by hyperphosphorylation of extracellular kinase, resulting in altered cell surface protein production.", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "This is a full transcript of a study of the immune recognition of cancer cells in the UK."}}, {"id": "https://doi.org/10.1016/j.celrep.2025.115872", "title": "Mapping cancer gene dynamics through state-specific interactions", "reference_highlights": ["Two-way interactions in cancer genes were identified across distinct cancer states", "27.45% of cancer genes exhibit interaction pattern shifts between cancer states", "Cancer-state-specific high-order interactions reveal distinct progression mechanisms"], "summaries": {"ollama_mistral-small3.2:24b": "This study analyzed 25,000 tumor samples to compare gene interactions in primary and metastatic cancers. Key findings include 27.45% of genes (e.g., ARID1A, FBXW7, SMARCA4) shifting between one-hit and two-hit driver roles, seven state-specific interactions, and 38 primary-specific and 21 metastatic-specific high-order interactions enriched in cancer hallmarks. The results underscore the dynamic nature of tumor progression and the need for state-specific research and treatment strategies.", "mistral_mistral-small-2506": "The study analyzed 25,000 tumor samples from primary and metastatic cancers, revealing that 27.45% of cancer genes, including ARID1A, FBXW7, and SMARCA4, shift between one-hit and two-hit driver roles across states. It identified seven state-specific interactions and 38 primary-specific and 21 metastatic-specific high-order interactions, enriched in cancer hallmarks. These findings highlight dynamic tumor progression mechanisms and the importance of considering cancer state in treatment strategies.", "huggingface_google/bigbird-pegasus-large-pubmed": "our understanding of cancer is incomplete because of the lack of complete genome sequences. thus, our knowledge of cancer gene dynamics is limited. here, we describe state - specific gene interactions between primary and metastatic tumors, highlighting the importance of cancer research to precise therapeutic interventions.", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "This is a full transcript of how cancer genes adapt between primary and metastatic cancers, published by the British Medical Journal."}}, {"id": "https://doi.org/10.1016/j.jbiotec.2025.05.017", "title": "De novo production of prenylnaringenin compounds by a metabolically engineered Escherichia coli", "reference_highlights": ["Screening of eleven prenyltransferases (PTs) from plants and microbial sources.", "CRISPR-Cas12a to construct DMAPP boosted -E. coli strains.", "Constructed strains/PTs were screened for prenylnaringenin (PN) de novo production.", "In the best conditions, 135.33 mg/L of 3’-PN and 8.72 mg/L of 6-PN were produced.", "First report of de novo production of PN compounds in E. coli."], "summaries": {"ollama_mistral-small3.2:24b": "This study successfully engineered Escherichia coli to produce prenylnaringenin (PN) compounds de novo. By evaluating eleven prenyltransferases and boosting dimethylallyl pyrophosphate (DMAPP) availability via CRISPR-Cas12a, the researchers identified E. coli M-PAR-121:EcDXS expressing CloQ as the optimal strain. Optimization yielded 397.57 µM 3’-PN and 25.61 µM 6-PN at bioreactor scale, marking the first de novo PN production in E. coli.", "mistral_mistral-small-2506": "This study successfully engineered Escherichia coli for the de novo production of prenylnaringenin (PN) compounds, including 3’-PN, 6-PN, and 8-PN. By combining an optimized naringenin-producing E. coli chassis with eleven prenyltransferases (PTs) and CRISPR-Cas12a-enhanced DMAPP production, the researchers identified high-performing strains. The best strain, E. coli M-PAR-121:EcDXS, produced up to 397.57 µM (135.33 mg/L) of 3’-PN and 25.61 µM (8.72 mg/L) of 6-PN in bioreactors, marking the first reported de novo biosynthesis of PNs in E. coli.", "huggingface_google/bigbird-pegasus-large-pubmed": "understanding the mechanism of action of prenyl - trna synthetase in the production of compounds, such as rna and protein, will lead to the development of new methods to improve their pharmacological properties. this will allow more efficient use of land - use - related resources (e.g., compost, pesticides, etc.) that have become available in recent years. in particular, compounds that are produced de novo in the laboratory are expected to be useful in biotechnological research. here, we report on our efforts to produce compounds by denovo synthesis through the use of", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "This is a full transcript of the first study of de novo production of prenylnaringein (PN) compounds in E. coli."}}, {"id": "https://doi.org/10.1016/j.jbiotec.2025.04.022", "title": "Interferon gamma-induced hub genes and key pathways: A study based on biological network analysis and experimental validation", "reference_highlights": ["Identification of hub genes and key pathways in the BC cell line after treatment with IFN-γ", "The recombinant protein variants indicate efficient antiviral and anticancer functions in vitro.", "Confirmation of the antiviral and anticancer effects of hIFN-γ through the expression analysis of key hub genes", "The cytotoxic effect of the recombinant protein variants toward cancer cells is mediated via apoptosis induction."], "summaries": {"ollama_mistral-small3.2:24b": "The study identified key hub genes and pathways activated by IFN-γ in breast cancer cells, including cytokine-cytokine receptor interaction and NF-κB signaling, which promote antiproliferation and proapoptosis effects. Experimental validation confirmed the antiviral and anticancer activities of recombinant human IFN-γ, with optimal efficacy at 32.00 pg/mL. Hub gene expression analysis (cd74, cxcl10, il6, stat1) and apoptosis-related gene regulation (upregulation of Bax/p53, downregulation of Bcl-2) further supported IFN-γ's therapeutic potential.", "mistral_mistral-small-2506": "The study identified key hub genes (e.g., CD74, CXCL10, IL6, STAT1) and pathways (e.g., cytokine-cytokine receptor interaction, NF-κB signaling) involved in IFN-γ-induced antiproliferative and proapoptotic effects in breast cancer (BC) cells. Experimental validation confirmed the antiviral and anticancer activities of recombinant human IFN-γ (hIFN-γ), showing dose-dependent inhibition of VSV and MCF-7 cell proliferation. RT-PCR analysis revealed hIFN-γ upregulated proapoptotic genes (Bax, p53) and downregulated antiapoptotic Bcl-2, supporting its role in inducing apoptosis in BC cells.", "huggingface_google/bigbird-pegasus-large-pubmed": "the first comprehensive approach to the identification and validation of biological network biomarkers is to perform biological network analysis. we first identified the hub genes, hub proteins, and the cytokine receptor signaling pathway that are up- or downregulated in breast cancer (after treatment with chemotherapy) and the antiviral pathway that is observed to inhibit proapoptosis (inhibiting cell proliferation), antiviral activities, hif-1 (interferon regulatory factor) bioactivity, stat3 (smad3) expression, cell proliferation (inhibition of cytidine deaminase, cyclin d1 and cdk1", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "This is a full transcript of a study based on biological network analysis and experimental validation."}}, {"id": "https://doi.org/10.1016/j.celrep.2025.115863", "title": "An alternative neural basis underlying leptin resistance", "reference_highlights": ["Hypothalamic arcuate (Arc) GABAergic neurons can be targeted to reduce DIO", "HFD feeding induces activation of arcuate GABAergic neurons", "Activation of Arc non-LepR neurons is sufficient to cause obesity and leptin resistance", "Inhibition of arcuate non-LepR neurons is sufficient to reduce and reverse DIO"], "summaries": {"ollama_mistral-small3.2:24b": "The study identifies a novel neural mechanism contributing to leptin resistance and obesity. Chronic inhibition of hypothalamic arcuate GABAergic neurons (ArcGABA) that lack leptin receptors (non-LepR neurons) reduced diet-induced obesity (DIO). Activation of these neurons led to obesity despite normal leptin signaling, highlighting a disconnect between leptin sensitivity and metabolic outcomes. This suggests targeting ArcGABA non-LepR neurons as a potential anti-obesity strategy.", "mistral_mistral-small-2506": "The study identifies a novel neural mechanism of leptin resistance in obesity. Chronic inhibition of hypothalamic arcuate GABAergic neurons (ArcGABA) that lack leptin receptors (non-LepR) prevents and reverses diet-induced obesity (DIO). Activation of these neurons, despite intact leptin signaling, promotes obesity, suggesting their role in leptin resistance. This reveals a non-canonical pathway contributing to obesity, offering a potential therapeutic target.", "huggingface_google/bigbird-pegasus-large-pubmed": "neural basis for obesity and diabetes is emerging. increasing evidence supports a central role for signaling pathways in the control of food intake, energy expenditure, and insulin sensitivity. here, we describe a leptinergic neuromodulatory pathway that contributes to dietindependent leptin resistance, which is essential for the development of obesity.", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "A study of a new neural basis underlying leptin resistance has been published by the University of Cambridge."}}, {"id": "https://doi.org/10.1016/j.gene.2025.149646", "title": "Maternal uniparental isodisomy in a patient with autosomal recessive spastic paraplegia type 20", "reference_highlights": ["Maternal UPD (chr13) identified as novel cause of Troyer syndrome (SPG20)", "New homozygous SPART nonsense variant p.Gln374Ter identified WES.", "Custom SNP-based precisely maps genome-wide UPD segments.", "Results improve recurrence risk counseling and emphasize UPD testing utility from WES data."], "summaries": {"ollama_mistral-small3.2:24b": "This study reports a case of spastic paraplegia type 20 (SPG20) caused by maternal uniparental isodisomy of chromosome 13, leading to homozygosity for a deleterious SPART gene variant. The findings emphasize the importance of parental segregation studies and bioinformatics tools in detecting uniparental disomy, enhancing genetic counseling and diagnostic accuracy.", "mistral_mistral-small-2506": "The study reports a case of spastic paraplegia type 20 (SPG20/Troyer syndrome) in a 10-year-old boy with a homozygous nonsense variant in SPART (Gln374Ter). Whole-exome sequencing revealed the variant was heterozygous in the mother and absent in the father, suggesting maternal uniparental disomy (UPD) of chromosome 13. This finding highlights the importance of parental segregation analysis in genetic counseling and the utility of bioinformatics tools in detecting UPD to improve diagnostic accuracy.", "huggingface_google/bigbird-pegasus-large-pubmed": "key clinical messageuncertainty in therapy can be a source of frustration to patients and their families, as well as to clinicians. this report describes the importance of genetic testing in a patient with autosomal recessive spastic paraplegia to determine if the patient is a good case for testing, and how this information can be used to improve the care of the patient.", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "A study of a rare form of spastic paraplegia in a 10-year-old boy has revealed a homozygous nonsense variant in the mother and absent in the father."}}, {"id": "https://doi.org/10.1016/j.jbiotec.2025.05.003", "title": "Recombinant production of a diamine oxidase in Komagataella phaffii and in vitro degradation of histamine in simulated intestinal fluid", "reference_highlights": ["DAO-1 gene was integrated into K. phaffii genome under control of PGAP and PAOX1.", "High DAO-1 production in promoter-specific fed-batch bioreactor cultivations.", "Tablets with very high DAO-1 activity were prepared.", "DAO-1 tablets degraded high histamine amounts within 90 min."], "summaries": {"ollama_mistral-small3.2:24b": "The study successfully produced diamine oxidase (DAO-1) in Komagataella phaffii using GAP and AOX1 promoters, achieving higher activity levels (43 and 230 µkat/L, respectively) compared to Yarrowia lipolytica. A sucrose-based DAO-1 tablet degraded ~90% of 75 mg histamine in 90 minutes under simulated intestinal conditions, demonstrating potential for treating histamine intolerance.", "mistral_mistral-small-2506": "The study successfully produced diamine oxidase (DAO-1) from Yarrowia lipolytica in Komagataella phaffii using two promoters (GAP and AOX1), achieving significantly higher enzyme activity (43 µkat/L with GAP and 230 µkat/L with AOX1) compared to homologous production in Y. lipolytica. The DAO-1 was formulated into a sucrose-based tablet and demonstrated 90% degradation of 75 mg histamine in 90 minutes under simulated intestinal conditions, offering potential for treating histamine intolerance.", "huggingface_google/bigbird-pegasus-large-pubmed": "diamine oxidases are powerful enzymes that produce cyclooxygenases (coxs) in the digestive tract. they are also involved in the production of prostaglandins, arachidonic acid (aa), cyclosporine a (csa) and prostaglandin e2 (pge2) as well as in the metabolism of fat and non - protein constituents of food. in this study, we aimed to determine the optimum conditions for the expression of monooxygenase (mo)-inducible monooxygenating enzyme (moe) to produce high levels of monoamine oxidase inhibitors (ma", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "This is a full transcript of a new study into the production of diamine oxidase from Yarrowia lipolytica."}}, {"id": "https://doi.org/10.1016/j.jmb.2025.169236", "title": "pLMMoRF: A Web Server That Accurately Predicts Membrane-interacting Molecular Recognition Features by Employing a Protein Language Model", "reference_highlights": ["Membrane-interacting MoRFs are crucial for membrane-related protein functions.", "We developed a sequence-based MemMoRF predictor using protein language models.", "Key feature selection decreased input embedding size and improved performance.", "The embedding-based neural net enabled MemMoRF prediction in the human proteome."], "summaries": {"ollama_mistral-small3.2:24b": "The study introduces pLMMoRF, a web server for predicting membrane-interacting molecular recognition features (MemMoRFs) in proteins. Using a protein language model (Ankh) and a deep convolutional neural network, pLMMoRF outperforms existing predictors like CoMemMoRFPred, particularly on low-similarity test datasets. The tool efficiently predicts MemMoRFs across the human proteome, offering insights into membrane-coupled protein functions. Key contributions include enhanced accuracy, reduced computational footprint, and publicly available predictions.", "mistral_mistral-small-2506": "The study introduces pLMMoRF, a web server for predicting membrane-interacting molecular recognition features (MemMoRFs) in proteins. Using a protein language model (Ankh) and a deep convolutional neural network, pLMMoRF outperforms existing predictors like CoMemMoRFPred, especially on low-similarity test datasets. The tool efficiently predicts MemMoRFs across the human proteome, with results publicly available. The work highlights the importance of feature selection to improve accuracy and reduce computational cost. (Word count: 70)", "huggingface_google/bigbird-pegasus-large-pubmed": "reversible protein phosphorylation is essential for the regulation of gene expression. here we describe a method for predicting protein functions with high accuracy using a web server. we applied this method to predict the intracellular localization of p53, the essential component of phosphatidylinositol-4,5-bisphosphate (pip3) signaling in embryonic stem cells (escs). in the course of our study, we determined the localization of more than 200 pip3s, which had been predicted by the open - source protein prediction language (psdl) database. among the predictions that satisfied our criteria", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "In our series of letters from African journalists, scientists and academics are using a web server that accurately predicts the functions of human proteins."}}, {"id": "https://doi.org/10.1016/j.jbiotec.2025.05.007", "title": "A chitosan-integrated antibacterial protein composite nanocomplex derived from barnacle cement and spider silk", "reference_highlights": ["A variety of protein/chitosan nanocomplex have been successfully prepared.", "Nanocomplex cp19k-MaSp1/C150k demonstrated superior antibacterial efficacy against S. aureus and E. coli.", "Nanocomplex cp19k-MaSp1/C150k showed enhanced biocompatibility, fostering the proliferation and adhesion of HUVECs."], "summaries": {"ollama_mistral-small3.2:24b": "The study developed chitosan-integrated nanocomplexes using barnacle cement protein (cp19k) and spider silk protein (MaSp1) to enhance antibacterial properties. Low molecular weight chitosan (LMWC) formed structurally distinct nanocomplexes compared to high molecular weight chitosan (HMWC). The cp19k-MaSp1/C150k nanocomplex showed the strongest antibacterial activity against E. coli and S. aureus by disrupting cell membranes and increasing intracellular ROS levels. It also demonstrated high biocompatibility with HUVECs, making it promising for wound dressings and tissue repair.", "mistral_mistral-small-2506": "This study developed chitosan-integrated nanocomplexes combining barnacle cement protein (cp19k) and spider silk protein (MaSp1) to enhance antibacterial properties. Low molecular weight chitosan (LMWC) formed distinct nanocomplexes compared to high molecular weight chitosan (HMWC). The cp19k-MaSp1/HMWC (C150k) nanocomplex showed superior antibacterial activity against E. coli and S. aureus by disrupting cell membranes and increasing ROS levels, while maintaining high biocompatibility with HUVECs (145.21% viability on day 6). These findings suggest potential applications in wound dressings and tissue repair.", "huggingface_google/bigbird-pegasus-large-pubmed": "this study was aimed at designing nanobiocomplexes incorporating chitosan and barnacle cement proteins derived from silk to demonstrate their limitations in antibacterial properties. silk, which is known for its anti - fungal and anti - microbial activities, is an excellent material for antibacterial biomaterials because of its versatile nature. however, there are several issues with the use of silk for antibacterial purposes, one of which is that the nanocomplexes are lightweight. in order to overcome these issues, the international team of silk industry and materials scientists collaborated with the university of california, irvine, to design a nanocomplex from", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "A study of a chitosan-integrated antibacterial protein composite nanocomplex derived from barnacle cement and spider silk shows remarkable adhesion properties."}}, {"id": "https://doi.org/10.1016/j.jprot.2025.105457", "title": "Differential gene expression networks and auxin responses during maize callus induction from explant tissues with contrasting embryogenic potential", "reference_highlights": ["Embryogenic tissues are significantly enriched in cell proliferation and hormone signaling.", "Callus induction from non-embryogenic explant is represented by anoxia, catabolic and defense processes.", "ARFs, signal transduction (Homeobox; HB), and AP2-EREB transcription modules characterize immature embryos.", "Activator and repressor ARF accumulation patterns substantially differ at early stages of callus induction between explants."], "summaries": {"ollama_mistral-small3.2:24b": "The study investigates transcriptome and proteome adjustments during maize callus induction using immature and mature zygotic embryos with differing embryogenic potential. Key findings include enriched pathways for cell proliferation and hormone signaling in high-potential explants, along with distinct metabolic and stress-related processes. Notably, embryogenic callus showed higher anabolic and oxidation-reduction activity, while non-embryogenic callus exhibited catabolic and anoxia processes. Transcription factors like ARFs, HB, and AP2-EREB were prominent in immature embryos, highlighting their role in early callus induction. The work elucidates molecular mechanisms underlying auxin responses and gene regulation during dedifferentiation in maize.", "mistral_mistral-small-2506": "This study investigates the molecular mechanisms underlying maize somatic embryogenesis by comparing transcriptomic and proteomic changes during callus induction from immature (high embryogenic potential) and mature (low embryogenic potential) zygotic embryos. Key findings include differential enrichment of cell proliferation and hormone signaling pathways in embryogenic callus, contrasting catabolic/anoxic processes in non-embryogenic callus, and distinct expression of transcription factors (e.g., ARFs, HB, AP2-EREB) in immature embryos. The results highlight the role of auxin responses and gene regulation in dedifferentiation and embryogenic potential.", "huggingface_google/bigbird-pegasus-large-pubmed": "despite recent progress in plant biology, our understanding of plant dedifferentiation is still poor. during maize callus induction, which serves as the first stage of embryogenesis, we observed that the explant has an advantage in terms of signaling, as well as in auxin responses. however, this advantage was accompanied by a steep learning curve. in a recent study, we have further characterized the transcriptome of maize explants, and we have shown that the pathway of auxin gene expression contributes to this advantage. here we summarize our findings and discuss the significance of our findings.", "huggingface_csebuetnlp/mT5_multilingual_XLSum": "A study of gene expression regulation during maize callus induction shows a significant increase in the enrichment of derived tissues."}}], "assignments": [{"paper_index": 16, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 9, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 1, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 6, "model": "mistral_mistral-small-2506"}, {"paper_index": 13, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 12, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 6, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 6, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 13, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 0, "model": "mistral_mistral-small-2506"}, {"paper_index": 17, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 3, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 16, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 7, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 13, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 5, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 1, "model": "mistral_mistral-small-2506"}, {"paper_index": 7, "model": "mistral_mistral-small-2506"}, {"paper_index": 18, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 8, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 16, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 2, "model": "mistral_mistral-small-2506"}, {"paper_index": 14, "model": "mistral_mistral-small-2506"}, {"paper_index": 11, "model": "mistral_mistral-small-2506"}, {"paper_index": 3, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 12, "model": "mistral_mistral-small-2506"}, {"paper_index": 19, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 14, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 3, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 1, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 18, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 9, "model": "mistral_mistral-small-2506"}, {"paper_index": 19, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 0, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 17, "model": "mistral_mistral-small-2506"}, {"paper_index": 17, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 11, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 15, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 12, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 5, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 4, "model": "mistral_mistral-small-2506"}, {"paper_index": 6, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 2, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 15, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 18, "model": "mistral_mistral-small-2506"}, {"paper_index": 15, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 4, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 15, "model": "mistral_mistral-small-2506"}, {"paper_index": 10, "model": "mistral_mistral-small-2506"}, {"paper_index": 18, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 13, "model": "mistral_mistral-small-2506"}, {"paper_index": 9, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 4, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 17, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 19, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 5, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 0, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 2, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 8, "model": "mistral_mistral-small-2506"}, {"paper_index": 0, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 9, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 11, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 1, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 2, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 10, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 19, "model": "mistral_mistral-small-2506"}, {"paper_index": 12, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 4, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 8, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 5, "model": "mistral_mistral-small-2506"}, {"paper_index": 16, "model": "mistral_mistral-small-2506"}, {"paper_index": 14, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 10, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 3, "model": "mistral_mistral-small-2506"}, {"paper_index": 10, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 11, "model": "ollama_mistral-small3.2:24b"}, {"paper_index": 7, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 8, "model": "huggingface_google/bigbird-pegasus-large-pubmed"}, {"paper_index": 14, "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"}, {"paper_index": 7, "model": "ollama_mistral-small3.2:24b"}]}</script>
+<script>
+// ── Config & State ───────────────────────────────────────────────────────
+var CONFIG=JSON.parse(document.getElementById('eval-data').textContent);
+var STORAGE_KEY='offline_eval_'+CONFIG.data_hash;
+var state=loadState();
+var sideRankings={};
+
+function loadState(){
+  try{var raw=localStorage.getItem(STORAGE_KEY);
+    if(raw){var s=JSON.parse(raw);if(s&&s.assessments)return s;}}catch(e){}
+  return{reviewer_name:null,started_at:null,current_index:0,assessments:[]};
+}
+function saveState(){
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}catch(e){}
+}
+
+// ── Theme ────────────────────────────────────────────────────────────────
+function toggleTheme(){
+  var t=document.documentElement.dataset.theme==='dark'?'light':'dark';
+  document.documentElement.dataset.theme=t;localStorage.setItem('theme',t);
+}
+
+// ── Utilities ────────────────────────────────────────────────────────────
+function escH(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function nowISO(){return new Date().toISOString();}
+
+// ── Modal ────────────────────────────────────────────────────────────────
+function openInfo(){document.getElementById('info-modal').classList.add('open');}
+function closeInfo(){document.getElementById('info-modal').classList.remove('open');}
+
+// ── Render router ────────────────────────────────────────────────────────
+function render(){
+  if(!state.reviewer_name){renderWelcome();return;}
+  var completed=state.assessments.length;
+  var total=CONFIG.assignments.length;
+  if(state.current_index>=total&&completed>=total){renderDone();}
+  else{renderAssessment(state.current_index);}
+}
+
+// ── Welcome view ─────────────────────────────────────────────────────────
+function renderWelcome(){
+  var n=CONFIG.papers.length;var m=CONFIG.models.length;
+  var info;
+  if(CONFIG.rating_mode==='side-by-side'){
+    info=n+' papers \u2014 rank '+m+' summaries per paper ('+n+' ranking tasks)';
+  }else{
+    info=n+' papers \u00d7 '+m+' models = '+(n*m)+' assessments';
+  }
+  document.getElementById('app').innerHTML=
+    '<div class="welcome-center"><div class="welcome-box">'+
+    '<h1>Human Evaluation</h1>'+
+    '<p class="subtitle">Text Summarization Benchmark (Offline)</p>'+
+    '<div class="card"><h2 style="font-size:1rem;margin-bottom:12px;color:var(--accent)">'+
+    'Start evaluation</h2>'+
+    '<input type="text" id="name-input" placeholder="Your name" '+
+    'onkeydown="if(event.key===\'Enter\')startEvaluation()">'+
+    '<div class="error" id="name-error"></div>'+
+    '<button class="start-btn" onclick="startEvaluation()">Start</button></div>'+
+    '<div class="divider">\u2014 or \u2014</div>'+
+    '<div class="card"><h2 style="font-size:1rem;margin-bottom:12px;color:var(--accent)">'+
+    'Resume from export</h2>'+
+    '<p style="font-size:0.85rem;color:var(--muted);margin-bottom:8px">'+
+    'Import a previously exported JSON file to continue.</p>'+
+    '<input type="file" id="import-input" accept=".json" '+
+    'onchange="importFromFile(this.files[0])" style="font-size:0.85rem">'+
+    '<div class="error" id="import-error"></div></div>'+
+    '<p class="info-text">'+escH(info)+'</p></div></div>';
+}
+
+function startEvaluation(){
+  var name=document.getElementById('name-input').value.trim();
+  var err=document.getElementById('name-error');
+  err.style.display='none';
+  if(!name){err.textContent='Please enter your name.';err.style.display='block';return;}
+  if(name.length>200){err.textContent='Name too long.';err.style.display='block';return;}
+  state.reviewer_name=name;
+  state.started_at=nowISO();
+  saveState();
+  render();
+}
+
+// ── Assessment view ──────────────────────────────────────────────────────
+function renderAssessment(idx){
+  var completed=state.assessments.length;
+  var total=CONFIG.assignments.length;
+  if(idx<0)idx=0;
+  if(idx>completed)idx=completed;
+  if(idx>=total){renderDone();return;}
+  state.current_index=idx;
+  saveState();
+
+  var assignment=CONFIG.assignments[idx];
+  var paper=CONFIG.papers[assignment.paper_index];
+  var isSubmitted=idx<completed;
+  var previous=isSubmitted?state.assessments[idx]:null;
+
+  var pct=total>0?Math.round(completed/total*100):0;
+  var navHtml=buildNavGrid(idx,completed,total);
+  var toolbarHtml=
+    '<div class="toolbar"><span>Reviewer: <strong class="name-display">'+
+    escH(state.reviewer_name)+'</strong></span><div class="btn-group">'+
+    '<button class="tool-btn primary" onclick="exportResults()" title="Download results JSON">'+
+    '\u2913 Export JSON</button>'+
+    '<label class="tool-btn" style="cursor:pointer" title="Import previous export">'+
+    '\u2912 Import<input type="file" accept=".json" onchange="importFromFile(this.files[0])" '+
+    'style="display:none"></label></div></div>';
+  var headerHtml=
+    '<header><h1>Text Summarization Evaluation</h1>'+toolbarHtml+
+    '<div class="progress-wrap"><div class="progress-bar" style="width:'+pct+'%"></div>'+
+    '<div class="progress-text">'+completed+' / '+total+' completed ('+pct+'%)</div></div>'+
+    navHtml+
+    '<div class="nav-legend">'+
+    '<span class="nav-legend-item"><span class="nav-swatch sw-done"></span>Completed</span>'+
+    '<span class="nav-legend-item"><span class="nav-swatch sw-current"></span>Current</span>'+
+    '<span class="nav-legend-item"><span class="nav-swatch sw-pending"></span>Pending</span>'+
+    '</div></header>';
+
+  var mainHtml;
+  if(CONFIG.rating_mode==='side-by-side'){
+    mainHtml=renderSideBySideBody(idx,assignment,paper,isSubmitted,previous,total);
+  }else{
+    mainHtml=renderRatingBody(idx,assignment,paper,isSubmitted,previous,total);
+  }
+
+  document.getElementById('app').innerHTML=
+    '<div class="container">'+headerHtml+'<main>'+mainHtml+'</main></div>';
+
+  // Restore previous selections
+  if(previous&&CONFIG.rating_mode!=='side-by-side'&&previous.ratings){
+    for(var key in previous.ratings){
+      var el=document.querySelector('.likert label[data-key="'+key+'"][data-val="'+previous.ratings[key]+'"]');
+      if(el)el.classList.add('selected');
+    }
+  }
+  if(previous&&CONFIG.rating_mode==='side-by-side'&&previous.rankings){
+    sideRankings={};
+    for(var label in previous.rankings){
+      sideRankings[label]=previous.rankings[label];
+      var card=document.getElementById('card-'+label);
+      if(card){
+        var el=card.querySelector('.rank-buttons label[data-rank="'+previous.rankings[label]+'"]');
+        if(el){el.classList.add('selected');card.classList.add('ranked');
+          document.getElementById('badge-'+label).textContent='#'+previous.rankings[label];}
+      }
+    }
+  }else{
+    sideRankings={};
+  }
+  if(previous&&previous.comment){
+    var ta=document.getElementById('comment');
+    if(ta)ta.value=previous.comment;
+  }
+  checkSubmittable();
+}
+
+function renderRatingBody(idx,assignment,paper,isSubmitted,previous,total){
+  var bullets=paper.reference_highlights.map(function(h){return '<li>'+escH(h)+'</li>';}).join('');
+  var summary=paper.summaries[assignment.model];
+  var btnLabel=isSubmitted?'Update':'Submit';
+  var statusBadge=isSubmitted?'<span class="status-badge completed">\u2714 completed</span>':'';
+
+  var criteriaHTML='';
+  for(var i=0;i<CONFIG.criteria.length;i++){
+    var c=CONFIG.criteria[i];
+    criteriaHTML+='<div class="criterion"><div class="criterion-header">'+
+      '<span class="criterion-label">'+escH(c.label)+'</span>'+
+      '<span class="criterion-desc">'+escH(c.description)+'</span></div><div class="likert">';
+    for(var v=1;v<=5;v++){
+      var anchor=(c.anchors&&c.anchors[String(v)])||'';
+      criteriaHTML+='<label data-key="'+c.key+'" data-val="'+v+'" onclick="selectRating(this)">'+
+        v+(anchor?'<span class="anchor">'+escH(anchor)+'</span>':'')+'</label>';
+    }
+    criteriaHTML+='</div></div>';
+  }
+
+  var infoBtnHtml=CONFIG.rating_mode==='detailed'?
+    '<button class="info-btn" onclick="openInfo()" title="About these criteria">i</button>':'';
+
+  return '<div class="card"><div class="card-header">Assessment '+(idx+1)+' of '+total+
+    statusBadge+'</div><ul class="highlights">'+bullets+'</ul></div>'+
+    '<div class="card"><div class="card-header">Generated Summary</div>'+
+    '<div class="gen-text">'+escH(summary)+'</div></div>'+
+    '<div class="card"><div class="card-header">Your Assessment '+infoBtnHtml+'</div>'+
+    criteriaHTML+
+    '<div style="margin-top:8px"><label style="font-size:0.8rem;color:var(--muted);display:block;margin-bottom:4px">'+
+    'Comment (optional)</label>'+
+    '<textarea id="comment" placeholder="Any observations\u2026"></textarea></div>'+
+    '<div class="submit-row"><button id="submit-btn" onclick="submitAssessment()" disabled>'+
+    btnLabel+'</button></div></div>';
+}
+
+function renderSideBySideBody(idx,assignment,paper,isSubmitted,previous,total){
+  var bullets=paper.reference_highlights.map(function(h){return '<li>'+escH(h)+'</li>';}).join('');
+  var labelMap=assignment.label_map;
+  var labels=Object.keys(labelMap).sort();
+  var colors={A:'a',B:'b',C:'c',D:'d'};
+  var btnLabel=isSubmitted?'Update Rankings':'Submit Rankings';
+  var statusBadge=isSubmitted?'<span class="status-badge completed">\u2714 completed</span>':'';
+
+  var html='<div class="card"><div class="card-header">Paper '+(idx+1)+' of '+total+
+    statusBadge+'</div><ul class="highlights">'+bullets+'</ul></div>'+
+    '<p class="hint">Read all four summaries below, then rank them from 1 (best) to 4 (worst).</p>';
+
+  for(var li=0;li<labels.length;li++){
+    var label=labels[li];
+    var model=labelMap[label];
+    html+='<div class="summary-card" id="card-'+label+'">'+
+      '<div class="summary-label"><span class="letter letter-'+colors[label]+'">'+label+'</span>'+
+      ' Summary '+label+'<span class="rank-badge" id="badge-'+label+'"></span></div>'+
+      '<div class="summary-text">'+escH(paper.summaries[model])+'</div>'+
+      '<div class="rank-row"><span class="rank-label">Rank:</span><div class="rank-buttons">';
+    for(var r=1;r<=4;r++){
+      var anchor=r===1?'Best':(r===4?'Worst':'');
+      html+='<label data-label="'+label+'" data-rank="'+r+'" onclick="selectRank(this)">'+
+        r+(anchor?'<span class="anchor">'+anchor+'</span>':'')+'</label>';
+    }
+    html+='</div></div></div>';
+  }
+
+  html+='<div class="card"><div style="margin-bottom:12px">'+
+    '<label style="font-size:0.85rem;color:var(--muted);display:block;margin-bottom:6px">'+
+    'Comment (optional)</label>'+
+    '<textarea id="comment" placeholder="Any observations\u2026"></textarea></div>'+
+    '<div class="submit-row"><button id="submit-btn" onclick="submitAssessment()" disabled>'+
+    btnLabel+'</button></div></div>';
+
+  return html;
+}
+
+// ── Navigation grid ──────────────────────────────────────────────────────
+function buildNavGrid(activeIdx,completed,total){
+  var html='<div class="nav-grid">';
+  for(var i=0;i<total;i++){
+    var done=i<completed;
+    var active=i===activeIdx;
+    var reachable=i<=completed;
+    var cls='nav-item';
+    if(done)cls+=' done';
+    if(active)cls+=' active';
+    if(!reachable&&!done)cls+=' locked';
+    var assignment=CONFIG.assignments[i];
+    var paper=CONFIG.papers[assignment.paper_index];
+    var tip=escH(paper.title||'').substring(0,60);
+    if(assignment.model)tip+=' \u2014 '+escH(assignment.model);
+    html+='<div class="'+cls+'"'+(reachable?' onclick="goTo('+i+')"':'')+
+      ' title="'+tip+'">'+(i+1)+'</div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+function goTo(index){
+  sideRankings={};
+  renderAssessment(index);
+}
+
+// ── Rating interactions ──────────────────────────────────────────────────
+function selectRating(el){
+  var key=el.dataset.key;
+  el.parentElement.querySelectorAll('label').forEach(function(l){l.classList.remove('selected');});
+  el.classList.add('selected');
+  checkSubmittable();
+}
+
+function selectRank(el){
+  var label=el.dataset.label;
+  var rank=parseInt(el.dataset.rank);
+  // Deselect same rank from other labels
+  var keys=Object.keys(sideRankings);
+  for(var i=0;i<keys.length;i++){
+    if(sideRankings[keys[i]]===rank&&keys[i]!==label){
+      var prevLabel=keys[i];
+      delete sideRankings[prevLabel];
+      var prevCard=document.getElementById('card-'+prevLabel);
+      if(prevCard){
+        prevCard.classList.remove('ranked');
+        prevCard.querySelectorAll('.rank-buttons label').forEach(function(l){l.classList.remove('selected');});
+        document.getElementById('badge-'+prevLabel).textContent='';
+      }
+    }
+  }
+  sideRankings[label]=rank;
+  var card=document.getElementById('card-'+label);
+  card.querySelectorAll('.rank-buttons label').forEach(function(l){l.classList.remove('selected');});
+  el.classList.add('selected');
+  card.classList.add('ranked');
+  document.getElementById('badge-'+label).textContent='#'+rank;
+  checkSubmittable();
+}
+
+function checkSubmittable(){
+  var btn=document.getElementById('submit-btn');
+  if(!btn)return;
+  if(CONFIG.rating_mode==='side-by-side'){
+    var assignment=CONFIG.assignments[state.current_index];
+    var labels=Object.keys(assignment.label_map).sort();
+    btn.disabled=Object.keys(sideRankings).length!==labels.length;
+  }else{
+    var allRated=CONFIG.criteria.every(function(c){
+      return document.querySelector('.likert label.selected[data-key="'+c.key+'"]');
+    });
+    btn.disabled=!allRated;
+  }
+}
+
+// ── Submit ───────────────────────────────────────────────────────────────
+function submitAssessment(){
+  var btn=document.getElementById('submit-btn');
+  var idx=state.current_index;
+  var completed=state.assessments.length;
+  var isUpdate=idx<completed;
+  btn.disabled=true;btn.textContent='Saving\u2026';
+
+  var assignment=CONFIG.assignments[idx];
+  var paper=CONFIG.papers[assignment.paper_index];
+  var comment=(document.getElementById('comment')||{}).value||'';
+  if(comment.length>2000)comment=comment.substring(0,2000);
+  var now=nowISO();
+
+  var entry;
+  if(CONFIG.rating_mode==='side-by-side'){
+    entry={
+      paper_id:paper.id,
+      rankings:Object.assign({},sideRankings),
+      label_map:assignment.label_map,
+      comment:comment,
+      submitted_at:now
+    };
+  }else{
+    var ratings={};
+    for(var i=0;i<CONFIG.criteria.length;i++){
+      var c=CONFIG.criteria[i];
+      var sel=document.querySelector('.likert label.selected[data-key="'+c.key+'"]');
+      if(sel)ratings[c.key]=parseInt(sel.dataset.val);
+    }
+    entry={
+      paper_id:paper.id,
+      model:assignment.model,
+      ratings:ratings,
+      comment:comment,
+      submitted_at:now
+    };
+  }
+
+  if(isUpdate){
+    var original=state.assessments[idx];
+    entry.originally_submitted_at=original.originally_submitted_at||original.submitted_at;
+    state.assessments[idx]=entry;
+    saveState();
+    btn.textContent='Updated \u2713';
+    setTimeout(function(){
+      btn.textContent=CONFIG.rating_mode==='side-by-side'?'Update Rankings':'Update';
+      btn.disabled=false;
+    },1200);
+    // Re-render nav grid
+    var completed2=state.assessments.length;
+    var total=CONFIG.assignments.length;
+    var grid=document.querySelector('.nav-grid');
+    if(grid)grid.outerHTML=buildNavGrid(idx,completed2,total);
+  }else{
+    state.assessments.push(entry);
+    state.current_index=state.assessments.length;
+    saveState();
+    render();
+  }
+}
+
+// ── Done view ────────────────────────────────────────────────────────────
+function renderDone(){
+  var total=CONFIG.assignments.length;
+  var completed=state.assessments.length;
+  var pct=total>0?Math.round(completed/total*100):0;
+  var navHtml=buildNavGrid(-1,completed,total);
+  var toolbarHtml=
+    '<div class="toolbar"><span>Reviewer: <strong class="name-display">'+
+    escH(state.reviewer_name)+'</strong></span><div class="btn-group">'+
+    '<button class="tool-btn primary" onclick="exportResults()" title="Download results JSON">'+
+    '\u2913 Export JSON</button></div></div>';
+
+  document.getElementById('app').innerHTML=
+    '<div class="container"><header><h1>Text Summarization Evaluation</h1>'+toolbarHtml+
+    '<div class="progress-wrap"><div class="progress-bar" style="width:'+pct+'%"></div>'+
+    '<div class="progress-text">'+completed+' / '+total+' completed ('+pct+'%)</div></div>'+
+    navHtml+
+    '<div class="nav-legend">'+
+    '<span class="nav-legend-item"><span class="nav-swatch sw-done"></span>Completed</span>'+
+    '<span class="nav-legend-item"><span class="nav-swatch sw-current"></span>Current</span>'+
+    '<span class="nav-legend-item"><span class="nav-swatch sw-pending"></span>Pending</span>'+
+    '</div></header><main>'+
+    '<div class="card done-card"><h2>All done!</h2>'+
+    '<p>You have completed all '+total+' assessments.</p>'+
+    '<p style="margin-top:8px;color:var(--muted);font-size:0.85rem">'+
+    'Click any item in the grid above to review or change your answers.</p>'+
+    '<p style="margin-top:16px"><button onclick="exportResults()" '+
+    'style="padding:12px 32px">Export Results JSON</button></p>'+
+    '<p style="margin-top:12px;color:var(--text)">Thank you for your time, '+
+    escH(state.reviewer_name)+'.</p></div></main></div>';
+}
+
+// ── Export ────────────────────────────────────────────────────────────────
+function exportResults(){
+  var result={
+    name:state.reviewer_name,
+    created_at:state.started_at,
+    rating_mode:CONFIG.rating_mode,
+    data_hash:CONFIG.data_hash,
+    assignments:CONFIG.assignments,
+    assessments:state.assessments.slice()
+  };
+  var blob=new Blob([JSON.stringify(result,null,2)],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  a.download='evaluation_'+state.reviewer_name.replace(/[^a-zA-Z0-9_-]/g,'_')+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── Import ───────────────────────────────────────────────────────────────
+function importFromFile(file){
+  if(!file)return;
+  var errEl=document.getElementById('import-error');
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=JSON.parse(e.target.result);
+      if(!data.assessments||!Array.isArray(data.assessments)){
+        if(errEl){errEl.textContent='Invalid file: missing assessments.';errEl.style.display='block';}
+        return;
+      }
+      if(data.data_hash&&data.data_hash!==CONFIG.data_hash){
+        if(errEl){errEl.textContent='Warning: this export was generated from different evaluation data. Importing anyway.';
+          errEl.style.display='block';}
+      }
+      state.reviewer_name=data.name||state.reviewer_name||'Imported';
+      state.started_at=data.created_at||state.started_at||nowISO();
+      state.assessments=data.assessments;
+      state.current_index=data.assessments.length;
+      saveState();
+      render();
+    }catch(ex){
+      if(errEl){errEl.textContent='Failed to parse JSON file.';errEl.style.display='block';}
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
