@@ -2,8 +2,8 @@
 """Generate a self-contained offline evaluation HTML file.
 
 Creates an HTML file that reviewers can open in any browser to evaluate
-summaries without needing access to the evaluation server. Progress is
-saved in the browser's localStorage and can be exported as JSON.
+summaries using a two-step SummEval flow. Progress is saved in the
+browser's localStorage and can be exported as JSON.
 
 Usage
 -----
@@ -11,16 +11,6 @@ Usage
         openai_gpt-4o anthropic_claude-opus-4-20250514 \\
         local:textrank ollama_gemma3:270M \\
         -o evaluation_alice.html
-
-    # Simple single-score mode:
-    python generate_offline_evaluation.py \\
-        openai_gpt-4o local:textrank ... --simple-ratings \\
-        -o eval_simple.html
-
-    # Side-by-side ranking mode:
-    python generate_offline_evaluation.py \\
-        openai_gpt-4o local:textrank ... --side-by-side \\
-        -o eval_ranking.html
 """
 
 from __future__ import annotations
@@ -40,7 +30,6 @@ from human_evaluation_server import (
     DEFAULT_NUM_PAPERS,
     DEFAULT_RESULTS,
     DETAILED_CRITERIA,
-    SIMPLE_CRITERIA,
     load_evaluation_data,
 )
 
@@ -56,32 +45,16 @@ log = logging.getLogger(__name__)
 
 
 def generate_assignments(
-    eval_data: dict, rating_mode: str, seed: str | None = None
+    eval_data: dict, seed: str | None = None
 ) -> list[dict]:
     """Create a shuffled assignment list (same logic as the server)."""
     rng = random.Random(seed)
-
-    if rating_mode == "side-by-side":
-        labels = ["A", "B", "C", "D"]
-        assignments: list[dict] = []
-        for pi in range(len(eval_data["papers"])):
-            shuffled = list(labels)
-            rng.shuffle(shuffled)
-            assignments.append(
-                {
-                    "paper_index": pi,
-                    "label_map": dict(zip(shuffled, eval_data["models"])),
-                }
-            )
-        rng.shuffle(assignments)
-    else:
-        assignments = [
-            {"paper_index": pi, "model": model}
-            for pi in range(len(eval_data["papers"]))
-            for model in eval_data["models"]
-        ]
-        rng.shuffle(assignments)
-
+    assignments = [
+        {"paper_index": pi, "model": model}
+        for pi in range(len(eval_data["papers"]))
+        for model in eval_data["models"]
+    ]
+    rng.shuffle(assignments)
     return assignments
 
 
@@ -98,11 +71,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 :root{--bg:#ffffff;--surface:#f6f8fa;--border:#d0d7de;--text:#1f2328;
 --muted:#656d76;--accent:#0969da;--green:#1a7f37;--red:#cf222e;
 --yellow:#9a6700;--radius:8px;--btn-text:#ffffff;
---label-a:#0969da;--label-b:#1a7f37;--label-c:#9a6700;--label-d:#8250df}
+}
 [data-theme="dark"]{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;
 --muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#f85149;
---yellow:#d29922;--btn-text:#0d1117;
---label-a:#58a6ff;--label-b:#3fb950;--label-c:#d29922;--label-d:#bc8cff}
+--yellow:#d29922;--btn-text:#0d1117}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
@@ -211,6 +183,17 @@ cursor:pointer;transition:all 0.15s;user-select:none;background:var(--bg)}
 .status-badge{font-size:0.7rem;text-transform:none;letter-spacing:0;
 padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:600}
 .status-badge.completed{color:var(--green);background:rgba(26,127,55,0.1)}
+.step-indicator{font-size:0.72rem;color:var(--muted);font-weight:600;
+margin-left:8px;padding:2px 8px;background:var(--bg);border:1px solid var(--border);
+border-radius:4px}
+.abstract-text{background:var(--bg);border:1px solid var(--border);
+border-radius:6px;padding:10px;font-size:0.85rem;line-height:1.5;
+color:var(--text);white-space:pre-wrap}
+.btn-row{display:flex;justify-content:space-between;margin-top:10px}
+.btn-back{padding:10px 28px;background:var(--surface);color:var(--text);
+border:1px solid var(--border);border-radius:8px;font-size:0.95rem;
+font-weight:600;cursor:pointer;transition:all 0.15s}
+.btn-back:hover{border-color:var(--accent);color:var(--accent)}
 /* Welcome screen */
 .welcome-center{display:flex;align-items:center;justify-content:center;min-height:80vh}
 .welcome-box{max-width:480px;width:100%;padding:24px}
@@ -225,35 +208,6 @@ input[type=text]::placeholder{color:var(--muted)}
 .error{color:var(--red);font-size:0.85rem;margin-top:8px;display:none}
 .divider{text-align:center;color:var(--muted);margin:20px 0;font-size:0.85rem}
 .info-text{font-size:0.85rem;color:var(--muted);margin-top:24px;text-align:center}
-/* Side-by-side specific */
-.summary-card{background:var(--surface);border:2px solid var(--border);
-border-radius:var(--radius);padding:20px;margin-bottom:16px;transition:border-color 0.2s}
-.summary-card.ranked{border-color:var(--accent)}
-.summary-label{display:inline-flex;align-items:center;gap:8px;
-font-weight:700;font-size:1rem;margin-bottom:10px}
-.summary-label .letter{display:inline-flex;align-items:center;
-justify-content:center;width:28px;height:28px;border-radius:6px;
-font-size:0.85rem;font-weight:700;color:var(--btn-text)}
-.letter-a{background:var(--label-a)}.letter-b{background:var(--label-b)}
-.letter-c{background:var(--label-c)}.letter-d{background:var(--label-d)}
-.summary-text{background:var(--bg);border:1px solid var(--border);
-border-radius:6px;padding:14px;font-size:0.92rem;line-height:1.7;
-color:var(--text);white-space:pre-wrap;margin-bottom:12px}
-.rank-row{display:flex;align-items:center;gap:10px}
-.rank-label{font-size:0.82rem;color:var(--muted);font-weight:600;min-width:40px}
-.rank-buttons{display:flex;gap:6px}
-.rank-buttons label{text-align:center;padding:8px 14px;
-border:2px solid var(--border);border-radius:8px;cursor:pointer;
-font-size:0.85rem;transition:all 0.15s;user-select:none;
-line-height:1.3;min-width:56px}
-.rank-buttons label:hover{border-color:var(--accent);background:rgba(88,166,255,0.08)}
-.rank-buttons label.selected{border-color:var(--accent);
-background:var(--accent);color:var(--btn-text);font-weight:600}
-.rank-buttons label .anchor{display:block;font-size:0.68rem;margin-top:2px;opacity:0.8}
-.rank-badge{display:none;font-size:0.78rem;padding:2px 8px;border-radius:4px;
-background:var(--accent);color:var(--btn-text);font-weight:600;margin-left:auto}
-.summary-card.ranked .rank-badge{display:inline-block}
-.hint{font-size:0.82rem;color:var(--muted);margin-bottom:16px;font-style:italic}
 textarea{width:100%;min-height:60px;padding:8px 10px;background:var(--bg);
 border:1px solid var(--border);border-radius:6px;color:var(--text);
 font-size:0.85rem;font-family:inherit;resize:vertical;outline:none}
@@ -263,32 +217,7 @@ textarea::placeholder{color:var(--muted)}
 </head>
 <body>
 <div class="modal-overlay" id="info-modal" onclick="if(event.target===this)closeInfo()">
-<div class="modal">
-<h3>Evaluation Criteria &mdash; SummEval Framework</h3>
-<p>These four dimensions come from the SummEval framework
-(Fabbri&nbsp;et&nbsp;al.,&nbsp;2021), the <em>de&nbsp;facto</em> standard for
-human evaluation of text summarization. Each is rated on a 1&ndash;5 Likert scale.</p>
-<h4>Coherence</h4>
-<p>The summary should be well-structured and well-organized. It should not just
-be a heap of related information, but should build from sentence to sentence to
-a coherent body of information about a topic.</p>
-<h4>Consistency</h4>
-<p>The factual alignment between the summary and the summarized source document.
-A factually consistent summary contains only statements that are entailed by the
-source document. Penalize summaries that contain hallucinated facts.</p>
-<h4>Fluency</h4>
-<p>The quality of individual sentences. They should have no formatting problems,
-capitalization errors or obviously ungrammatical sentences (e.g., fragments,
-missing components) that make the text difficult to read.</p>
-<h4>Relevance</h4>
-<p>Selection of important content from the source. The summary should include
-only important information from the source document. Penalize summaries which
-contain redundancies and excess information.</p>
-<p class="ref">Fabbri, A.&nbsp;R. et&nbsp;al. (2021). SummEval: Re-evaluating
-Summarization Evaluation. <em>Transactions of the Association for Computational
-Linguistics</em>, 9, 391&ndash;409.</p>
-<button class="close-btn" onclick="closeInfo()">Close</button>
-</div>
+<div class="modal" id="info-modal-body"></div>
 </div>
 <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme"></button>
 <div id="app"></div>
@@ -298,7 +227,6 @@ Linguistics</em>, 9, 391&ndash;409.</p>
 var CONFIG=JSON.parse(document.getElementById('eval-data').textContent);
 var STORAGE_KEY='offline_eval_'+CONFIG.data_hash;
 var state=loadState();
-var sideRankings={};
 
 function loadState(){
   try{var raw=localStorage.getItem(STORAGE_KEY);
@@ -320,7 +248,26 @@ function escH(s){var d=document.createElement('div');d.textContent=s;return d.in
 function nowISO(){return new Date().toISOString();}
 
 // ── Modal ────────────────────────────────────────────────────────────────
-function openInfo(){document.getElementById('info-modal').classList.add('open');}
+function openInfo(){
+  var ref='<p class="ref">Fabbri, A.&nbsp;R. et&nbsp;al. (2021). SummEval: Re-evaluating Summarization Evaluation. <em>Transactions of the Association for Computational Linguistics</em>, 9, 391&ndash;409.</p>';
+  var html;
+  if(currentStep===1){
+    html='<h3>Step 1 Criteria &mdash; Structure &amp; Content</h3>'+
+      '<p>Compare the generated summary against the <strong>reference highlights</strong> shown above. Rate each dimension on a 1&ndash;5 Likert scale.</p>'+
+      '<h4>Coherence</h4><p>The summary should be well-structured and well-organized. It should not just be a heap of related information, but should build from sentence to sentence to a coherent body of information about a topic.</p>'+
+      '<h4>Fluency</h4><p>The quality of individual sentences. They should have no formatting problems, capitalization errors or obviously ungrammatical sentences (e.g., fragments, missing components) that make the text difficult to read.</p>'+
+      '<h4>Relevance</h4><p>Does the summary capture the important information present in the reference highlights? Penalize summaries which contain redundancies, miss key points from the highlights, or include excess information.</p>'+
+      ref;
+  }else{
+    html='<h3>Step 2 Criteria &mdash; Factual Consistency</h3>'+
+      '<p>Compare the generated summary against the <strong>publication title and abstract</strong> shown above. Rate whether the summary is factually consistent with the source.</p>'+
+      '<h4>Consistency</h4><p>The factual alignment between the summary and the title and abstract. A factually consistent summary contains only statements that are entailed by the source. Penalize summaries that contain hallucinated facts not supported by the title or abstract.</p>'+
+      ref;
+  }
+  html+='<button class="close-btn" onclick="closeInfo()">Close</button>';
+  document.getElementById('info-modal-body').innerHTML=html;
+  document.getElementById('info-modal').classList.add('open');
+}
 function closeInfo(){document.getElementById('info-modal').classList.remove('open');}
 
 // ── Render router ────────────────────────────────────────────────────────
@@ -335,12 +282,7 @@ function render(){
 // ── Welcome view ─────────────────────────────────────────────────────────
 function renderWelcome(){
   var n=CONFIG.papers.length;var m=CONFIG.models.length;
-  var info;
-  if(CONFIG.rating_mode==='side-by-side'){
-    info=n+' papers \u2014 rank '+m+' summaries per paper ('+n+' ranking tasks)';
-  }else{
-    info=n+' papers \u00d7 '+m+' models = '+(n*m)+' assessments';
-  }
+  var info=n+' papers \u00d7 '+m+' models = '+(n*m)+' assessments';
   document.getElementById('app').innerHTML=
     '<div class="welcome-center"><div class="welcome-box">'+
     '<h1>Human Evaluation</h1>'+
@@ -374,6 +316,13 @@ function startEvaluation(){
   render();
 }
 
+// ── Two-step state ──────────────────────────────────────────────────────
+var STEP1_KEYS=CONFIG.criteria.filter(function(c){return c.key!=='consistency';});
+var STEP2_KEYS=CONFIG.criteria.filter(function(c){return c.key==='consistency';});
+var currentStep=1;
+var pendingRatings={};
+var pendingComment='';
+
 // ── Assessment view ──────────────────────────────────────────────────────
 function renderAssessment(idx){
   var completed=state.assessments.length;
@@ -382,25 +331,32 @@ function renderAssessment(idx){
   if(idx>completed)idx=completed;
   if(idx>=total){renderDone();return;}
   state.current_index=idx;
+  currentStep=1;pendingRatings={};pendingComment='';
   saveState();
 
-  var assignment=CONFIG.assignments[idx];
-  var paper=CONFIG.papers[assignment.paper_index];
-  var isSubmitted=idx<completed;
-  var previous=isSubmitted?state.assessments[idx]:null;
+  var previous=idx<completed?state.assessments[idx]:null;
+  if(previous&&previous.ratings){
+    pendingRatings={};
+    for(var key in previous.ratings)pendingRatings[key]=previous.ratings[key];
+    pendingComment=previous.comment||'';
+  }
+  renderStep1();
+}
 
+function buildHeader(){
+  var idx=state.current_index;
+  var completed=state.assessments.length;
+  var total=CONFIG.assignments.length;
   var pct=total>0?Math.round(completed/total*100):0;
   var navHtml=buildNavGrid(idx,completed,total);
-  var toolbarHtml=
+  return '<header><h1>Text Summarization Evaluation</h1>'+
     '<div class="toolbar"><span>Reviewer: <strong class="name-display">'+
     escH(state.reviewer_name)+'</strong></span><div class="btn-group">'+
     '<button class="tool-btn primary" onclick="exportResults()" title="Download results JSON">'+
     '\u2913 Export JSON</button>'+
     '<label class="tool-btn" style="cursor:pointer" title="Import previous export">'+
     '\u2912 Import<input type="file" accept=".json" onchange="importFromFile(this.files[0])" '+
-    'style="display:none"></label></div></div>';
-  var headerHtml=
-    '<header><h1>Text Summarization Evaluation</h1>'+toolbarHtml+
+    'style="display:none"></label></div></div>'+
     '<div class="progress-wrap"><div class="progress-bar" style="width:'+pct+'%"></div>'+
     '<div class="progress-text">'+completed+' / '+total+' completed ('+pct+'%)</div></div>'+
     navHtml+
@@ -409,117 +365,109 @@ function renderAssessment(idx){
     '<span class="nav-legend-item"><span class="nav-swatch sw-current"></span>Current</span>'+
     '<span class="nav-legend-item"><span class="nav-swatch sw-pending"></span>Pending</span>'+
     '</div></header>';
-
-  var mainHtml;
-  if(CONFIG.rating_mode==='side-by-side'){
-    mainHtml=renderSideBySideBody(idx,assignment,paper,isSubmitted,previous,total);
-  }else{
-    mainHtml=renderRatingBody(idx,assignment,paper,isSubmitted,previous,total);
-  }
-
-  document.getElementById('app').innerHTML=
-    '<div class="container">'+headerHtml+'<main>'+mainHtml+'</main></div>';
-
-  // Restore previous selections
-  if(previous&&CONFIG.rating_mode!=='side-by-side'&&previous.ratings){
-    for(var key in previous.ratings){
-      var el=document.querySelector('.likert label[data-key="'+key+'"][data-val="'+previous.ratings[key]+'"]');
-      if(el)el.classList.add('selected');
-    }
-  }
-  if(previous&&CONFIG.rating_mode==='side-by-side'&&previous.rankings){
-    sideRankings={};
-    for(var label in previous.rankings){
-      sideRankings[label]=previous.rankings[label];
-      var card=document.getElementById('card-'+label);
-      if(card){
-        var el=card.querySelector('.rank-buttons label[data-rank="'+previous.rankings[label]+'"]');
-        if(el){el.classList.add('selected');card.classList.add('ranked');
-          document.getElementById('badge-'+label).textContent='#'+previous.rankings[label];}
-      }
-    }
-  }else{
-    sideRankings={};
-  }
-  if(previous&&previous.comment){
-    var ta=document.getElementById('comment');
-    if(ta)ta.value=previous.comment;
-  }
-  checkSubmittable();
 }
 
-function renderRatingBody(idx,assignment,paper,isSubmitted,previous,total){
-  var bullets=paper.reference_highlights.map(function(h){return '<li>'+escH(h)+'</li>';}).join('');
-  var summary=paper.summaries[assignment.model];
-  var btnLabel=isSubmitted?'Update':'Submit';
-  var statusBadge=isSubmitted?'<span class="status-badge completed">\u2714 completed</span>':'';
-
-  var criteriaHTML='';
-  for(var i=0;i<CONFIG.criteria.length;i++){
-    var c=CONFIG.criteria[i];
-    criteriaHTML+='<div class="criterion"><div class="criterion-header">'+
+function buildCriteriaHTML(criteriaList){
+  var html='';
+  for(var i=0;i<criteriaList.length;i++){
+    var c=criteriaList[i];
+    html+='<div class="criterion"><div class="criterion-header">'+
       '<span class="criterion-label">'+escH(c.label)+'</span>'+
       '<span class="criterion-desc">'+escH(c.description)+'</span></div><div class="likert">';
     for(var v=1;v<=5;v++){
       var anchor=(c.anchors&&c.anchors[String(v)])||'';
-      criteriaHTML+='<label data-key="'+c.key+'" data-val="'+v+'" onclick="selectRating(this)">'+
+      var sel=pendingRatings[c.key]===v?' selected':'';
+      html+='<label class="'+sel.trim()+'" data-key="'+c.key+'" data-val="'+v+'" onclick="selectRating(this)">'+
         v+(anchor?'<span class="anchor">'+escH(anchor)+'</span>':'')+'</label>';
     }
-    criteriaHTML+='</div></div>';
+    html+='</div></div>';
   }
+  return html;
+}
 
-  var infoBtnHtml=CONFIG.rating_mode==='detailed'?
-    '<button class="info-btn" onclick="openInfo()" title="About these criteria">i</button>':'';
+function renderStep1(){
+  currentStep=1;
+  var idx=state.current_index;
+  var total=CONFIG.assignments.length;
+  var completed=state.assessments.length;
+  var assignment=CONFIG.assignments[idx];
+  var paper=CONFIG.papers[assignment.paper_index];
+  var isSubmitted=idx<completed;
+  var statusBadge=isSubmitted?'<span class="status-badge completed">\u2714 completed</span>':'';
+  var stepTag='<span class="step-indicator">Step 1 of 2</span>';
+  var bullets=paper.reference_highlights.map(function(h){return '<li>'+escH(h)+'</li>';}).join('');
+  var summary=paper.summaries[assignment.model];
+  var criteriaHTML=buildCriteriaHTML(STEP1_KEYS);
 
-  return '<div class="card"><div class="card-header">Assessment '+(idx+1)+' of '+total+
-    statusBadge+'</div><ul class="highlights">'+bullets+'</ul></div>'+
+  document.getElementById('app').innerHTML=
+    '<div class="container">'+buildHeader()+'<main>'+
+    '<div class="card"><div class="card-header">Assessment '+(idx+1)+' of '+total+
+    statusBadge+stepTag+'</div>'+
+    '<div class="card-header" style="margin-top:8px">Reference Highlights</div>'+
+    '<ul class="highlights">'+bullets+'</ul></div>'+
     '<div class="card"><div class="card-header">Generated Summary</div>'+
     '<div class="gen-text">'+escH(summary)+'</div></div>'+
-    '<div class="card"><div class="card-header">Your Assessment '+infoBtnHtml+'</div>'+
+    '<div class="card"><div class="card-header">Rate Structure &amp; Content'+
+    ' <button class="info-btn" onclick="openInfo()" title="About these criteria">i</button></div>'+
+    criteriaHTML+
+    '<div class="submit-row"><button id="next-btn" onclick="goToStep2()" disabled>Next \u2192</button></div></div>'+
+    '</main></div>';
+  checkStep1();
+}
+
+function renderStep2(){
+  currentStep=2;
+  var idx=state.current_index;
+  var total=CONFIG.assignments.length;
+  var completed=state.assessments.length;
+  var assignment=CONFIG.assignments[idx];
+  var paper=CONFIG.papers[assignment.paper_index];
+  var isSubmitted=idx<completed;
+  var btnLabel=isSubmitted?'Update':'Submit';
+  var statusBadge=isSubmitted?'<span class="status-badge completed">\u2714 completed</span>':'';
+  var stepTag='<span class="step-indicator">Step 2 of 2</span>';
+  var summary=paper.summaries[assignment.model];
+  var criteriaHTML=buildCriteriaHTML(STEP2_KEYS);
+
+  document.getElementById('app').innerHTML=
+    '<div class="container">'+buildHeader()+'<main>'+
+    '<div class="card"><div class="card-header">Assessment '+(idx+1)+' of '+total+
+    statusBadge+stepTag+'</div>'+
+    '<div style="margin-bottom:10px"><div class="card-header">Publication Title</div>'+
+    '<div class="gen-text">'+escH(paper.title)+'</div></div>'+
+    '<div style="margin-bottom:10px"><div class="card-header">Abstract</div>'+
+    '<div class="abstract-text">'+escH(paper.abstract)+'</div></div>'+
+    '<div><div class="card-header">Generated Summary</div>'+
+    '<div class="gen-text">'+escH(summary)+'</div></div></div>'+
+    '<div class="card"><div class="card-header">Rate Factual Consistency'+
+    ' <button class="info-btn" onclick="openInfo()" title="About these criteria">i</button></div>'+
     criteriaHTML+
     '<div style="margin-top:8px"><label style="font-size:0.8rem;color:var(--muted);display:block;margin-bottom:4px">'+
     'Comment (optional)</label>'+
     '<textarea id="comment" placeholder="Any observations\u2026"></textarea></div>'+
-    '<div class="submit-row"><button id="submit-btn" onclick="submitAssessment()" disabled>'+
-    btnLabel+'</button></div></div>';
+    '<div class="btn-row"><button class="btn-back" onclick="goToStep1()">\u2190 Back</button>'+
+    '<button id="submit-btn" onclick="submitAssessment()" disabled>'+btnLabel+'</button></div></div>'+
+    '</main></div>';
+  var ta=document.getElementById('comment');
+  if(ta&&pendingComment)ta.value=pendingComment;
+  checkStep2();
 }
 
-function renderSideBySideBody(idx,assignment,paper,isSubmitted,previous,total){
-  var bullets=paper.reference_highlights.map(function(h){return '<li>'+escH(h)+'</li>';}).join('');
-  var labelMap=assignment.label_map;
-  var labels=Object.keys(labelMap).sort();
-  var colors={A:'a',B:'b',C:'c',D:'d'};
-  var btnLabel=isSubmitted?'Update Rankings':'Submit Rankings';
-  var statusBadge=isSubmitted?'<span class="status-badge completed">\u2714 completed</span>':'';
-
-  var html='<div class="card"><div class="card-header">Paper '+(idx+1)+' of '+total+
-    statusBadge+'</div><ul class="highlights">'+bullets+'</ul></div>'+
-    '<p class="hint">Read all four summaries below, then rank them from 1 (best) to 4 (worst).</p>';
-
-  for(var li=0;li<labels.length;li++){
-    var label=labels[li];
-    var model=labelMap[label];
-    html+='<div class="summary-card" id="card-'+label+'">'+
-      '<div class="summary-label"><span class="letter letter-'+colors[label]+'">'+label+'</span>'+
-      ' Summary '+label+'<span class="rank-badge" id="badge-'+label+'"></span></div>'+
-      '<div class="summary-text">'+escH(paper.summaries[model])+'</div>'+
-      '<div class="rank-row"><span class="rank-label">Rank:</span><div class="rank-buttons">';
-    for(var r=1;r<=4;r++){
-      var anchor=r===1?'Best':(r===4?'Worst':'');
-      html+='<label data-label="'+label+'" data-rank="'+r+'" onclick="selectRank(this)">'+
-        r+(anchor?'<span class="anchor">'+anchor+'</span>':'')+'</label>';
-    }
-    html+='</div></div></div>';
+function goToStep2(){
+  for(var i=0;i<STEP1_KEYS.length;i++){
+    var c=STEP1_KEYS[i];
+    var sel=document.querySelector('.likert label.selected[data-key="'+c.key+'"]');
+    if(sel)pendingRatings[c.key]=parseInt(sel.dataset.val);
   }
+  renderStep2();
+}
 
-  html+='<div class="card"><div style="margin-bottom:12px">'+
-    '<label style="font-size:0.85rem;color:var(--muted);display:block;margin-bottom:6px">'+
-    'Comment (optional)</label>'+
-    '<textarea id="comment" placeholder="Any observations\u2026"></textarea></div>'+
-    '<div class="submit-row"><button id="submit-btn" onclick="submitAssessment()" disabled>'+
-    btnLabel+'</button></div></div>';
-
-  return html;
+function goToStep1(){
+  var sel=document.querySelector('.likert label.selected[data-key="consistency"]');
+  if(sel)pendingRatings.consistency=parseInt(sel.dataset.val);
+  var ta=document.getElementById('comment');
+  if(ta)pendingComment=ta.value;
+  renderStep1();
 }
 
 // ── Navigation grid ──────────────────────────────────────────────────────
@@ -545,7 +493,6 @@ function buildNavGrid(activeIdx,completed,total){
 }
 
 function goTo(index){
-  sideRankings={};
   renderAssessment(index);
 }
 
@@ -554,48 +501,23 @@ function selectRating(el){
   var key=el.dataset.key;
   el.parentElement.querySelectorAll('label').forEach(function(l){l.classList.remove('selected');});
   el.classList.add('selected');
-  checkSubmittable();
+  if(currentStep===1)checkStep1();else checkStep2();
 }
 
-function selectRank(el){
-  var label=el.dataset.label;
-  var rank=parseInt(el.dataset.rank);
-  // Deselect same rank from other labels
-  var keys=Object.keys(sideRankings);
-  for(var i=0;i<keys.length;i++){
-    if(sideRankings[keys[i]]===rank&&keys[i]!==label){
-      var prevLabel=keys[i];
-      delete sideRankings[prevLabel];
-      var prevCard=document.getElementById('card-'+prevLabel);
-      if(prevCard){
-        prevCard.classList.remove('ranked');
-        prevCard.querySelectorAll('.rank-buttons label').forEach(function(l){l.classList.remove('selected');});
-        document.getElementById('badge-'+prevLabel).textContent='';
-      }
-    }
-  }
-  sideRankings[label]=rank;
-  var card=document.getElementById('card-'+label);
-  card.querySelectorAll('.rank-buttons label').forEach(function(l){l.classList.remove('selected');});
-  el.classList.add('selected');
-  card.classList.add('ranked');
-  document.getElementById('badge-'+label).textContent='#'+rank;
-  checkSubmittable();
+function checkStep1(){
+  var btn=document.getElementById('next-btn');
+  if(!btn)return;
+  btn.disabled=!STEP1_KEYS.every(function(c){
+    return document.querySelector('.likert label.selected[data-key="'+c.key+'"]');
+  });
 }
 
-function checkSubmittable(){
+function checkStep2(){
   var btn=document.getElementById('submit-btn');
   if(!btn)return;
-  if(CONFIG.rating_mode==='side-by-side'){
-    var assignment=CONFIG.assignments[state.current_index];
-    var labels=Object.keys(assignment.label_map).sort();
-    btn.disabled=Object.keys(sideRankings).length!==labels.length;
-  }else{
-    var allRated=CONFIG.criteria.every(function(c){
-      return document.querySelector('.likert label.selected[data-key="'+c.key+'"]');
-    });
-    btn.disabled=!allRated;
-  }
+  btn.disabled=!STEP2_KEYS.every(function(c){
+    return document.querySelector('.likert label.selected[data-key="'+c.key+'"]');
+  });
 }
 
 // ── Submit ───────────────────────────────────────────────────────────────
@@ -606,36 +528,27 @@ function submitAssessment(){
   var isUpdate=idx<completed;
   btn.disabled=true;btn.textContent='Saving\u2026';
 
+  // Collect Step 2 consistency
+  for(var i=0;i<STEP2_KEYS.length;i++){
+    var c=STEP2_KEYS[i];
+    var sel=document.querySelector('.likert label.selected[data-key="'+c.key+'"]');
+    if(sel)pendingRatings[c.key]=parseInt(sel.dataset.val);
+  }
+
   var assignment=CONFIG.assignments[idx];
   var paper=CONFIG.papers[assignment.paper_index];
   var comment=(document.getElementById('comment')||{}).value||'';
   if(comment.length>2000)comment=comment.substring(0,2000);
   var now=nowISO();
 
-  var entry;
-  if(CONFIG.rating_mode==='side-by-side'){
-    entry={
-      paper_id:paper.id,
-      rankings:Object.assign({},sideRankings),
-      label_map:assignment.label_map,
-      comment:comment,
-      submitted_at:now
-    };
-  }else{
-    var ratings={};
-    for(var i=0;i<CONFIG.criteria.length;i++){
-      var c=CONFIG.criteria[i];
-      var sel=document.querySelector('.likert label.selected[data-key="'+c.key+'"]');
-      if(sel)ratings[c.key]=parseInt(sel.dataset.val);
-    }
-    entry={
-      paper_id:paper.id,
-      model:assignment.model,
-      ratings:ratings,
-      comment:comment,
-      submitted_at:now
-    };
-  }
+  var entry={
+    paper_id:paper.id,
+    model:assignment.model,
+    ratings:{},
+    comment:comment,
+    submitted_at:now
+  };
+  for(var key in pendingRatings)entry.ratings[key]=pendingRatings[key];
 
   if(isUpdate){
     var original=state.assessments[idx];
@@ -644,7 +557,7 @@ function submitAssessment(){
     saveState();
     btn.textContent='Updated \u2713';
     setTimeout(function(){
-      btn.textContent=CONFIG.rating_mode==='side-by-side'?'Update Rankings':'Update';
+      btn.textContent='Update';
       btn.disabled=false;
     },1200);
     // Re-render nav grid
@@ -781,19 +694,6 @@ def cli() -> argparse.Namespace:
         required=True,
         help="output HTML file path",
     )
-    mode_group = p.add_mutually_exclusive_group()
-    mode_group.add_argument(
-        "--simple-ratings",
-        action="store_true",
-        default=False,
-        help="use single acceptability score instead of 4 SummEval dimensions",
-    )
-    mode_group.add_argument(
-        "--side-by-side",
-        action="store_true",
-        default=False,
-        help="rank all 4 summaries per paper instead of rating individually",
-    )
     p.add_argument(
         "--results-file",
         type=Path,
@@ -824,27 +724,20 @@ def cli() -> argparse.Namespace:
 def main() -> None:
     args = cli()
 
-    if args.side_by_side:
-        rating_mode = "side-by-side"
-        criteria: list[dict] = []
-    elif args.simple_ratings:
-        rating_mode = "simple"
-        criteria = SIMPLE_CRITERIA
-    else:
-        rating_mode = "detailed"
-        criteria = DETAILED_CRITERIA
+    rating_mode = "detailed"
+    criteria = DETAILED_CRITERIA
 
     eval_data = load_evaluation_data(
         args.results_file, args.goldstandard, args.models, args.num_papers
     )
 
-    assignments = generate_assignments(eval_data, rating_mode, args.seed)
+    assignments = generate_assignments(eval_data, args.seed)
 
-    # Strip fields not needed in the HTML (abstract, journal) to reduce size
     papers_slim = [
         {
             "id": p["id"],
             "title": p["title"],
+            "abstract": p["abstract"],
             "reference_highlights": p["reference_highlights"],
             "summaries": p["summaries"],
         }
