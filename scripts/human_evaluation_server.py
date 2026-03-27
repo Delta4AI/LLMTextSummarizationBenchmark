@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Human evaluation server for the text summarization benchmark.
 
-Serves a web interface where reviewers rate model-generated summaries
-on standard NLP quality dimensions. Each reviewer gets a unique token
-URL with progress saved to a per-reviewer JSON file.
+Serves a two-step web interface where reviewers rate model-generated
+summaries on SummEval quality dimensions. Each reviewer gets a unique
+token URL with progress saved to a per-reviewer JSON file.
 
 Usage
 -----
@@ -11,14 +11,6 @@ Usage
         openai_gpt-4o anthropic_claude-opus-4-20250514 \\
         local:textrank ollama_gemma3:270M \\
         --port 9987
-
-    # Simple single-score mode:
-    python human_evaluation_server.py \\
-        openai_gpt-4o local:textrank ... --simple-ratings
-
-    # Side-by-side ranking mode (20 tasks instead of 80):
-    python human_evaluation_server.py \\
-        openai_gpt-4o local:textrank ... --side-by-side
 """
 
 from __future__ import annotations
@@ -96,15 +88,6 @@ DETAILED_CRITERIA = [
         "label": "Relevance",
         "description": "Does the summary capture the important information from the source?",
         "anchors": {1: "Missing most key points", 3: "Captures some key points", 5: "Captures all key points"},
-    },
-]
-
-SIMPLE_CRITERIA = [
-    {
-        "key": "acceptability",
-        "label": "Acceptability",
-        "description": "Overall quality of this summary (considering relevance, accuracy, and readability)?",
-        "anchors": {1: "Poor", 2: "Below average", 3: "Adequate", 4: "Good", 5: "Excellent"},
     },
 ]
 
@@ -273,27 +256,12 @@ def create_reviewer(
     token = generate_token()
     rng = random.Random(token)
 
-    if rating_mode == "side-by-side":
-        # One assignment per paper; each has a randomised label→model mapping
-        labels = ["A", "B", "C", "D"]
-        assignments = []
-        for pi in range(len(eval_data["papers"])):
-            shuffled = list(labels)
-            rng.shuffle(shuffled)
-            assignments.append(
-                {
-                    "paper_index": pi,
-                    "label_map": dict(zip(shuffled, eval_data["models"])),
-                }
-            )
-        rng.shuffle(assignments)
-    else:
-        assignments = [
-            {"paper_index": pi, "model": model}
-            for pi in range(len(eval_data["papers"]))
-            for model in eval_data["models"]
-        ]
-        rng.shuffle(assignments)
+    assignments = [
+        {"paper_index": pi, "model": model}
+        for pi in range(len(eval_data["papers"]))
+        for model in eval_data["models"]
+    ]
+    rng.shuffle(assignments)
 
     reviewer = {
         "token": token,
@@ -430,10 +398,12 @@ background:var(--bg);color:var(--text);line-height:1.6}
 header{margin-bottom:14px}
 h1{font-size:1.1rem;font-weight:600;margin-bottom:8px}
 .progress-wrap{background:var(--surface);border:1px solid var(--border);
-border-radius:20px;height:20px;overflow:hidden;margin-bottom:4px}
+border-radius:20px;height:20px;overflow:hidden;margin-bottom:4px;position:relative}
 .progress-bar{height:100%;background:var(--accent);border-radius:20px;
 transition:width 0.4s ease}
-.progress-text{font-size:0.8rem;color:var(--muted);text-align:right}
+.progress-text{position:absolute;inset:0;display:flex;align-items:center;
+justify-content:center;font-size:0.7rem;font-weight:600;color:var(--text);
+mix-blend-mode:difference;pointer-events:none}
 .card{background:var(--surface);border:1px solid var(--border);
 border-radius:var(--radius);padding:14px;margin-bottom:10px}
 .card-header{font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;
@@ -509,36 +479,47 @@ font-size:0.85rem;cursor:pointer}
 .modal .close-btn:hover{background:var(--accent);color:var(--btn-text)}
 .modal .ref{font-size:0.78rem;color:var(--muted);margin-top:16px;
 border-top:1px solid var(--border);padding-top:12px;font-style:italic}
+.nav-grid{display:flex;flex-wrap:wrap;gap:2px;margin:8px 0 2px;padding:6px;
+background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.nav-item{width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+border:1.5px solid var(--border);border-radius:4px;font-size:0.6rem;font-weight:600;
+cursor:pointer;transition:all 0.15s;user-select:none;background:var(--bg)}
+.nav-item:hover:not(.locked){border-color:var(--accent);background:rgba(88,166,255,0.08)}
+.nav-item.done{background:var(--green);color:var(--btn-text);border-color:var(--green)}
+.nav-item.active{border-color:var(--accent);box-shadow:0 0 0 1.5px rgba(88,166,255,0.3)}
+.nav-item.done.active{box-shadow:0 0 0 1.5px rgba(59,185,80,0.4)}
+.nav-item.locked{opacity:0.35;cursor:default}
+.nav-legend{display:flex;gap:10px;font-size:0.68rem;color:var(--muted);margin-bottom:6px;
+padding-left:6px}
+.nav-legend-item{display:flex;align-items:center;gap:3px}
+.nav-swatch{width:8px;height:8px;border-radius:2px;border:1.5px solid var(--border)}
+.nav-swatch.sw-done{background:var(--green);border-color:var(--green)}
+.nav-swatch.sw-current{border-color:var(--accent);box-shadow:0 0 0 1px rgba(88,166,255,0.3)}
+.nav-swatch.sw-pending{background:var(--bg)}
+.status-badge{font-size:0.7rem;text-transform:none;letter-spacing:0;
+padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:600}
+.status-badge.completed{color:var(--green);background:rgba(26,127,55,0.1)}
+textarea{width:100%;min-height:60px;padding:8px 10px;background:var(--bg);
+border:1px solid var(--border);border-radius:6px;color:var(--text);
+font-size:0.85rem;font-family:inherit;resize:vertical;outline:none}
+textarea:focus{border-color:var(--accent)}
+textarea::placeholder{color:var(--muted)}
+.step-indicator{font-size:0.72rem;color:var(--muted);font-weight:600;
+margin-left:8px;padding:2px 8px;background:var(--bg);border:1px solid var(--border);
+border-radius:4px}
+.abstract-text{background:var(--bg);border:1px solid var(--border);
+border-radius:6px;padding:10px;font-size:0.85rem;line-height:1.5;
+color:var(--text);white-space:pre-wrap}
+.btn-row{display:flex;justify-content:space-between;margin-top:10px}
+.btn-back{padding:10px 28px;background:var(--surface);color:var(--text);
+border:1px solid var(--border);border-radius:8px;font-size:0.95rem;
+font-weight:600;cursor:pointer;transition:all 0.15s}
+.btn-back:hover{border-color:var(--accent);color:var(--accent)}
 </style>
 </head>
 <body>
 <div class="modal-overlay" id="info-modal" onclick="if(event.target===this)closeInfo()">
-<div class="modal">
-<h3>Evaluation Criteria &mdash; SummEval Framework</h3>
-<p>These four dimensions come from the SummEval framework
-(Fabbri&nbsp;et&nbsp;al.,&nbsp;2021), the <em>de&nbsp;facto</em> standard for
-human evaluation of text summarization. Each is rated on a 1&ndash;5 Likert scale.</p>
-<h4>Coherence</h4>
-<p>The summary should be well-structured and well-organized. It should not just
-be a heap of related information, but should build from sentence to sentence to
-a coherent body of information about a topic.</p>
-<h4>Consistency</h4>
-<p>The factual alignment between the summary and the summarized source document.
-A factually consistent summary contains only statements that are entailed by the
-source document. Penalize summaries that contain hallucinated facts.</p>
-<h4>Fluency</h4>
-<p>The quality of individual sentences. They should have no formatting problems,
-capitalization errors or obviously ungrammatical sentences (e.g., fragments,
-missing components) that make the text difficult to read.</p>
-<h4>Relevance</h4>
-<p>Selection of important content from the source. The summary should include
-only important information from the source document. Penalize summaries which
-contain redundancies and excess information.</p>
-<p class="ref">Fabbri, A.&nbsp;R. et&nbsp;al. (2021). SummEval: Re-evaluating
-Summarization Evaluation. <em>Transactions of the Association for Computational
-Linguistics</em>, 9, 391&ndash;409.</p>
-<button class="close-btn" onclick="closeInfo()">Close</button>
-</div>
+<div class="modal" id="info-modal-body"></div>
 </div>
 <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme"></button>
 <div class="container">
@@ -546,11 +527,15 @@ Linguistics</em>, 9, 391&ndash;409.</p>
 <h1>Text Summarization Evaluation</h1>
 <div class="token-bar">
   <span>Your token: <code id="token-display"></code></span>
-  <button class="copy-btn" onclick="navigator.clipboard.writeText(TOKEN)
-    .then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
+  <button class="copy-btn" onclick="copyToken(this)">Copy</button>
 </div>
-<div class="progress-wrap"><div class="progress-bar" id="pbar"></div></div>
-<div class="progress-text" id="ptext"></div>
+<div class="progress-wrap"><div class="progress-bar" id="pbar"></div><div class="progress-text" id="ptext"></div></div>
+<div class="nav-grid" id="nav-grid"></div>
+<div class="nav-legend">
+<span class="nav-legend-item"><span class="nav-swatch sw-done"></span>Completed</span>
+<span class="nav-legend-item"><span class="nav-swatch sw-current"></span>Current</span>
+<span class="nav-legend-item"><span class="nav-swatch sw-pending"></span>Pending</span>
+</div>
 </header>
 <main id="main"><div class="loading">Loading…</div></main>
 </div>
@@ -560,19 +545,84 @@ function toggleTheme(){
   document.documentElement.dataset.theme=t;localStorage.setItem('theme',t);
 }
 const TOKEN=new URLSearchParams(window.location.search).get('token');
+function copyToken(btn){
+  function ok(){btn.textContent='Copied!';setTimeout(function(){btn.textContent='Copy'},1500)}
+  function no(){btn.textContent='Failed';setTimeout(function(){btn.textContent='Copy'},1500)}
+  if(navigator.clipboard&&window.isSecureContext){
+    navigator.clipboard.writeText(TOKEN).then(ok,no);
+  }else{
+    try{var ta=document.createElement('textarea');ta.value=TOKEN;
+    ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();document.execCommand('copy');
+    document.body.removeChild(ta);ok();}catch(e){no();}
+  }
+}
 const CRITERIA=__CRITERIA_PLACEHOLDER__;
+const STEP1_CRITERIA=CRITERIA.filter(c=>c.key!=='consistency');
+const STEP2_CRITERIA=CRITERIA.filter(c=>c.key==='consistency');
 document.getElementById('token-display').textContent=TOKEN;
 let currentData=null;
+let overviewData=null;
+let currentStep=1;
+let pendingRatings={};
+let pendingComment='';
+
+async function loadOverview(){
+  const r=await fetch('/api/overview?token='+encodeURIComponent(TOKEN));
+  if(r.ok) overviewData=await r.json();
+  renderNavGrid();
+}
+
+function renderNavGrid(){
+  const grid=document.getElementById('nav-grid');
+  if(!overviewData||!grid)return;
+  const activeIdx=currentData&&!currentData.done?currentData.assessment_index:-1;
+  let html='';
+  for(const item of overviewData.items){
+    const done=item.is_completed;
+    const active=item.index===activeIdx;
+    const reachable=item.index<=overviewData.completed;
+    let cls='nav-item';
+    if(done)cls+=' done';
+    if(active)cls+=' active';
+    if(!reachable&&!done)cls+=' locked';
+    const tip=escH(item.paper_title||'').substring(0,60)+(item.model_label?' \u2014 '+escH(item.model_label):'');
+    html+='<div class="'+cls+'"'+(reachable?' onclick="goTo('+item.index+')"':'')+
+      ' title="'+tip+'">'+(item.index+1)+'</div>';
+  }
+  grid.innerHTML=html;
+}
+
+async function goTo(index){
+  currentStep=1;pendingRatings={};pendingComment='';
+  const r=await fetch('/api/assessment?token='+encodeURIComponent(TOKEN)+'&index='+index);
+  if(!r.ok)return;
+  const d=await r.json();
+  currentData=d;
+  updateProgress(d.completed,d.total);
+  if(d.done){renderDone(d);}
+  else{initAssessment(d);renderStep1(d);}
+  loadOverview();
+}
 
 async function loadAssessment(){
+  currentStep=1;pendingRatings={};pendingComment='';
   const r=await fetch('/api/assessment?token='+encodeURIComponent(TOKEN));
   if(!r.ok){document.getElementById('main').innerHTML=
     '<div class="card"><p>Error loading assessment. Is your token valid?</p></div>';return}
   const d=await r.json();
   currentData=d;
   updateProgress(d.completed,d.total);
-  if(d.done){renderDone(d);return}
-  renderAssessment(d);
+  if(d.done){renderDone(d);}
+  else{initAssessment(d);renderStep1(d);}
+  loadOverview();
+}
+
+function initAssessment(d){
+  if(d.previous_ratings){
+    pendingRatings=Object.assign({},d.previous_ratings);
+    pendingComment=d.previous_comment||'';
+  }
 }
 
 function updateProgress(completed,total){
@@ -585,302 +635,161 @@ function renderDone(d){
   document.getElementById('main').innerHTML=
     '<div class="card done-card"><h2>All done!</h2>'+
     '<p>You have completed all '+d.total+' assessments.</p>'+
+    '<p style="margin-top:8px;color:var(--muted);font-size:0.85rem">'+
+    'Click any item in the grid above to review or change your answers.</p>'+
     '<p style="margin-top:12px;color:var(--text)">Thank you for your time, '+
     escH(d.reviewer_name)+'.</p></div>';
 }
 
-function renderAssessment(d){
-  const bullets=d.reference_highlights.map(h=>'<li>'+escH(h)+'</li>').join('');
-  let criteriaHTML='';
-  for(const c of CRITERIA){
-    criteriaHTML+='<div class="criterion"><div class="criterion-header">'+
+function buildCriteriaHTML(criteriaList){
+  let html='';
+  for(const c of criteriaList){
+    html+='<div class="criterion"><div class="criterion-header">'+
       '<span class="criterion-label">'+escH(c.label)+'</span>'+
       '<span class="criterion-desc">'+escH(c.description)+'</span></div><div class="likert">';
     for(let v=1;v<=5;v++){
       const anchor=c.anchors[String(v)]||'';
-      criteriaHTML+='<label data-key="'+c.key+'" data-val="'+v+'" onclick="selectRating(this)">'+
+      const sel=pendingRatings[c.key]===v?' selected':'';
+      html+='<label class="'+sel.trim()+'" data-key="'+c.key+'" data-val="'+v+'" onclick="selectRating(this)">'+
         v+(anchor?'<span class="anchor">'+escH(anchor)+'</span>':'')+'</label>';
     }
-    criteriaHTML+='</div></div>';
+    html+='</div></div>';
   }
+  return html;
+}
+
+function renderStep1(d){
+  currentStep=1;
+  const bullets=d.reference_highlights.map(h=>'<li>'+escH(h)+'</li>').join('');
+  const statusBadge=d.is_submitted?'<span class="status-badge completed">\u2714 completed</span>':'';
+  const stepTag='<span class="step-indicator">Step 1 of 2</span>';
+  const criteriaHTML=buildCriteriaHTML(STEP1_CRITERIA);
   document.getElementById('main').innerHTML=
-    '<div class="card"><div class="card-header">Assessment '+(d.completed+1)+' of '+d.total+
-    '</div><ul class="highlights">'+bullets+'</ul></div>'+
+    '<div class="card"><div class="card-header">Assessment '+(d.assessment_index+1)+' of '+d.total+
+    statusBadge+stepTag+'</div>'+
+    '<div class="card-header" style="margin-top:8px">Reference Highlights</div>'+
+    '<ul class="highlights">'+bullets+'</ul></div>'+
     '<div class="card"><div class="card-header">Generated Summary</div>'+
     '<div class="gen-text">'+escH(d.summary)+'</div></div>'+
-    '<div class="card"><div class="card-header">Your Assessment <button class="info-btn" onclick="openInfo()" title="About these criteria">i</button></div>'+
+    '<div class="card"><div class="card-header">Rate Structure &amp; Content'+
+    ' <button class="info-btn" onclick="openInfo()" title="About these criteria">i</button></div>'+
+    criteriaHTML+
+    '<div class="submit-row"><button id="next-btn" onclick="goToStep2()" disabled>Next \u2192</button></div></div>';
+  checkStep1();
+}
+
+function renderStep2(d){
+  currentStep=2;
+  const isUpdate=d.is_submitted;
+  const btnLabel=isUpdate?'Update':'Submit';
+  const statusBadge=isUpdate?'<span class="status-badge completed">\u2714 completed</span>':'';
+  const stepTag='<span class="step-indicator">Step 2 of 2</span>';
+  const criteriaHTML=buildCriteriaHTML(STEP2_CRITERIA);
+  document.getElementById('main').innerHTML=
+    '<div class="card"><div class="card-header">Assessment '+(d.assessment_index+1)+' of '+d.total+
+    statusBadge+stepTag+'</div>'+
+    '<div style="margin-bottom:10px"><div class="card-header">Publication Title</div>'+
+    '<div class="gen-text">'+escH(d.paper_title)+'</div></div>'+
+    '<div style="margin-bottom:10px"><div class="card-header">Abstract</div>'+
+    '<div class="abstract-text">'+escH(d.paper_abstract)+'</div></div>'+
+    '<div><div class="card-header">Generated Summary</div>'+
+    '<div class="gen-text">'+escH(d.summary)+'</div></div></div>'+
+    '<div class="card"><div class="card-header">Rate Factual Consistency'+
+    ' <button class="info-btn" onclick="openInfo()" title="About these criteria">i</button></div>'+
     criteriaHTML+
     '<div style="margin-top:8px"><label style="font-size:0.8rem;color:var(--muted);display:block;margin-bottom:4px">Comment (optional)</label>'+
-    '<textarea id="comment" placeholder="Any observations\u2026" style="width:100%;min-height:60px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.85rem;font-family:inherit;resize:vertical;outline:none"></textarea></div>'+
-    '<div class="submit-row"><button id="submit-btn" onclick="submitAssessment()" disabled>Submit</button></div>'+
-    '</div>';
-  checkSubmittable();
+    '<textarea id="comment" placeholder="Any observations\u2026"></textarea></div>'+
+    '<div class="btn-row"><button class="btn-back" onclick="goToStep1()">\u2190 Back</button>'+
+    '<button id="submit-btn" onclick="submitAssessment()" disabled>'+btnLabel+'</button></div></div>';
+  const ta=document.getElementById('comment');
+  if(ta&&pendingComment)ta.value=pendingComment;
+  checkStep2();
+}
+
+function goToStep2(){
+  // Save Step 1 ratings
+  for(const c of STEP1_CRITERIA){
+    const sel=document.querySelector('.likert label.selected[data-key="'+c.key+'"]');
+    if(sel)pendingRatings[c.key]=parseInt(sel.dataset.val);
+  }
+  renderStep2(currentData);
+}
+
+function goToStep1(){
+  // Save Step 2 state
+  const sel=document.querySelector('.likert label.selected[data-key="consistency"]');
+  if(sel)pendingRatings.consistency=parseInt(sel.dataset.val);
+  const ta=document.getElementById('comment');
+  if(ta)pendingComment=ta.value;
+  renderStep1(currentData);
 }
 
 function selectRating(el){
   const key=el.dataset.key;
   el.parentElement.querySelectorAll('label').forEach(l=>l.classList.remove('selected'));
   el.classList.add('selected');
-  checkSubmittable();
+  if(currentStep===1)checkStep1();else checkStep2();
 }
 
-function checkSubmittable(){
+function checkStep1(){
+  const btn=document.getElementById('next-btn');
+  if(!btn)return;
+  btn.disabled=!STEP1_CRITERIA.every(c=>
+    document.querySelector('.likert label.selected[data-key="'+c.key+'"]'));
+}
+
+function checkStep2(){
   const btn=document.getElementById('submit-btn');
   if(!btn)return;
-  const allRated=CRITERIA.every(c=>
+  btn.disabled=!STEP2_CRITERIA.every(c=>
     document.querySelector('.likert label.selected[data-key="'+c.key+'"]'));
-  btn.disabled=!allRated;
 }
 
 async function submitAssessment(){
   const btn=document.getElementById('submit-btn');
-  btn.disabled=true;btn.textContent='Saving…';
-  const ratings={};
-  for(const c of CRITERIA){
-    const sel=document.querySelector('.likert label.selected[data-key="'+c.key+'"]');
-    if(sel)ratings[c.key]=parseInt(sel.dataset.val);
-  }
-  const comment=(document.getElementById('comment')||{}).value||'';
-  const body={token:TOKEN,assessment_index:currentData.assessment_index,ratings,comment};
-  const r=await fetch('/api/submit',{method:'POST',
-    headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!r.ok){btn.textContent='Error – retry';btn.disabled=false;return}
-  loadAssessment();
-}
-
-function openInfo(){document.getElementById('info-modal').classList.add('open')}
-function closeInfo(){document.getElementById('info-modal').classList.remove('open')}
-
-function escH(s){
-  const d=document.createElement('div');d.textContent=s;return d.innerHTML;
-}
-
-loadAssessment();
-</script>
-</body>
-</html>"""
-
-SIDE_BY_SIDE_HTML = r"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Evaluation – Text Summarization Benchmark</title>
-<script>document.documentElement.dataset.theme=localStorage.getItem("theme")||"light"</script>
-<style>
-:root{--bg:#ffffff;--surface:#f6f8fa;--border:#d0d7de;--text:#1f2328;
---muted:#656d76;--accent:#0969da;--green:#1a7f37;--red:#cf222e;
---yellow:#9a6700;--radius:8px;--btn-text:#ffffff;
---label-a:#0969da;--label-b:#1a7f37;--label-c:#9a6700;--label-d:#8250df}
-[data-theme="dark"]{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;
---muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#f85149;
---yellow:#d29922;--btn-text:#0d1117;
---label-a:#58a6ff;--label-b:#3fb950;--label-c:#d29922;--label-d:#bc8cff}
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-background:var(--bg);color:var(--text);line-height:1.6}
-.container{max-width:900px;margin:0 auto;padding:24px 16px 64px}
-header{margin-bottom:24px}
-h1{font-size:1.2rem;font-weight:600;margin-bottom:12px}
-.progress-wrap{background:var(--surface);border:1px solid var(--border);
-border-radius:20px;height:24px;overflow:hidden;margin-bottom:6px}
-.progress-bar{height:100%;background:var(--accent);border-radius:20px;
-transition:width 0.4s ease}
-.progress-text{font-size:0.85rem;color:var(--muted);text-align:right}
-.card{background:var(--surface);border:1px solid var(--border);
-border-radius:var(--radius);padding:20px;margin-bottom:16px}
-.card-header{font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;
-color:var(--accent);margin-bottom:8px;font-weight:600}
-.highlights{list-style:none;padding:0;margin:8px 0 0}
-.highlights li{position:relative;padding:8px 12px 8px 24px;margin-bottom:6px;
-font-size:0.92rem;line-height:1.7;color:var(--text);
-background:var(--bg);border:1px solid var(--border);border-radius:6px}
-.highlights li::before{content:"\2022";position:absolute;left:10px;
-color:var(--accent);font-weight:700}
-.summary-card{background:var(--surface);border:2px solid var(--border);
-border-radius:var(--radius);padding:20px;margin-bottom:16px;
-transition:border-color 0.2s}
-.summary-card.ranked{border-color:var(--accent)}
-.summary-label{display:inline-flex;align-items:center;gap:8px;
-font-weight:700;font-size:1rem;margin-bottom:10px}
-.summary-label .letter{display:inline-flex;align-items:center;
-justify-content:center;width:28px;height:28px;border-radius:6px;
-font-size:0.85rem;font-weight:700;color:var(--btn-text)}
-.letter-a{background:var(--label-a)}.letter-b{background:var(--label-b)}
-.letter-c{background:var(--label-c)}.letter-d{background:var(--label-d)}
-.summary-text{background:var(--bg);border:1px solid var(--border);
-border-radius:6px;padding:14px;font-size:0.92rem;line-height:1.7;
-color:var(--text);white-space:pre-wrap;margin-bottom:12px}
-.rank-row{display:flex;align-items:center;gap:10px}
-.rank-label{font-size:0.82rem;color:var(--muted);font-weight:600;min-width:40px}
-.rank-buttons{display:flex;gap:6px}
-.rank-buttons label{text-align:center;padding:8px 14px;
-border:2px solid var(--border);border-radius:8px;cursor:pointer;
-font-size:0.85rem;transition:all 0.15s;user-select:none;
-line-height:1.3;min-width:56px}
-.rank-buttons label:hover{border-color:var(--accent);
-background:rgba(88,166,255,0.08)}
-.rank-buttons label.selected{border-color:var(--accent);
-background:var(--accent);color:var(--btn-text);font-weight:600}
-.rank-buttons label .anchor{display:block;font-size:0.68rem;
-margin-top:2px;opacity:0.8}
-.rank-badge{display:none;font-size:0.78rem;padding:2px 8px;border-radius:4px;
-background:var(--accent);color:var(--btn-text);font-weight:600;margin-left:auto}
-.summary-card.ranked .rank-badge{display:inline-block}
-textarea{width:100%;min-height:80px;padding:10px 14px;background:var(--bg);
-border:1px solid var(--border);border-radius:6px;color:var(--text);
-font-size:0.9rem;font-family:inherit;resize:vertical;outline:none}
-textarea:focus{border-color:var(--accent)}
-textarea::placeholder{color:var(--muted)}
-.submit-row{display:flex;justify-content:flex-end;margin-top:16px}
-button{padding:12px 32px;background:var(--accent);color:var(--btn-text);border:none;
-border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;
-transition:opacity 0.15s}
-button:hover{opacity:0.9}
-button:disabled{opacity:0.35;cursor:not-allowed}
-.done-card{text-align:center;padding:48px 24px}
-.done-card h2{font-size:1.3rem;color:var(--green);margin-bottom:12px}
-.done-card p{color:var(--muted)}
-.token-bar{display:flex;align-items:center;justify-content:space-between;
-margin-bottom:20px;padding:10px 14px;background:var(--surface);
-border:1px solid var(--border);border-radius:var(--radius);font-size:0.82rem}
-.token-bar code{color:var(--accent);user-select:all}
-.token-bar .copy-btn{background:none;border:1px solid var(--border);
-color:var(--muted);padding:4px 10px;font-size:0.78rem;border-radius:4px;
-cursor:pointer;margin:0}
-.token-bar .copy-btn:hover{border-color:var(--accent);color:var(--accent)}
-.loading{text-align:center;padding:64px;color:var(--muted)}
-.hint{font-size:0.82rem;color:var(--muted);margin-bottom:16px;font-style:italic}
-.theme-toggle{position:fixed;top:12px;right:12px;background:var(--surface);
-border:1px solid var(--border);border-radius:50%;width:32px;height:32px;
-cursor:pointer;display:flex;align-items:center;justify-content:center;
-font-size:1rem;z-index:100;padding:0;color:var(--text);transition:all 0.2s}
-.theme-toggle:hover{border-color:var(--accent)}
-.theme-toggle::before{content:"\263E"}
-[data-theme="dark"] .theme-toggle::before{content:"\2600"}
-</style>
-</head>
-<body>
-<button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme"></button>
-<div class="container">
-<header>
-<h1>Text Summarization Evaluation &mdash; Ranking</h1>
-<div class="token-bar">
-  <span>Your token: <code id="token-display"></code></span>
-  <button class="copy-btn" onclick="navigator.clipboard.writeText(TOKEN)
-    .then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
-</div>
-<div class="progress-wrap"><div class="progress-bar" id="pbar"></div></div>
-<div class="progress-text" id="ptext"></div>
-</header>
-<main id="main"><div class="loading">Loading&hellip;</div></main>
-</div>
-<script>
-function toggleTheme(){
-  var t=document.documentElement.dataset.theme==='dark'?'light':'dark';
-  document.documentElement.dataset.theme=t;localStorage.setItem('theme',t);
-}
-const TOKEN=new URLSearchParams(window.location.search).get('token');
-document.getElementById('token-display').textContent=TOKEN;
-let currentData=null;
-const rankings={};
-
-async function loadAssessment(){
-  Object.keys(rankings).forEach(k=>delete rankings[k]);
-  const r=await fetch('/api/assessment?token='+encodeURIComponent(TOKEN));
-  if(!r.ok){document.getElementById('main').innerHTML=
-    '<div class="card"><p>Error loading assessment. Is your token valid?</p></div>';return}
-  const d=await r.json();
-  currentData=d;
-  updateProgress(d.completed,d.total);
-  if(d.done){renderDone(d);return}
-  renderAssessment(d);
-}
-
-function updateProgress(completed,total){
-  const pct=total>0?Math.round(completed/total*100):0;
-  document.getElementById('pbar').style.width=pct+'%';
-  document.getElementById('ptext').textContent=completed+' / '+total+' completed ('+pct+'%)';
-}
-
-function renderDone(d){
-  document.getElementById('main').innerHTML=
-    '<div class="card done-card"><h2>All done!</h2>'+
-    '<p>You have completed all '+d.total+' ranking tasks.</p>'+
-    '<p style="margin-top:12px;color:var(--text)">Thank you for your time, '+
-    escH(d.reviewer_name)+'.</p></div>';
-}
-
-function renderAssessment(d){
-  const bullets=d.reference_highlights.map(h=>'<li>'+escH(h)+'</li>').join('');
-  const colors={A:'a',B:'b',C:'c',D:'d'};
-  let html='<div class="card"><div class="card-header">Paper '+(d.completed+1)+' of '+d.total+
-    '</div><ul class="highlights">'+bullets+'</ul></div>'+
-    '<p class="hint">Read all four summaries below, then rank them from 1 (best) to 4 (worst).</p>';
-
-  for(const label of d.labels){
-    html+='<div class="summary-card" id="card-'+label+'">'+
-      '<div class="summary-label"><span class="letter letter-'+colors[label]+'">'+label+'</span>'+
-      ' Summary '+label+'<span class="rank-badge" id="badge-'+label+'"></span></div>'+
-      '<div class="summary-text">'+escH(d.summaries[label])+'</div>'+
-      '<div class="rank-row"><span class="rank-label">Rank:</span>'+
-      '<div class="rank-buttons">';
-    for(let r=1;r<=4;r++){
-      const anchor=r===1?'Best':(r===4?'Worst':'');
-      html+='<label data-label="'+label+'" data-rank="'+r+'" onclick="selectRank(this)">'+
-        r+(anchor?'<span class="anchor">'+anchor+'</span>':'')+'</label>';
-    }
-    html+='</div></div></div>';
-  }
-
-  html+='<div class="card"><div style="margin-bottom:12px">'+
-    '<label style="font-size:0.85rem;color:var(--muted);display:block;margin-bottom:6px">Comment (optional)</label>'+
-    '<textarea id="comment" placeholder="Any observations\u2026"></textarea></div>'+
-    '<div class="submit-row"><button id="submit-btn" onclick="submitRanking()" disabled>Submit Rankings</button></div></div>';
-  document.getElementById('main').innerHTML=html;
-}
-
-function selectRank(el){
-  const label=el.dataset.label;
-  const rank=parseInt(el.dataset.rank);
-  // Deselect same rank from other labels
-  const prev=Object.entries(rankings).find(([l,r])=>r===rank&&l!==label);
-  if(prev){
-    delete rankings[prev[0]];
-    const prevCard=document.getElementById('card-'+prev[0]);
-    if(prevCard){
-      prevCard.classList.remove('ranked');
-      prevCard.querySelectorAll('.rank-buttons label').forEach(l=>l.classList.remove('selected'));
-      document.getElementById('badge-'+prev[0]).textContent='';
-    }
-  }
-  // Set this label's rank
-  rankings[label]=rank;
-  const card=document.getElementById('card-'+label);
-  card.querySelectorAll('.rank-buttons label').forEach(l=>l.classList.remove('selected'));
-  el.classList.add('selected');
-  card.classList.add('ranked');
-  document.getElementById('badge-'+label).textContent='#'+rank;
-  checkSubmittable();
-}
-
-function checkSubmittable(){
-  const btn=document.getElementById('submit-btn');
-  if(!btn)return;
-  btn.disabled=!currentData||Object.keys(rankings).length!==currentData.labels.length;
-}
-
-async function submitRanking(){
-  const btn=document.getElementById('submit-btn');
+  const wasUpdate=currentData.is_submitted;
   btn.disabled=true;btn.textContent='Saving\u2026';
+  // Collect Step 2 consistency
+  for(const c of STEP2_CRITERIA){
+    const sel=document.querySelector('.likert label.selected[data-key="'+c.key+'"]');
+    if(sel)pendingRatings[c.key]=parseInt(sel.dataset.val);
+  }
   const comment=(document.getElementById('comment')||{}).value||'';
   const body={token:TOKEN,assessment_index:currentData.assessment_index,
-    rankings:Object.assign({},rankings),comment};
+    ratings:Object.assign({},pendingRatings),comment};
   const r=await fetch('/api/submit',{method:'POST',
     headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!r.ok){btn.textContent='Error \u2013 retry';btn.disabled=false;return}
-  loadAssessment();
+  if(wasUpdate){
+    btn.textContent='Updated \u2713';
+    setTimeout(function(){btn.textContent='Update';btn.disabled=false;},1200);
+    loadOverview();
+  }else{
+    loadAssessment();
+  }
 }
+
+function openInfo(){
+  const ref='<p class="ref">Fabbri, A.&nbsp;R. et&nbsp;al. (2021). SummEval: Re-evaluating Summarization Evaluation. <em>Transactions of the Association for Computational Linguistics</em>, 9, 391&ndash;409.</p>';
+  let html;
+  if(currentStep===1){
+    html='<h3>Step 1 Criteria &mdash; Structure &amp; Content</h3>'+
+      '<p>Compare the generated summary against the <strong>reference highlights</strong> shown above. Rate each dimension on a 1&ndash;5 Likert scale.</p>'+
+      '<h4>Coherence</h4><p>The summary should be well-structured and well-organized. It should not just be a heap of related information, but should build from sentence to sentence to a coherent body of information about a topic.</p>'+
+      '<h4>Fluency</h4><p>The quality of individual sentences. They should have no formatting problems, capitalization errors or obviously ungrammatical sentences (e.g., fragments, missing components) that make the text difficult to read.</p>'+
+      '<h4>Relevance</h4><p>Does the summary capture the important information present in the reference highlights? Penalize summaries which contain redundancies, miss key points from the highlights, or include excess information.</p>'+
+      ref;
+  }else{
+    html='<h3>Step 2 Criteria &mdash; Factual Consistency</h3>'+
+      '<p>Compare the generated summary against the <strong>publication title and abstract</strong> shown above. Rate whether the summary is factually consistent with the source.</p>'+
+      '<h4>Consistency</h4><p>The factual alignment between the summary and the title and abstract. A factually consistent summary contains only statements that are entailed by the source. Penalize summaries that contain hallucinated facts not supported by the title or abstract.</p>'+
+      ref;
+  }
+  html+='<button class="close-btn" onclick="closeInfo()">Close</button>';
+  document.getElementById('info-modal-body').innerHTML=html;
+  document.getElementById('info-modal').classList.add('open');
+}
+function closeInfo(){document.getElementById('info-modal').classList.remove('open')}
 
 function escH(s){
   const d=document.createElement('div');d.textContent=s;return d.innerHTML;
@@ -899,7 +808,6 @@ def make_handler(
     eval_data: dict,
     data_dir: Path,
     rating_mode: str,
-    criteria: list[dict],
 ):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -919,6 +827,8 @@ def make_handler(
                 self._handle_get_assessment(params)
             elif path == "/api/progress":
                 self._handle_get_progress(params)
+            elif path == "/api/overview":
+                self._handle_overview(params)
             else:
                 self._send_json({"error": "not found"}, 404)
 
@@ -941,33 +851,23 @@ def make_handler(
         def _serve_landing(self):
             n = len(eval_data["papers"])
             m = len(eval_data["models"])
-            if rating_mode == "side-by-side":
-                info = html_module.escape(
-                    f"{n} papers \u2014 rank {m} summaries per paper"
-                    f" ({n} ranking tasks per reviewer)"
-                )
-            else:
-                info = html_module.escape(
-                    f"{n} papers \u00d7 {m} models"
-                    f" = {n * m} assessments per reviewer"
-                )
+            info = html_module.escape(
+                f"{n} papers \u00d7 {m} models"
+                f" = {n * m} assessments per reviewer"
+            )
             page = LANDING_HTML.replace("__ASSESSMENT_INFO__", info)
             self._send_html(page)
 
         def _serve_evaluate(self):
-            if rating_mode == "side-by-side":
-                self._send_html(SIDE_BY_SIDE_HTML)
-            else:
-                # Escape </ and <!-- to prevent breaking out of script context
-                criteria_json = (
-                    json.dumps(criteria)
-                    .replace("</", "<\\/")
-                    .replace("<!--", "<\\!--")
-                )
-                page = EVALUATE_HTML.replace(
-                    "__CRITERIA_PLACEHOLDER__", criteria_json
-                )
-                self._send_html(page)
+            criteria_json = (
+                json.dumps(DETAILED_CRITERIA)
+                .replace("</", "<\\/")
+                .replace("<!--", "<\\!--")
+            )
+            page = EVALUATE_HTML.replace(
+                "__CRITERIA_PLACEHOLDER__", criteria_json
+            )
+            self._send_html(page)
 
         # ── API handlers ─────────────────────────────────────────
 
@@ -977,20 +877,34 @@ def make_handler(
             if not reviewer:
                 self._send_json({"error": "invalid token"}, 404)
                 return
-            if reviewer.get("rating_mode") != rating_mode:
-                self._send_json(
-                    {
-                        "error": "reviewer was created in a different rating "
-                        "mode; please register a new reviewer"
-                    },
-                    409,
-                )
-                return
-
             completed = len(reviewer["assessments"])
             total = len(reviewer["assignments"])
 
-            if completed >= total:
+            # Optional index param for navigating to a specific assessment
+            idx_str = (params.get("index") or [None])[0]
+            if idx_str is not None:
+                try:
+                    idx = int(idx_str)
+                except (ValueError, TypeError):
+                    self._send_json(
+                        {"error": "index must be an integer"}, 400
+                    )
+                    return
+                if idx < 0 or idx >= total:
+                    self._send_json(
+                        {"error": "index out of range"}, 400
+                    )
+                    return
+                if idx > completed:
+                    self._send_json(
+                        {"error": "cannot skip ahead past current progress"},
+                        400,
+                    )
+                    return
+            else:
+                idx = completed
+
+            if idx >= total:
                 self._send_json(
                     {
                         "done": True,
@@ -1001,40 +915,28 @@ def make_handler(
                 )
                 return
 
-            assignment = reviewer["assignments"][completed]
+            assignment = reviewer["assignments"][idx]
             paper = eval_data["papers"][assignment["paper_index"]]
+            previous = reviewer["assessments"][idx] if idx < completed else None
 
-            if rating_mode == "side-by-side":
-                label_map = assignment["label_map"]
-                summaries = {
-                    label: paper["summaries"][model]
-                    for label, model in sorted(label_map.items())
-                }
-                self._send_json(
-                    {
-                        "done": False,
-                        "completed": completed,
-                        "total": total,
-                        "assessment_index": completed,
-                        "reference_highlights": paper["reference_highlights"],
-                        "summaries": summaries,
-                        "labels": sorted(label_map.keys()),
-                        "reviewer_name": reviewer["name"],
-                    }
-                )
-            else:
-                summary = paper["summaries"][assignment["model"]]
-                self._send_json(
-                    {
-                        "done": False,
-                        "completed": completed,
-                        "total": total,
-                        "assessment_index": completed,
-                        "reference_highlights": paper["reference_highlights"],
-                        "summary": summary,
-                        "reviewer_name": reviewer["name"],
-                    }
-                )
+            summary = paper["summaries"][assignment["model"]]
+            resp = {
+                "done": False,
+                "completed": completed,
+                "total": total,
+                "assessment_index": idx,
+                "is_submitted": idx < completed,
+                "paper_title": paper["title"],
+                "paper_abstract": paper["abstract"],
+                "reference_highlights": paper["reference_highlights"],
+                "summary": summary,
+                "reviewer_name": reviewer["name"],
+            }
+            if previous:
+                resp["previous_ratings"] = previous.get("ratings")
+                resp["previous_comment"] = previous.get("comment", "")
+
+            self._send_json(resp)
 
         def _handle_get_progress(self, params):
             token = (params.get("token") or [None])[0]
@@ -1048,6 +950,33 @@ def make_handler(
                     "name": reviewer["name"],
                     "completed": len(reviewer["assessments"]),
                     "total": len(reviewer["assignments"]),
+                }
+            )
+
+        def _handle_overview(self, params):
+            token = (params.get("token") or [None])[0]
+            reviewer = load_reviewer(data_dir, token) if token else None
+            if not reviewer:
+                self._send_json({"error": "invalid token"}, 404)
+                return
+
+            completed = len(reviewer["assessments"])
+            items = []
+            for i, assignment in enumerate(reviewer["assignments"]):
+                paper = eval_data["papers"][assignment["paper_index"]]
+                items.append({
+                    "index": i,
+                    "is_completed": i < completed,
+                    "paper_title": paper["title"],
+                    "model_label": assignment.get("model", ""),
+                })
+
+            self._send_json(
+                {
+                    "completed": completed,
+                    "total": len(reviewer["assignments"]),
+                    "items": items,
+                    "reviewer_name": reviewer["name"],
                 }
             )
 
@@ -1077,57 +1006,29 @@ def make_handler(
                 )
                 return
 
-            # ── Mode-specific validation ─────────────────────────
-            if rating_mode == "side-by-side":
-                rankings = body.get("rankings", {})
-                if not isinstance(rankings, dict):
+            # ── Validation ──────────────────────────────────────────
+            ratings = body.get("ratings", {})
+            if not isinstance(ratings, dict):
+                self._send_json(
+                    {"error": "ratings must be an object"}, 400
+                )
+                return
+            required_keys = {c["key"] for c in DETAILED_CRITERIA}
+            provided_keys = set(ratings.keys())
+            if not required_keys.issubset(provided_keys):
+                missing = required_keys - provided_keys
+                self._send_json(
+                    {"error": f"missing ratings: {missing}"}, 400
+                )
+                return
+            for key in required_keys:
+                val = ratings[key]
+                if not isinstance(val, int) or val < 1 or val > 5:
                     self._send_json(
-                        {"error": "rankings must be an object"}, 400
-                    )
-                    return
-                required_labels = {"A", "B", "C", "D"}
-                if set(rankings.keys()) != required_labels:
-                    self._send_json(
-                        {"error": "rankings must have exactly keys A–D"},
+                        {"error": f"rating '{key}' must be 1\u20135"},
                         400,
                     )
                     return
-                try:
-                    rank_values = sorted(int(v) for v in rankings.values())
-                except (TypeError, ValueError):
-                    self._send_json(
-                        {"error": "ranking values must be integers"}, 400
-                    )
-                    return
-                if rank_values != [1, 2, 3, 4]:
-                    self._send_json(
-                        {"error": "rankings must be unique values 1\u20134"},
-                        400,
-                    )
-                    return
-            else:
-                ratings = body.get("ratings", {})
-                if not isinstance(ratings, dict):
-                    self._send_json(
-                        {"error": "ratings must be an object"}, 400
-                    )
-                    return
-                required_keys = {c["key"] for c in criteria}
-                provided_keys = set(ratings.keys())
-                if not required_keys.issubset(provided_keys):
-                    missing = required_keys - provided_keys
-                    self._send_json(
-                        {"error": f"missing ratings: {missing}"}, 400
-                    )
-                    return
-                for key in required_keys:
-                    val = ratings[key]
-                    if not isinstance(val, int) or val < 1 or val > 5:
-                        self._send_json(
-                            {"error": f"rating '{key}' must be 1\u20135"},
-                            400,
-                        )
-                        return
 
             # ── Atomic read-modify-write under lock ──────────────
             with _write_lock:
@@ -1137,9 +1038,12 @@ def make_handler(
                     return
 
                 completed = len(reviewer["assessments"])
-                if idx != completed:
+                if idx > completed:
                     self._send_json(
-                        {"error": f"expected index {completed}, got {idx}"},
+                        {
+                            "error": f"index {idx} is beyond current "
+                            f"progress ({completed})"
+                        },
                         400,
                     )
                     return
@@ -1147,32 +1051,28 @@ def make_handler(
                 assignment = reviewer["assignments"][idx]
                 paper = eval_data["papers"][assignment["paper_index"]]
 
-                if rating_mode == "side-by-side":
-                    entry = {
-                        "paper_id": paper["id"],
-                        "rankings": {
-                            k: int(rankings[k]) for k in required_labels
-                        },
-                        "label_map": assignment["label_map"],
-                        "comment": comment,
-                        "submitted_at": datetime.now(
-                            timezone.utc
-                        ).isoformat(),
-                    }
-                else:
-                    entry = {
-                        "paper_id": paper["id"],
-                        "model": assignment["model"],
-                        "ratings": {
-                            k: int(ratings[k]) for k in required_keys
-                        },
-                        "comment": comment,
-                        "submitted_at": datetime.now(
-                            timezone.utc
-                        ).isoformat(),
-                    }
+                now = datetime.now(timezone.utc).isoformat()
+                entry = {
+                    "paper_id": paper["id"],
+                    "model": assignment["model"],
+                    "ratings": {
+                        k: int(ratings[k]) for k in required_keys
+                    },
+                    "comment": comment,
+                    "submitted_at": now,
+                }
 
-                reviewer["assessments"].append(entry)
+                if idx < completed:
+                    # Preserve original timestamp, record update time
+                    original = reviewer["assessments"][idx]
+                    entry["originally_submitted_at"] = original.get(
+                        "originally_submitted_at",
+                        original.get("submitted_at"),
+                    )
+                    entry["submitted_at"] = now
+                    reviewer["assessments"][idx] = entry
+                else:
+                    reviewer["assessments"].append(entry)
                 _write_reviewer(data_dir, reviewer)
 
                 new_completed = len(reviewer["assessments"])
@@ -1251,19 +1151,6 @@ def cli() -> argparse.Namespace:
         default=DEFAULT_PORT,
         help=f"server port (default: {DEFAULT_PORT})",
     )
-    mode_group = p.add_mutually_exclusive_group()
-    mode_group.add_argument(
-        "--simple-ratings",
-        action="store_true",
-        default=False,
-        help="use single acceptability score instead of SummEval 4 dimensions",
-    )
-    mode_group.add_argument(
-        "--side-by-side",
-        action="store_true",
-        default=False,
-        help="rank all 4 summaries per paper instead of rating individually",
-    )
     p.add_argument(
         "--results-file",
         type=Path,
@@ -1294,26 +1181,15 @@ def cli() -> argparse.Namespace:
 def main():
     args = cli()
 
-    if args.side_by_side:
-        rating_mode = "side-by-side"
-        criteria: list[dict] = []
-    elif args.simple_ratings:
-        rating_mode = "simple"
-        criteria = SIMPLE_CRITERIA
-    else:
-        rating_mode = "detailed"
-        criteria = DETAILED_CRITERIA
+    rating_mode = "detailed"
 
     eval_data = load_evaluation_data(
         args.results_file, args.goldstandard, args.models, args.num_papers
     )
 
-    if rating_mode == "side-by-side":
-        eval_data["total_assessments"] = len(eval_data["papers"])
-
     args.data_dir.mkdir(parents=True, exist_ok=True)
 
-    handler = make_handler(eval_data, args.data_dir, rating_mode, criteria)
+    handler = make_handler(eval_data, args.data_dir, rating_mode)
     server = ThreadingHTTPServer(("", args.port), handler)
 
     log.info("=" * 56)
