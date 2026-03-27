@@ -133,3 +133,26 @@ Overall Performance Score & 0.659 & 0.512 \\
 \bottomrule
 \end{tabular}
 \end{table*}
+
+\subsection{Data Leakage Assessment}
+
+\begin{table*}[!htbp]
+\centering
+\scriptsize
+\caption{\textbf{Abstract completion probe results.} 
+Shows ROUGE-L scores for completions of abstracts published before (pre-cutoff) and after (post-cutoff) the respective training cutoff dates. $\Delta$ denotes the difference between both groups. Statistical significance was assessed using a one-sided Mann-Whitney U test.\label{tab:completion_probe}}
+\begin{tabularx}{\linewidth}{X l r r r r r r}
+\toprule
+\textbf{Model} & \textbf{Cutoff} & \textbf{Pre ROUGE-L} & \textbf{Post ROUGE-L} & \textbf{$\Delta$} & \textbf{95\% CI} & \textbf{$p$-value} & \textbf{Effect($r$)} \\
+\midrule
+claude-sonnet-4-20250514 (closed-source) & 2025-03 & 15.2 & 15.2 & +0.0 & [-0.5, +0.4] & 0.598 & +0.01 \\
+claude-opus-4-20250514 (closed-source) & 2025-03 & 15.3 & 15.0 & +0.2 & [-0.3, +0.8] & 0.239 & -0.03 \\
+claude-opus-4-1-20250805 (closed-source) & 2025-03 & 15.2 & 14.9 & +0.3 & [-0.2, +0.8] & 0.161 & -0.04 \\
+deepseek-r1:1.5b & 2025-01 & 10.3 & 10.5 & -0.1 & [-0.7, +0.4] & 0.598 & +0.01 \\
+deepseek-r1:7b & 2025-01 & 11.7 & 11.9 & -0.2 & [-0.6, +0.3] & 0.524 & +0.00 \\
+deepseek-r1:8b & 2025-01 & 13.2 & 13.5 & -0.3 & [-0.7, +0.2] & 0.834 & +0.04 \\
+deepseek-r1:14b & 2025-01 & 13.4 & 13.4 & -0.1 & [-0.4, +0.3] & 0.662 & +0.02 \\
+gpt-5-2025-08-07 (closed-source) & 2024-10 & 13.7 & 13.5 & +0.2 & [-0.2, +0.7] & 0.399 & -0.01 \\
+\bottomrule
+\end{tabularx}
+\end{table*}
