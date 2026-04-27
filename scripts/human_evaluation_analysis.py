@@ -2,12 +2,18 @@ import json
 import numpy as np
 from pathlib import Path
 from itertools import combinations
-from scipy.stats import mannwhitneyu
+from scipy.stats import mannwhitneyu, spearmanr
 
 # config
 EVAL_FILES = [
-    "evaluation_PPE_after80_2026-03-24.json",
-    "evaluation_KKI_final.json",
+    "evaluation_1.json",
+    "evaluation_2.json",
+    "evaluation_3.json",
+    "evaluation_4.json",
+    "evaluation_5.json",
+    "evaluation_6.json",
+    "evaluation_7.json",
+    "evaluation_8.json",
 ]
 DIMENSIONS = ["coherence", "fluency", "relevance", "consistency"]
 MODEL_LABELS = {
@@ -133,6 +139,67 @@ def krippendorff_alpha_overall(evaluators):
 
     return 1.0 - (do / de) if de != 0 else 1.0
 
+# pairwise Spearman correlation between evaluators (to analyze ranking agreement)
+def pairwise_spearman(evaluators):
+    n_eval = len(evaluators)
+
+    print("\n--- Pairwise Spearman Correlation Between Evaluators ---")
+
+    for dim in DIMENSIONS:
+        print(f"\n  {dim.capitalize()}:")
+        rho_values = []
+
+        for i, j in combinations(range(n_eval), 2):
+            # find shared (paper_id, model) keys rated by both evaluators
+            shared_keys = sorted(
+                k for k in evaluators[i]
+                if k in evaluators[j]
+                and dim in evaluators[i][k]
+                and dim in evaluators[j][k]
+            )
+
+            if len(shared_keys) < 3:
+                print(f"    Evaluator {i+1} vs Evaluator {j+1}: too few shared items ({len(shared_keys)})")
+                continue
+
+            vals_i = [evaluators[i][k][dim] for k in shared_keys]
+            vals_j = [evaluators[j][k][dim] for k in shared_keys]
+
+            rho, p = spearmanr(vals_i, vals_j)
+            rho_values.append(rho)
+            print(f"    Evaluator {i+1} vs Evaluator {j+1}: ρ = {rho:.3f}  (p={p:.4f}, n={len(shared_keys)})")
+
+        if rho_values:
+            mean_rho = np.mean(rho_values)
+            print(f"    {'Mean':>30s}: ρ = {mean_rho:.3f}")
+
+    # overall across all dimensions
+    print(f"\n  Overall (all dimensions combined):")
+    rho_values_all = []
+
+    for i, j in combinations(range(n_eval), 2):
+        shared_vals_i = []
+        shared_vals_j = []
+
+        for k in sorted(evaluators[i].keys()):
+            if k in evaluators[j]:
+                for dim in DIMENSIONS:
+                    if dim in evaluators[i][k] and dim in evaluators[j][k]:
+                        shared_vals_i.append(evaluators[i][k][dim])
+                        shared_vals_j.append(evaluators[j][k][dim])
+
+        if len(shared_vals_i) < 3:
+            print(f"    Evaluator {i+1} vs Evaluator {j+1}: too few shared items")
+            continue
+
+        rho, p = spearmanr(shared_vals_i, shared_vals_j)
+        rho_values_all.append(rho)
+        print(f"    Evaluator {i+1} vs Evaluator {j+1}: ρ = {rho:.3f}  (p={p:.4f}, n={len(shared_vals_i)})")
+
+    if rho_values_all:
+        mean_rho = np.mean(rho_values_all)
+        print(f"    {'Mean':>30s}: ρ = {mean_rho:.3f}")
+
 # pairwise Mann-Whitney U tests with Bonferroni correction
 def pairwise_mann_whitney(ratings):
     models = list(MODEL_LABELS.keys())
@@ -168,11 +235,52 @@ def generate_latex_table(ratings, evaluators, output_path):
 
     overall_alpha = krippendorff_alpha_overall(evaluators)
 
+    # Compute per-dimension mean Spearman
+    n_eval = len(evaluators)
+    spearman_per_dim = {}
+    for dim in DIMENSIONS:
+        rho_values = []
+        for i, j in combinations(range(n_eval), 2):
+            shared_keys = sorted(
+                k for k in evaluators[i]
+                if k in evaluators[j]
+                and dim in evaluators[i][k]
+                and dim in evaluators[j][k]
+            )
+            if len(shared_keys) >= 3:
+                vals_i = [evaluators[i][k][dim] for k in shared_keys]
+                vals_j = [evaluators[j][k][dim] for k in shared_keys]
+                rho, _ = spearmanr(vals_i, vals_j)
+                rho_values.append(rho)
+        spearman_per_dim[dim] = np.mean(rho_values) if rho_values else None
+
+    # Compute overall mean Spearman
+    rho_values_all = []
+    for i, j in combinations(range(n_eval), 2):
+        shared_vals_i = []
+        shared_vals_j = []
+        for k in sorted(evaluators[i].keys()):
+            if k in evaluators[j]:
+                for dim in DIMENSIONS:
+                    if dim in evaluators[i][k] and dim in evaluators[j][k]:
+                        shared_vals_i.append(evaluators[i][k][dim])
+                        shared_vals_j.append(evaluators[j][k][dim])
+        if len(shared_vals_i) >= 3:
+            rho, _ = spearmanr(shared_vals_i, shared_vals_j)
+            rho_values_all.append(rho)
+    overall_spearman = np.mean(rho_values_all) if rho_values_all else None
+
+    # Determine n per model from data
+    first_model = list(MODEL_LABELS.keys())[0]
+    n_per_model = len(ratings[first_model][DIMENSIONS[0]])
+
     lines = []
     lines.append(r"\begin{table}[ht]")
     lines.append(r"\centering")
-    lines.append(r"\caption{Human evaluation results (mean $\pm$ SEM, $n$=40 per model). "
-                 r"Krippendorff's $\alpha$ measures inter-rater agreement.}")
+    lines.append(r"\caption{Expert assessment results (mean $\pm$ SEM, $n$="
+                 f"{n_per_model}"
+                 r" per model). "
+                 r"Krippendorff's $\alpha$ and mean pairwise Spearman's $\rho$ measure inter-rater agreement.}")
     lines.append(r"\label{tab:human_eval}")
     lines.append(r"\begin{tabular}{lcccc}")
     lines.append(r"\toprule")
@@ -197,12 +305,23 @@ def generate_latex_table(ratings, evaluators, output_path):
         alpha_cells.append(f"${a:.3f}$" if a is not None else "---")
     lines.append(f"Krippendorff's $\\alpha$ & {' & '.join(alpha_cells)} \\\\")
 
+    spearman_cells = []
+    for dim in DIMENSIONS:
+        rho = spearman_per_dim[dim]
+        spearman_cells.append(f"${rho:.3f}$" if rho is not None else "---")
+    lines.append(f"Spearman's $\\rho$ (mean) & {' & '.join(spearman_cells)} \\\\")
+
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
 
+    footer_parts = []
     if overall_alpha is not None:
+        footer_parts.append(f"Overall $\\alpha = {overall_alpha:.3f}$")
+    if overall_spearman is not None:
+        footer_parts.append(f"Overall $\\rho = {overall_spearman:.3f}$")
+    if footer_parts:
         lines.append(r"\vspace{2pt}")
-        lines.append(f"\\\\\\small Overall $\\alpha = {overall_alpha:.3f}$")
+        lines.append(f"\\\\\\small {', '.join(footer_parts)}")
 
     lines.append(r"\end{table}")
 
@@ -245,6 +364,8 @@ def main():
     overall_alpha = krippendorff_alpha_overall(evaluators)
     if overall_alpha is not None:
         print(f"\n  {'overall':>12s}: α = {overall_alpha:.3f}")
+
+    pairwise_spearman(evaluators)
 
     pairwise_mann_whitney(ratings)
 
