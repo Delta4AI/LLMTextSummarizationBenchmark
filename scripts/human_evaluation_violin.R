@@ -46,10 +46,10 @@ model_labels <- c(
 #     (matching the orange used for that category in the boxplot/heatmap)
 #   Within each pair, a darker and lighter variant provides distinction.
 model_colors <- c(
-  "bigbird-pegasus"        = "#78ABCE",
-  "mT5"                    = "#3CAAAA",
-  "mistral-small-3.2:24B"  = "#FCAD60",
-  "mistral-small-2506"     = "#C87850"
+  "bigbird-pegasus"        = "#4575B4",
+  "mT5"                    = "#FEE090",
+  "mistral-small-3.2:24B"  = "#A6D96A",
+  "mistral-small-2506"     = "#D73027"
 )
 
 dimensions <- c("coherence", "fluency", "relevance", "consistency")
@@ -110,7 +110,7 @@ plot_dimension <- function(data, summary, dim_name) {
 
   ggplot(df, aes(x = model_label, y = rating, fill = model_label)) +
     geom_violin(
-      trim = TRUE, alpha = 0.7,
+      trim = TRUE, alpha = 1.0,
       color = "gray30", linewidth = 0.4,
       scale = "width"
     ) +
