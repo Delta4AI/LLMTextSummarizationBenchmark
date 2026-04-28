@@ -383,8 +383,6 @@ dev.off()
 
 #### Figure 4a ####
 
-library(dplyr)
-library(ggplot2)
 
 
 min_rank <- min(heatmap_data_rank$performance_score)
@@ -450,8 +448,7 @@ Figure_4a <- ggplot(categories_means, aes(x = mean_score, y = model_group, fill 
     },
     geom = "boxplot",
     width = 0.4,
-    color = "gray40",
-    alpha = 0.8,
+    color = "black",
     outlier.shape = NA
   ) +
   
@@ -459,7 +456,6 @@ Figure_4a <- ggplot(categories_means, aes(x = mean_score, y = model_group, fill 
   geom_point(
     size = 1,
     color = "black",
-    alpha = 0.9,
     show.legend = FALSE
   ) +
   
@@ -476,7 +472,7 @@ Figure_4a <- ggplot(categories_means, aes(x = mean_score, y = model_group, fill 
     hjust = 1,       
     nudge_x = -nudge,
     nudge_y = labels_stats$nudge_y_lowest,
-    size = 6
+    size = 8
   ) +
   
   geom_text(
@@ -492,40 +488,50 @@ Figure_4a <- ggplot(categories_means, aes(x = mean_score, y = model_group, fill 
     hjust = 0,       
     nudge_x = nudge,
     nudge_y = subset(labels_stats, n_models > 1)$nudge_y_highest,
-    size = 6
+    size = 8
   ) +
   
   scale_fill_manual(values = Groups, breaks = names(Groups)) +
   
   scale_x_continuous(
     breaks = c(0, 0.25, 0.5, 0.75, 1),
-    limits = c(-0.15, 1.2)
+    limits = c(-0.15, 1.2),
+    expand = expansion(mult = c(0.2, 0.2))
   ) +
   
-  labs(x = "Overall Performance Score" , y = "Categories", fill = "Categories") +
+  labs(x = "Overall Performance Score" , y = NULL, fill = "Categories") +
   ggtitle("Overall performance of Model Categories") +
   
-  theme_minimal(base_size = 18) +
+  theme_minimal() +
   theme(
-    axis.text.y = element_text(face = "bold", size = 16, color = "black"),
-    axis.text.x = element_text(size = 16, color = "black"),
-    axis.title = element_text(face = "bold"),
+    axis.text.y = element_text(face = "bold", size = 22, color = "black"),
+    axis.text.x = element_text(size = 22, color = "black"),
+    axis.title.x = element_text(face = "bold", size = 26),
     panel.grid.major.x = element_line(color = "gray70"),
     panel.grid.major.y = element_blank(),
     panel.grid.minor = element_blank(),
     legend.position = "none",
-    plot.title = element_text(face = "bold", size = 18, hjust = 0.5),
+    plot.title = element_text(face = "bold", size = 32, hjust = 0.5),
     panel.border = element_rect(color = "black", fill = NA, size = 1)
   )
 
 ggsave(
   filename = file.path(Outcome, "Figure_4a.pdf"),
   plot = Figure_4a,
-  width = 18,
-  height = 10
+  width = 20,
+  height = 14
 )
 
-#### Figure 4c ####
+ggsave(
+  filename = file.path(Outcome, "Figure_4a.png"),
+  plot = Figure_4a,
+  width = 20,
+  height = 14,
+  dpi = 300
+)
+
+
+#### Figure 5a ####
 
 
 family_means <- heatmap_data_norm %>%
@@ -570,7 +576,7 @@ labels_stats <- family_means %>%
 
 nudge <- 0.02
 
-Figure_4c <- ggplot(family_means, aes(x = mean_score, y = model_family, fill = model_family)) +
+Figure_5a <- ggplot(family_means, aes(x = mean_score, y = model_family, fill = model_family)) +
   
   stat_summary(
     fun.data = function(x) {
@@ -585,15 +591,13 @@ Figure_4c <- ggplot(family_means, aes(x = mean_score, y = model_family, fill = m
     },
     geom = "boxplot",
     width = 0.4,
-    color = "gray40",
-    alpha = 0.8,
+    color = "black",
     outlier.shape = NA
   ) +
   
   geom_point(
     size = 1,
     color = "black",
-    alpha = 0.9,
     show.legend = FALSE
   ) +
   
@@ -606,7 +610,7 @@ Figure_4c <- ggplot(family_means, aes(x = mean_score, y = model_family, fill = m
     hjust = 1,
     nudge_x = -nudge,
     nudge_y = labels_stats$nudge_y_lowest,
-    size = 6
+    size = 8
   ) +
   
   geom_text(
@@ -618,44 +622,52 @@ Figure_4c <- ggplot(family_means, aes(x = mean_score, y = model_family, fill = m
     hjust = 0,
     nudge_x = nudge,
     nudge_y = subset(labels_stats, n_models > 1)$nudge_y_highest,
-    size = 6
+    size = 8
   ) +
   
   scale_fill_manual(values = Families, breaks = names(Families)) +
   
   scale_x_continuous(
     breaks = c(0, 0.25, 0.5, 0.75, 1),
-    limits = c(-0.15, 1.1)
+    limits = c(-0.15, 1.1),
+    expand = expansion(mult = c(0.3, 0.3))
   ) +
   
   labs(
     x = "Overall Performance Score",
-    y = "Families",
+    y = NULL,
     fill = "Family"
   ) +
   ggtitle("Overall Performance of Model Families") +
   
   # Theme
-  theme_minimal(base_size = 18) +
+  theme_minimal() +
   theme(
-    axis.text.y = element_text(face = "bold", size = 16, color = "black"),
-    axis.text.x = element_text(size = 16, color = "black"),
-    axis.title  = element_text(face = "bold"),
+    axis.text.y = element_text(face = "bold", size = 22, color = "black"),
+    axis.text.x = element_text(size = 22, color = "black"),
+    axis.title.x = element_text(face = "bold", size = 26),
     panel.grid.major.x = element_line(color = "gray70"),
     panel.grid.major.y = element_blank(),
     panel.grid.minor = element_blank(),
     legend.position = "none",
-    plot.title = element_text(face = "bold", size = 18, hjust = 0.5),
+    plot.title = element_text(face = "bold", size = 32, hjust = 0.5),
     panel.border = element_rect(color = "black", fill = NA, size = 1)
   )
 
 ggsave(
-  filename = file.path(Outcome, "Figure_4c.pdf"),
-  plot = Figure_4c,
-  width = 24,
-  height = 12
+  filename = file.path(Outcome, "Figure_5a.pdf"),
+  plot = Figure_5a,
+  width = 20,
+  height = 14
 )
 
+ggsave(
+  filename = file.path(Outcome, "Figure_5a.png"),
+  plot = Figure_5a,
+  width = 20,
+  height = 14,
+  dpi = 300
+)
 
 
 #### Figure 4b #####
@@ -686,7 +698,10 @@ gh_long <- gh_long %>%
   filter(keep_tile)  # **Filter only upper triangle**
 
 format_pval <- function(p) {
-  ifelse(p < 0.001, "<0.001", sprintf("%.3g", p))
+  ifelse(
+    p < 0.001, "<0.001",
+    sub("\\.?0+$", "", sprintf("%.3f", round(p, 3)))
+  )
 }
 
 Figure_4b <- ggplot(gh_long, aes(x = Comparison, y = Categories, fill = p_value)) +
@@ -694,14 +709,14 @@ Figure_4b <- ggplot(gh_long, aes(x = Comparison, y = Categories, fill = p_value)
   
   geom_text(aes(
     label = format_pval(p_value),
-    color = ifelse(p_value > 0.5, "white", "black")  # p > 0.05 → white
+    color = ifelse(p_value > 0.5, "white", "black")  
   ),
-  size = 6, fontface = "bold"
+  size = 7.5, fontface = "bold"
   ) +
   scale_color_identity() +
   
   scale_fill_gradientn(
-    colours = c("#F2F2F2", "#7F7F7F", "#FEF0F0", "#660000"),   # grey → white → red
+    colours = c("#F2F2F2", "#7F7F7F", "#FEF0F0", "#A82A2A"),   # grey → white → red
     values = scales::rescale(c(0, 0.05, 0.051, 1)),            # sharp transition at 0.05
     limits = c(0, 1),
     name = "p-value",
@@ -711,7 +726,7 @@ Figure_4b <- ggplot(gh_long, aes(x = Comparison, y = Categories, fill = p_value)
       ticks = TRUE,
       ticks.colour = "black",
       frame.colour = "black",
-      barheight = unit(8, "cm"),
+      barheight = unit(10, "cm"),
       nbin = 100,
       label.position = "right"
     )
@@ -723,27 +738,38 @@ Figure_4b <- ggplot(gh_long, aes(x = Comparison, y = Categories, fill = p_value)
     y = NULL
   ) +
   
-  theme_minimal(base_size = 18) +
+  theme_minimal() +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold", colour = "black"),
-    axis.text.y = element_text(face = "bold", colour = "black"),
-    plot.title = element_text(face = "bold", size = 18, hjust = 0.5, colour = "#222222"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold", colour = "black", size = 22),
+    axis.text.y = element_text(face = "bold", colour = "black", size = 22),
+    plot.title = element_text(face = "bold", size = 32, hjust = 0.5, colour = "#222222"),
+    legend.text = element_text(size = 18),
     panel.grid = element_blank(),
     panel.background = element_rect(fill = "white", color = NA),
     plot.background = element_rect(fill = "white", color = NA),
     legend.position = "right",
-    legend.title = element_text(face = "bold")
+    legend.title = element_text(face = "bold", size = 26)
   )
+
 
 ggsave(
   filename = file.path(Outcome, "Figure_4b.pdf"),
   plot = Figure_4b,
-  width = 13,
-  height = 9
+  width = 20,
+  height = 14
+)
+
+ggsave(
+  filename = file.path(Outcome, "Figure_4b.png"),
+  plot = Figure_4b,
+  width = 20,
+  height = 14,
+  dpi = 300
 )
 
 
-###Figure 4d #####
+
+###Figure 5b #####
 
 
 gh_df <- games_howell_pvalues_matrix_families
@@ -771,22 +797,25 @@ gh_long <- gh_long %>%
   filter(keep_tile)  # **Filter only upper triangle**
 
 format_pval <- function(p) {
-  ifelse(p < 0.001, "<0.001", sprintf("%.3g", p))
+  ifelse(
+    p < 0.001, "<0.001",
+    sub("\\.?0+$", "", sprintf("%.3f", round(p, 3)))
+  )
 }
 
-Figure_4d <- ggplot(gh_long, aes(x = Comparison, y = Families, fill = p_value)) +
+Figure_5b <- ggplot(gh_long, aes(x = Comparison, y = Families, fill = p_value)) +
   geom_tile(color = "black", size = 0.7) +
   
   geom_text(aes(
     label = format_pval(p_value),
     color = ifelse(p_value > 0.5, "white", "black")  
   ),
-  size = 6, fontface = "bold"
+  size = 7.5, fontface = "bold"
   ) +
   scale_color_identity() +
   
   scale_fill_gradientn(
-    colours = c("#F2F2F2", "#7F7F7F", "#FEF0F0", "#660000"),  
+    colours = c("#F2F2F2", "#7F7F7F", "#FEF0F0", "#A82A2A"),  
     values = scales::rescale(c(0, 0.05, 0.051, 1)),            
     limits = c(0, 1),
     name = "p-value",
@@ -796,7 +825,7 @@ Figure_4d <- ggplot(gh_long, aes(x = Comparison, y = Families, fill = p_value)) 
       ticks = TRUE,
       ticks.colour = "black",
       frame.colour = "black",
-      barheight = unit(8, "cm"),
+      barheight = unit(10, "cm"),
       nbin = 100,
       label.position = "right"
     )
@@ -808,24 +837,36 @@ Figure_4d <- ggplot(gh_long, aes(x = Comparison, y = Families, fill = p_value)) 
     y = NULL
   ) +
   
-  theme_minimal(base_size = 18) +
+  theme_minimal() +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold", colour = "black"),
-    axis.text.y = element_text(face = "bold", colour = "black"),
-    plot.title = element_text(face = "bold", size = 18, hjust = 0.5, colour = "#222222"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold", colour = "black", size = 22),
+    axis.text.y = element_text(face = "bold", colour = "black", size = 22),
+    plot.title = element_text(face = "bold", size = 32, hjust = 0.5, colour = "#222222"),
+    legend.text = element_text(size = 18),
     panel.grid = element_blank(),
     panel.background = element_rect(fill = "white", color = NA),
     plot.background = element_rect(fill = "white", color = NA),
     legend.position = "right",
-    legend.title = element_text(face = "bold")
+    legend.title = element_text(face = "bold", size = 26)
   )
 
 ggsave(
-  filename = file.path(Outcome, "Figure_4d.pdf"),
-  plot = Figure_4d,
-  width = 16,
-  height = 10
+  filename = file.path(Outcome, "Figure_5b.pdf"),
+  plot = Figure_5b,
+  width = 20,
+  height = 14
 )
+
+ggsave(
+  filename = file.path(Outcome, "Figure_5b.png"),
+  plot = Figure_5b,
+  width = 20,
+  height = 14,
+  dpi = 300
+)
+
+
+
 
 ##### Figure 2 #####
 
