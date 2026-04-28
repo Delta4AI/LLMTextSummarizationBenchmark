@@ -14,6 +14,7 @@ Figure~\ref{fig:workflow_graphic} provides an overview of the complete benchmark
 (4--5) Computation of summary quality metrics capturing lexical overlap, semantic similarity, and factual consistency.
 (6) Standardization of metric scores using z-score normalization to ensure comparability across evaluation dimensions.
 (7) Ranking of models based on overall performance scores.
+(8) Expert assessment of generated summaries across four quality dimensions (coherence, fluency, relevance, consistency) for a subset of models.
 \label{fig:workflow_graphic}
 }
 \end{figure*}
@@ -26,7 +27,11 @@ Articles were collected systematically across a variety of journals from the two
 
 This setup provided standardized pairs of abstracts and reference summaries subsequently used in our systematic evaluation and benchmarking of \ac{ATS} methods.
 
+\ifpatterns
 \begin{table*}[H]
+\else
+\begin{table*}[h]
+\fi
 \centering
 \caption{\textbf{Overview of journals included in the gold-standard dataset:}
 Each journal contributed 50 articles, resulting in 500 articles from \textit{ScienceDirect} and 500 articles from \textit{Cell Press}. \label{tab:goldstandard}}
@@ -49,11 +54,15 @@ Cell Reports Medicine; Cell Stem Cell; Cell Systems \\
 
 \subsection{Summarization Methods}
 
-We evaluated 62 models for text summarization, ranging from simple frequency-based algorithms to \acp{SLM} \& \acp{LLM}. These models were classified into five categories, as listed in Table~\ref{tab:models}. We obtained the pre-trained \acp{EDM} through the Hugging Face library, selecting architectures widely used for abstractive summarization to ensure established neural approaches are covered in our benchmark. Additionally, we evaluated a range of \acp{SLM} and \acp{LLM}, defining \acp{SLM} as models with fewer than 10 billion parameters \cite{belcak2025smalllanguagemodelsfuture}. Both \acp{SLM} and \acp{LLM} with advanced reasoning capabilities were categorized as "reasoning-oriented" to investigate how multi-step problem solving affects summarization performance. Similarly, models fine-tuned on scientific/biomedical data or specifically tailored for text summarization were classified as "domain-specific" to assess the impact of domain adaptation. Overall, this selection covers various model sizes and release dates, ensuring a representative mix of both, widely adopted and recent, architectures.
+We evaluated 62 models for text summarization, ranging from simple frequency-based algorithms to \acp{SLM} \& \acp{LLM}. These models were classified into five categories, as listed in Table~\ref{tab:models}. We obtained the pre-trained \acp{EDM} through the Hugging Face library, selecting architectures widely used for abstractive summarization to ensure established neural approaches are covered in our benchmark. Additionally, we evaluated a range of \acp{SLM} and \acp{LLM}, defining \acp{SLM} as models with fewer than 10 billion parameters \cite{belcak2025smalllanguagemodelsfuture}. Both \acp{SLM} and \acp{LLM} with advanced reasoning capabilities were categorized as ``reasoning-oriented" to investigate how multi-step problem solving affects summarization performance. Similarly, models fine-tuned on scientific/biomedical data or specifically tailored for text summarization were classified as ``domain-specific" to assess the impact of domain adaptation. Overall, this selection covers various model sizes and release dates, ensuring a representative mix of both, widely adopted and recent, architectures.
 
 Exceptionally large models, such as LLaMA 3.1 405B, were excluded to keep the benchmark reproducible on single-GPU setups typical of biomedical research groups. Each of the 62 models was tasked with generating summaries for the 1,000 abstracts in the dataset, resulting in a total of 62,000 generated summaries for evaluation.
 
+\ifpatterns
 \begin{table*}[H]
+\else
+\begin{table*}[!t]
+\fi
 \centering
 \caption{\textbf{Overview of summarization methods evaluated in this study:} Models organized by category.\label{tab:models}}
 \begin{tabularx}{\linewidth}{lX}
@@ -119,7 +128,7 @@ To capture similarity beyond surface-level word overlap, we included a set of em
 
 We further included all-mpnet-base-v2 \cite{song2020mpnetmaskedpermutedpretraining}, a transformer model fine-tuned for sentence similarity. Unlike \ac{RoBERTa} and \ac{DeBERTa}, which are general-purpose encoders, \ac{MPNet} was trained with a focus on alignment at the sentence-level. This characteristic makes it a useful complement to the other metrics, as it is particularly sensitive to whether the overall meaning of a reference summary is preserved in the system output.
 
-Finally, to evaluate factual consistency, we included metrics designed to assess whether statements in a generated summary are supported by the source text. These included AlignScore \cite{zha2023alignscoreevaluatingfactualconsistency}, SummaC \cite{laban2021summacrevisitingnlibasedmodels}, and two variants of MiniCheck (FT5 and 7B) \cite{tang2024minicheckefficientfactcheckingllms}. In contrast to the other metrics, these approaches compare the generated output directly to the source text itself (i.e. the publication abstract) rather than the reference summary (i.e. the highlights section), as factual accuracy can only be assessed relative to the original input text. This addition ensures that our evaluation captures hallucinations and unsupported statements that might otherwise be overlooked.
+Finally, to evaluate factual consistency, we included metrics designed to assess whether statements in a generated summary are supported by the source text. These included AlignScore \cite{zha2023alignscoreevaluatingfactualconsistency}, SummaC \cite{laban2021summacrevisitingnlibasedmodels}, and two variants of MiniCheck (FT5 and 7B) \cite{tang2024minicheckefficientfactcheckingllms}. In contrast to the other metrics, these approaches compare the generated output directly to the source text itself (i.e., the publication abstract) rather than the reference summary (i.e., the highlights section), as factual accuracy can only be assessed relative to the original input text. This addition ensures that our evaluation captures hallucinations and unsupported statements that might otherwise be overlooked.
 
 \subsubsection{Overall Performance Metric}
 \label{subsec:overall_performance_metric}
@@ -221,7 +230,7 @@ In the second step, evaluators were shown the title and abstract of the original
 
 To assess whether benchmark articles were part of the models' pretraining data, we conducted a data leakage analysis by comparing their publication dates against reported model training cutoff dates. If an article was published before a model’s training cutoff date, it may have been included in the model’s internal knowledge, potentially giving the model access to information beyond the input provided (title and abstract).
 
-Publication dates for all benchmark articles were retrieved using the CrossRef API. For each model, the reported training cutoff date was collected from official model documentation (i.e. provider-released model descriptions) or, when unavailable, from community-curated sources \cite{LLMCutoffCommunity}. In total, 21 cutoff dates were confirmed from primary sources, 9 were obtained from community sources, 17 were estimated based on publicly available information (e.g. HuggingFace documentation or associated publications), and 13 (primarily from newer and less-well documented models) remained unknown. We then compared article publication dates with model cutoff dates to determine the proportion of benchmark articles published on or before each model’s training cutoff. This proportion represents the theoretical maximum share of benchmark articles that could have been present in the model’s training data.
+Publication dates for all benchmark articles were retrieved using the Crossref API. For each model, the reported training cutoff date was collected from official model documentation (i.e., provider-released model descriptions) or, when unavailable, from community-curated sources \cite{LLMCutoffCommunity}. In total, 21 cutoff dates were confirmed from primary sources, 9 were obtained from community sources, 17 were estimated based on publicly available information (e.g., Hugging Face documentation or associated publications), and 13 (primarily from newer and less-well documented models) remained unknown. We then compared article publication dates with model cutoff dates to determine the proportion of benchmark articles published on or before each model’s training cutoff. This proportion represents the theoretical maximum share of benchmark articles that could have been present in the model’s training data.
 
 To further investigate models with high potential overlap, we performed an abstract completion probe. Notably, all models included in this abstract completion probe had cutoff dates confirmed from either official or community sources. In this test, models were prompted in completion mode with the first sentence of an article abstract and asked to generate the continuation. For each model, this procedure was done separately for abstracts published before and after the model’s training cutoff date. The similarity between generated summaries and the original abstracts were measured using \ac{ROUGE}-L scores, as \ac{ROUGE}-L is based on the \ac{LCS}, which makes it sensitive to long in-order token overlaps. If models had memorized benchmark articles during training, completions for pre-cutoff abstracts would be expected to show significantly higher similarity scores compared to post-cutoff abstracts.
 

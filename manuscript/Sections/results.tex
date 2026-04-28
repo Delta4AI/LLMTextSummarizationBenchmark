@@ -12,18 +12,30 @@ Concerning factual consistency metrics, AlignScore and the two MiniCheck variant
 
 Overall, these relationships demonstrate that the various metrics are broadly consistent while providing complementary perspectives. This supports the use of an aggregated ``Overall Performance Score'' as a balanced indicator of overall summarization performance.
 
+\ifpatterns
 \begin{figure*}[H]
+\else
+\begin{figure}[!t]
+\fi
 \centering
+\ifpatterns
 \includegraphics[width=0.85\textwidth]{Visualizations/metric_correlation.png}
+\else
+\includegraphics[width=0.75\textwidth]{Visualizations/metric_correlation.png}
+\fi
 \captionsetup{skip=6pt}
 \caption{
 \textbf{Spearman correlation between evaluation metrics:}
 Spearman correlation coefficients ($\rho$) between two metrics based on their mean scores across all models are given. Metric categories (lexical, semantic, factual) are indicated on the x and y axes. For visualization purposes, cells with values higher than 0.8 are shown with white text.\label{fig:metric_correlation}}
+\ifpatterns
 \end{figure*}
+\else
+\end{figure}
+\fi
 
 \subsection{Overall Model Performance}
 
-Based on overall performance ranks, referred to as "Performance Rank" and derived from our multi-metric evaluation framework (\ref{subsec:overall_performance_metric} Overall Performance Metric), models from the Mistral family were top-ranked with high performance scores across the three evaluated metric dimensions, as depicted in Figure~\ref{fig:rank_heatmap}. 
+Based on overall performance ranks, referred to as ``Performance Rank" and derived from our multi-metric evaluation framework (\ref{subsec:overall_performance_metric}Overall Performance Metric), models from the Mistral family were top-ranked with high performance scores across the three evaluated metric dimensions, as depicted in Figure~\ref{fig:rank_heatmap}. 
 
 The mistral-small3.2:24b model ranked first, followed by mistral-small-2506 and mistral-medium-2505. The lowest-ranked models included OpenBioLLM-Llama3-8B, bigbird-pegasus-large-pubmed and pegasus-pubmed from the \ac{PEGASUS} family, and mT5\_multilingual\_XLSum from the \ac{T5} family. Overall, domain-specific \acp{SLM} and \ac{EDM} models showed poor performance across all the different dimensions of metrics.
 
@@ -31,14 +43,22 @@ Among the ten top-ranked models, six were general-purpose \acp{LLM} and four wer
 
 Considering each metric dimension separately, several Mistral models ranked high in the lexical dimension, with GPT-5-nano, a reasoning-oriented \ac{LLM} from the \ac{GPT} family, ranking third. In the semantic dimension, Mistral models achieved high ranks, but the highest positions were occupied by the Phi4:14b general-purpose \ac{LLM} and several Granite models, including granite4:tiny-h and granite3.3:2b. Finally, the highest ranks based on the factual dimension were covered by traditional models and some \acp{EDM}. Detailed performance indications for each model across all individual ranked metrics are provided in supplementary Figure~\ref{fig:supplementary_overview}.
 
+\ifpatterns
 \begin{figure*}[H]
+\else
+\begin{figure*}[p]
+\fi
 \centering
 \includegraphics[width=0.7\textwidth]{Visualizations/rank_heatmap.png}
 \captionsetup{skip=6pt}
 \caption{
 \textbf{Ranking of summarization models:}
 Overview of the performance of all evaluated models across lexical, semantic and factual metric dimensions. Each row corresponds to one model. Columns show the overall Performance Rank and independent ranks for each metric dimension, with lower ranks indicating better performance. The figure displays each model’s family and category. Models are sorted by the overall Performance Rank. Ranks are displayed using a continuous diverging color gradient, ranging from navy-blue tones for top-performing models through light neutral shades for mid-ranked models to dark red tones for low-performing models. \label{fig:rank_heatmap}}
+\ifpatterns
 \end{figure*}
+\else
+\end{figure*}
+\fi
 
 \subsection{Category Comparisons}
 
@@ -48,7 +68,11 @@ All general-purpose \acp{LLM} achieved high overall scores thus forming the top 
 
 Domain-specific \acp{EDM}, domain-specific \acp{SLM}, traditional models, and general-purpose \acp{EDM} performed significantly worse as compared to general-purpose \acp{LM}. Domain-specific \acp{EDM} and domain-specific \acp{SLM} displayed the widest spread of performance (Figure~\ref{fig:category_boxplots_and_gameshowell}a).
 
+\ifpatterns
 \begin{figure*}[!htbp]
+\else
+\begin{figure*}[p]
+\fi
 \centering
 \includegraphics[width=0.85\textwidth]{Visualizations/category_boxplot.png}
 \vspace{8pt}
@@ -77,19 +101,23 @@ In particular, the \ac{GPT} and \ac{Llama} families showed lower performance sco
 
 Regarding the Games-Howell post-hoc matrix in the family comparison (Figure~\ref{fig:family_boxplots_and_gameshowell}b), a combination of significant and non-significant differences between families was observed, reflecting the greater heterogeneity within some lineages. While many high-performing families differed significantly from traditional and encoder-decoder dominated families, several comparisons among modern \acp{SLM} and \acp{LLM} dominated families did not reach statistical significance.
 
+\ifpatterns
 \begin{figure*}[!htbp]
+\else
+\begin{figure*}[p]
+\fi
 \centering
 \includegraphics[width=0.85\textwidth]{Visualizations/family_boxplot.png}
 \vspace{8pt}
 \includegraphics[width=0.85\textwidth]{Visualizations/family_gameshowell.png}
 \captionsetup{skip=6pt}
 \caption{
-\textbf{a)} 
+\textbf{(a)} 
 \textbf{Overall performance of model families:}
 Distributions of overall performance scores across all model families,
 with each model represented by a black dot. Families are ordered from lowest to highest-performing according to the performance score.
 The best- and worst-performing models of each family are highlighted.
-\textbf{b)} 
+\textbf{(b)} 
 \textbf{Games-Howell Post-hoc Test across model families:}
 Games–Howell pairwise adjusted $p$-value matrix comparing all family pairs. 
 Each cell shows the adjusted $p$-value for the difference in metric mean scores between two families, 
@@ -106,7 +134,7 @@ with white-to-gray shading indicating smaller $p$-values.
 
 Across the evaluated models, potential overlap ranged from minimal levels of 5\% for earlier models with training cutoffs prior to 2024, up to 40.2\% for more recent \acp{LLM} with reported cutoff dates in early 2025. Most models showed low overlap ($\leq 20\%$), indicating that the majority of benchmark articles were published after their respective training cutoff dates. A subset of eight models, including recent versions of Claude, Deepseek, and one \ac{GPT} model, exhibited moderate levels of potential overlap ($24 - 40.2\%$) and were further analyzed via an abstract completion probe in the next step.
 
-A complete overview of training cutoff dates and corresponding potential overlap values for all models is provided in Supplementary Table~\ref{tab:training_cutoff_overlap}
+A complete overview of training cutoff dates and corresponding potential overlap values for all models is provided in Supplementary Table~\ref{tab:training_cutoff_overlap}.
 
 \subsubsection{Abstract Completion Probe}
 
@@ -116,7 +144,11 @@ Average \ac{ROUGE}-L scores were nearly identical for pre-cutoff and post-cutoff
 
 If memorization effects had occurred, substantially higher similarity scores would be expected for abstracts from pre-cutoff articles. As this was not the case, we concluded that the models were not reproducing memorized content from their training data.
 
+\ifpatterns
 \begin{table*}[!htbp]
+\else
+\begin{table*}[!t]
+\fi
 \centering
 \scriptsize
 \caption{\textbf{Abstract completion probe results.} 
@@ -147,7 +179,11 @@ Differences were even more pronounced for relevance and consistency. The Mistral
 
 Inter-rater agreement was assessed using two complementary measures: Krippendorff’s $\alpha$, which captures absolute agreement in scores, and mean pairwise Spearman’s $\rho$, which captures agreement in the relative ranking of summary quality. Krippendorff’s $\alpha$ ranged from 0.649 (coherence) to 0.772 (consistency), with an overall value of $\alpha = 0.736$. While coherence and fluency fell slightly below the commonly suggested threshold for reliable absolute agreement ($\alpha > 0.67$), mean pairwise Spearman correlations were strong across all dimensions, ranging from $\rho = 0.707$ (coherence) to $\rho = 0.801$ (consistency), with an overall mean of $\rho = 0.765$ (all $\rho < 0.001$). This suggests that differences in Krippendorff’s $\alpha$ were mainly driven by variation in how strictly individual evaluators rate rather than by disagreement about which summaries are better or worse. These results show that generally evaluators consistently identified the same quality differences between models.
 
+\ifpatterns
 \begin{figure*}[H]
+\else
+\begin{figure*}[h]
+\fi
 \centering
 \includegraphics[width=0.95\textwidth]{Visualizations/assessment_results.png}
 \captionsetup{skip=6pt}
@@ -156,7 +192,11 @@ Inter-rater agreement was assessed using two complementary measures: Krippendorf
 Distribution of expert ratings for coherence, fluency, relevance, and consistency for each model are shown with average ratings shown above the box-violin plots. \label{fig:assessment_results}}
 \end{figure*}
 
-\begin{table}[ht]
+\ifpatterns
+\begin{table*}[ht]
+\else
+\begin{table*}[h]
+\fi
 \centering
 \caption{
 \textbf{Expert assessment results (mean $\pm$ SEM, $n$=160 per model):} 
@@ -177,4 +217,4 @@ Spearman's $\rho$ (mean) & $0.707$ & $0.722$ & $0.799$ & $0.801$ \\
 \end{tabular}
 \vspace{2pt}
 \\\small Overall $\alpha = 0.736$, Overall $\rho = 0.765$
-\end{table}
+\end{table*}
