@@ -147,6 +147,42 @@ def judge_summary(results) -> dict | None:
     }
 
 
+def judge_model_ranking(judge) -> list[dict]:
+    """Mean judge score per model per dimension (+ overall), sorted best-first.
+    This is the human-aligned ranking across all judged systems."""
+    per: dict[str, dict[str, list[float]]] = defaultdict(
+        lambda: {d: [] for d in DIMENSIONS})
+    for (_pid, model), dims in judge.items():
+        for d in DIMENSIONS:
+            if f"judge_{d}" in dims:
+                per[model][d].append(dims[f"judge_{d}"])
+    rows = []
+    for model, dd in per.items():
+        means = {d: (float(np.mean(dd[d])) if dd[d] else np.nan) for d in DIMENSIONS}
+        valid = [means[d] for d in DIMENSIONS if not np.isnan(means[d])]
+        rows.append({
+            "model": model,
+            **means,
+            "overall": float(np.mean(valid)) if valid else np.nan,
+            "n": max((len(dd[d]) for d in DIMENSIONS), default=0),
+        })
+    rows.sort(key=lambda r: (np.isnan(r["overall"]),
+                             -(0 if np.isnan(r["overall"]) else r["overall"])))
+    return rows
+
+
+def write_ranking_csv(rows, path: Path):
+    header = ["rank", "model"] + [d.capitalize() for d in DIMENSIONS] + ["overall", "n"]
+    lines = [",".join(header)]
+    for i, r in enumerate(rows, 1):
+        vals = [f"{r[d]:.3f}" if not np.isnan(r[d]) else "" for d in DIMENSIONS]
+        overall = "" if np.isnan(r["overall"]) else f"{r['overall']:.3f}"
+        model = f'"{r["model"]}"' if "," in r["model"] else r["model"]
+        lines.append(",".join([str(i), model, *vals, overall, str(r["n"])]))
+    path.write_text("\n".join(lines) + "\n")
+    print(f"Wrote: {path}")
+
+
 def load_automatic_scores(per_paper_json: Path) -> dict[tuple[str, str], dict[str, float]]:
     """(paper_id, model) -> {metric_key: score}. Uses max() per paper to match
     the per-model aggregation in save_scores_per_model()."""
@@ -263,8 +299,11 @@ def _cell_color(rho: float, p: float) -> str:
     return f"rgb({r},{g},{b})"
 
 
-def write_html(results, metrics, inter_expert, jsummary, n_items, path: Path):
+def write_html(results, metrics, inter_expert, jsummary, n_items, path: Path,
+               ranking=None):
     """Self-contained explainer + heatmap report for colleagues."""
+    def esc(s):
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     def fmt(cell):
         rho, _, p, _ = cell
         if np.isnan(rho):
@@ -313,6 +352,31 @@ def write_html(results, metrics, inter_expert, jsummary, n_items, path: Path):
         was asked about) is close to the inter-expert ceiling <em>and</em> clearly
         higher than the off-diagonal, the judge is tracking each construct the way
         experts do &mdash; something the bulk metrics below do not achieve.</p>"""
+
+    # model ranking section
+    if ranking:
+        dim_h = "".join(f"<th>{d.capitalize()}</th>" for d in DIMENSIONS)
+        rrows = []
+        for i, r in enumerate(ranking, 1):
+            dc = "".join(f"<td>{r[d]:.2f}</td>" if not np.isnan(r[d])
+                         else "<td>&mdash;</td>" for d in DIMENSIONS)
+            ov = "&mdash;" if np.isnan(r["overall"]) else f"{r['overall']:.2f}"
+            hl = ' style="background:#eef7f0"' if i <= 3 else ""
+            rrows.append(f'<tr{hl}><td>{i}</td><th style="text-align:left">'
+                         f'{esc(r["model"])}</th>{dc}<td><b>{ov}</b></td></tr>')
+        n_rank = ranking[0]["n"] if ranking else 0
+        ranking_block = f"""<h2>5. Model ranking by the LLM judge</h2>
+<p>Mean judge score per system across the {n_rank} rated papers, all
+{len(ranking)} systems, best-first. These are the judge's own ratings (not a
+correlation), and exist for every system &mdash; the human-aligned ranking that
+manual evaluation could not produce at this scale. Top 3 highlighted.</p>
+<div class="scroll"><table>
+  <thead><tr><th>#</th><th>System</th>{dim_h}<th>Overall</th></tr></thead>
+  <tbody>{''.join(rrows)}</tbody>
+</table></div>"""
+    else:
+        ranking_block = ('<h2>5. Model ranking by the LLM judge</h2>'
+                         '<p><em>Populated after the judge runs.</em></p>')
 
     header_cells = "".join(f"<th>{d.capitalize()}</th>" for d in DIMENSIONS)
     html = f"""<title>Human vs. automatic agreement &mdash; summarization benchmark</title>
@@ -412,7 +476,9 @@ agreement; the <b>off-diagonal</b> (judge's score for a dimension vs. experts'
 rather than emitting one global impression.</p>
 {judge_block}
 
-<h2>5. How to interpret the results</h2>
+{ranking_block}
+
+<h2>6. How to interpret the results</h2>
 <div class="note">
 <p><b>Strength.</b> A high, significant &rho; means the metric ranks summaries in
 the same order experts do. Most metrics here reach &rho; up to ~0.85, so they
@@ -456,6 +522,17 @@ def demo():
     assert n == 3 and abs(rho - 1.0) < 1e-9, res["alignscore"]["consistency"]
     # dimension with no human ratings -> NaN, n=0
     assert res["alignscore"]["fluency"][3] == 0
+
+    # ranking: mean per model, sorted best-first
+    judge = {
+        ("p1", "good"): {f"judge_{d}": 5 for d in DIMENSIONS},
+        ("p2", "good"): {f"judge_{d}": 4 for d in DIMENSIONS},
+        ("p1", "bad"): {f"judge_{d}": 2 for d in DIMENSIONS},
+        ("p2", "bad"): {f"judge_{d}": 1 for d in DIMENSIONS},
+    }
+    rank = judge_model_ranking(judge)
+    assert [r["model"] for r in rank] == ["good", "bad"], rank
+    assert abs(rank[0]["overall"] - 4.5) < 1e-9 and rank[0]["n"] == 2
     print("selfcheck OK")
 
 
@@ -506,6 +583,8 @@ def main():
     for d in DIMENSIONS:
         print(f"    {d:>12s}: rho={inter_expert[d]:+.3f}")
 
+    ranking = judge_model_ranking(judge) if judge else None
+
     if jsummary:
         print("\n--- Judge vs. expert agreement ---")
         for d in DIMENSIONS:
@@ -518,10 +597,18 @@ def main():
         print("\n(no LLM-judge scores yet — run llm_judge_eval.py to populate "
               "judge rows)")
 
+    if ranking:
+        print(f"\n--- Model ranking by LLM judge (mean over {ranking[0]['n']} "
+              f"papers, {len(ranking)} systems) ---")
+        for i, r in enumerate(ranking, 1):
+            ov = "n/a" if np.isnan(r["overall"]) else f"{r['overall']:.2f}"
+            print(f"    {i:>2d}. {ov:>4s}  {r['model']}")
+        write_ranking_csv(ranking, BASE_DIR / "judge_model_ranking.csv")
+
     write_csv(results, BASE_DIR / "human_vs_automatic_spearman.csv", metrics)
     write_latex(results, BASE_DIR / "human_vs_automatic_correlation.tex", metrics)
     write_html(results, metrics, inter_expert, jsummary, n_items,
-               BASE_DIR / "human_vs_automatic_report.html")
+               BASE_DIR / "human_vs_automatic_report.html", ranking)
     print("\nDone.")
 
 
