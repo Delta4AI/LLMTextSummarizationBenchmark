@@ -37,7 +37,7 @@ from llm_apis.anthropic_client import AnthropicSummaryClient  # noqa: E402
 
 DIMENSIONS = ["coherence", "fluency", "relevance", "consistency"]
 JUDGE_MODEL = "claude-sonnet-4-6"  # bump to claude-opus-4-8 for the strongest judge
-MAX_TOKENS = 500  # room for rationale + the four ratings
+MAX_TOKENS = 1500  # headroom: verbose rationales truncate the tool call otherwise
 
 # forced tool-use schema -> structured, always-valid output (no regex parsing).
 # rationale first so the model reasons before committing the integers.
@@ -48,7 +48,8 @@ RATING_TOOL = {
         "type": "object",
         "properties": {
             "rationale": {"type": "string",
-                          "description": "Brief justification before scoring."},
+                          "description": "Justification in 1-2 sentences total "
+                                         "(not per dimension)."},
             **{d: {"type": "integer", "minimum": 1, "maximum": 5} for d in DIMENSIONS},
         },
         "required": ["rationale", *DIMENSIONS],
@@ -80,8 +81,8 @@ SYSTEM_PROMPT = (
     "abstract. A factually consistent summary contains only statements that are "
     "entailed by the source. Penalize summaries that contain hallucinated facts not "
     "supported by the title or abstract.\n\n"
-    "Give a brief rationale, then record your four ratings using the "
-    "rate_summary tool."
+    "Give a brief rationale (1-2 sentences total, not per dimension), then "
+    "record your four ratings using the rate_summary tool."
 )
 
 
@@ -121,6 +122,8 @@ def judge_one(client, paper: dict) -> dict:
         tool_choice={"type": "tool", "name": "rate_summary"},
         messages=[{"role": "user", "content": build_query(paper)}],
     )
+    if resp.stop_reason == "max_tokens":
+        raise ValueError(f"response truncated at max_tokens={MAX_TOKENS}")
     for block in resp.content:
         if block.type == "tool_use" and block.name == "rate_summary":
             return validate_ratings(block.input)
