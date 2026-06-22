@@ -14,14 +14,19 @@ saw — the validated judge stands in for expanding manual evaluation. The 80
 human-rated (paper, model) items remain a reportable validation slice (the
 correlation script only correlates where expert ratings exist).
 
+Ratings are obtained via forced tool-use (structured output): the model must
+return a schema-valid object, eliminating parse failures. A leading rationale
+field lets it reason before scoring (reason-then-score preserves quality;
+constraining the integers alone would not improve it).
+
 Output: Output/scripts/llm_judge_scores.json
-    { "<paper_id>|||<model>": {"coherence": int, ... , "_judge_model": str} }
+    { "<paper_id>|||<model>": {"coherence": int, ..., "rationale": str,
+                               "_judge_model": str} }
 """
 
 from __future__ import annotations
 
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -32,7 +37,23 @@ from llm_apis.anthropic_client import AnthropicSummaryClient  # noqa: E402
 
 DIMENSIONS = ["coherence", "fluency", "relevance", "consistency"]
 JUDGE_MODEL = "claude-sonnet-4-6"  # bump to claude-opus-4-8 for the strongest judge
-JUDGE_PARAMS = {"temperature": 0, "max_tokens": 300}
+MAX_TOKENS = 500  # room for rationale + the four ratings
+
+# forced tool-use schema -> structured, always-valid output (no regex parsing).
+# rationale first so the model reasons before committing the integers.
+RATING_TOOL = {
+    "name": "rate_summary",
+    "description": "Record the 1-5 ratings for the summary on each dimension.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "rationale": {"type": "string",
+                          "description": "Brief justification before scoring."},
+            **{d: {"type": "integer", "minimum": 1, "maximum": 5} for d in DIMENSIONS},
+        },
+        "required": ["rationale", *DIMENSIONS],
+    },
+}
 
 GH_HASH = "1362b291718b57188a7909f08de26da760a0b9346d52111c97671d97d713af38"
 BASE_DIR = SCRIPT_DIR.parent / "Output" / "llm_summarization_benchmark" / GH_HASH
@@ -59,8 +80,8 @@ SYSTEM_PROMPT = (
     "abstract. A factually consistent summary contains only statements that are "
     "entailed by the source. Penalize summaries that contain hallucinated facts not "
     "supported by the title or abstract.\n\n"
-    'Respond with ONLY a JSON object: '
-    '{"coherence": int, "fluency": int, "relevance": int, "consistency": int}'
+    "Give a brief rationale, then record your four ratings using the "
+    "rate_summary tool."
 )
 
 
@@ -74,13 +95,10 @@ def build_query(paper: dict) -> str:
     )
 
 
-def parse_ratings(text: str) -> dict[str, int]:
-    """Extract and validate the 4-dimension JSON. Raises on malformed output."""
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
-        raise ValueError(f"no JSON object in judge response: {text[:200]!r}")
-    obj = json.loads(match.group(0))
-    out = {}
+def validate_ratings(obj: dict) -> dict:
+    """Validate the tool-call payload (schema guarantees keys/types; we still
+    range-check, since Anthropic does not enforce min/max). Raises on bad input."""
+    out: dict = {}
     for dim in DIMENSIONS:
         if dim not in obj:
             raise ValueError(f"missing dimension {dim!r} in {obj}")
@@ -88,7 +106,25 @@ def parse_ratings(text: str) -> dict[str, int]:
         if not 1 <= val <= 5:
             raise ValueError(f"{dim} out of range: {val}")
         out[dim] = val
+    out["rationale"] = str(obj.get("rationale", ""))
     return out
+
+
+def judge_one(client, paper: dict) -> dict:
+    """Force the rate_summary tool and return the validated ratings."""
+    resp = client.client.messages.create(
+        model=JUDGE_MODEL,
+        max_tokens=MAX_TOKENS,
+        temperature=0,
+        system=SYSTEM_PROMPT,
+        tools=[RATING_TOOL],
+        tool_choice={"type": "tool", "name": "rate_summary"},
+        messages=[{"role": "user", "content": build_query(paper)}],
+    )
+    for block in resp.content:
+        if block.type == "tool_use" and block.name == "rate_summary":
+            return validate_ratings(block.input)
+    raise ValueError(f"no rate_summary tool call in response: {resp.stop_reason}")
 
 
 def rated_papers(eval_dir: Path) -> set[str]:
@@ -137,13 +173,7 @@ def main():
             errors += 1
             continue
         try:
-            text, _, _ = client.summarize(
-                text=build_query(paper),
-                model_name=JUDGE_MODEL,
-                system_prompt_override=SYSTEM_PROMPT,
-                parameter_overrides=JUDGE_PARAMS,
-            )
-            ratings = parse_ratings(text)
+            ratings = judge_one(client, paper)
         except Exception as e:  # noqa: BLE001 — log, keep going, persist progress
             print(f"  [{i}/{len(todo)}] ERROR {model} {paper_id}: {e}")
             errors += 1
@@ -152,23 +182,27 @@ def main():
         cache[f"{paper_id}|||{model}"] = {**ratings, "_judge_model": JUDGE_MODEL}
         OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
         OUT_JSON.write_text(json.dumps(cache, indent=2, ensure_ascii=False))
-        print(f"  [{i}/{len(todo)}] {model}: {ratings}")
+        scores = {d: ratings[d] for d in DIMENSIONS}
+        print(f"  [{i}/{len(todo)}] {model}: {scores}")
 
     print(f"\nDone. {len(cache)} scored, {errors} errors. Wrote {OUT_JSON}")
 
 
 def demo():
-    """ponytail: self-check — parser accepts valid JSON, rejects bad."""
-    assert parse_ratings('{"coherence":3,"fluency":4,"relevance":2,"consistency":5}') == \
-        {"coherence": 3, "fluency": 4, "relevance": 2, "consistency": 5}
-    assert parse_ratings('noise {"coherence":3,"fluency":4,"relevance":2,'
-                         '"consistency":5} trailing')["consistency"] == 5
-    for bad in ['{"coherence":3}', '{"coherence":9,"fluency":4,"relevance":2,'
-                '"consistency":5}', 'not json']:
+    """ponytail: self-check — validator accepts good payloads, rejects bad."""
+    good = {"coherence": 3, "fluency": 4, "relevance": 2, "consistency": 5,
+            "rationale": "ok"}
+    out = validate_ratings(good)
+    assert {d: out[d] for d in DIMENSIONS} == {"coherence": 3, "fluency": 4,
+                                               "relevance": 2, "consistency": 5}
+    assert out["rationale"] == "ok"
+    for bad in [{"coherence": 3},  # missing dims
+                {"coherence": 9, "fluency": 4, "relevance": 2, "consistency": 5},
+                {}]:
         try:
-            parse_ratings(bad)
+            validate_ratings(bad)
             assert False, f"should have rejected: {bad}"
-        except (ValueError, json.JSONDecodeError):
+        except (ValueError, KeyError):
             pass
     print("selfcheck OK")
 
