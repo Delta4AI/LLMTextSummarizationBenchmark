@@ -61,18 +61,110 @@ JUDGE_JSON = SCRIPT_DIR.parent / "Output" / "scripts" / "llm_judge_scores.json"
 JUDGE_METRICS = [(f"judge_{d}", f"Judge-{d.capitalize()}") for d in DIMENSIONS]
 
 
-def load_judge_scores(path: Path) -> dict[tuple[str, str], dict[str, float]]:
-    """(paper_id, model) -> {judge_<dim>: score}. Empty if no judge run yet."""
+def load_judge_by_provider(
+    path: Path,
+) -> dict[str, dict[tuple[str, str], dict[str, float]]]:
+    """judge_key -> {(paper_id, model): {dim: score}}. Keys are
+    "<paper>|||<model>|||<judge>"; legacy 2-part keys fall back to judge
+    "anthropic". Empty if no judge run yet."""
     if not path.exists():
         return {}
     raw = json.loads(path.read_text())
-    out: dict[tuple[str, str], dict[str, float]] = {}
+    out: dict[str, dict[tuple[str, str], dict[str, float]]] = defaultdict(dict)
     for combined, ratings in raw.items():
-        paper_id, model = combined.split("|||")
-        out[(paper_id, model)] = {
-            f"judge_{d}": float(ratings[d]) for d in DIMENSIONS if d in ratings
+        parts = combined.split("|||")
+        paper_id, model = parts[0], parts[1]
+        judge = parts[2] if len(parts) > 2 else ratings.get("_judge", "anthropic")
+        out[judge][(paper_id, model)] = {
+            d: float(ratings[d]) for d in DIMENSIONS if d in ratings
         }
+    return dict(out)
+
+
+def aggregate_judges(
+    by_provider: dict[str, dict[tuple[str, str], dict[str, float]]],
+) -> dict[tuple[str, str], dict[str, float]]:
+    """Panel consensus: (paper_id, model) -> {judge_<dim>: median across judges}.
+    Median resists a single self-preferring outlier; with n<3 judges present it
+    degrades to mean/identity."""
+    pooled: dict[tuple[str, str], dict[str, list[float]]] = defaultdict(
+        lambda: {d: [] for d in DIMENSIONS})
+    for scores in by_provider.values():
+        for key, dims in scores.items():
+            for d in DIMENSIONS:
+                if d in dims:
+                    pooled[key][d].append(dims[d])
+    out: dict[tuple[str, str], dict[str, float]] = {}
+    for key, dd in pooled.items():
+        out[key] = {f"judge_{d}": float(np.median(dd[d]))
+                    for d in DIMENSIONS if dd[d]}
     return out
+
+
+def load_judge_scores(path: Path) -> dict[tuple[str, str], dict[str, float]]:
+    """(paper_id, model) -> {judge_<dim>: panel-median score}. Empty if no run."""
+    return aggregate_judges(load_judge_by_provider(path))
+
+
+# system model name -> provider family, for the self-preference check. Substring
+# match (handles prefixes like "llama_mistral-nemo" = Mistral family served
+# locally). Order matters only in that the sets are disjoint by construction.
+JUDGE_PROVIDERS = {"anthropic": "claude-sonnet-4-6", "openai": "gpt-5.4-2026-03-05",
+                   "mistral": "mistral-medium-2604"}
+
+
+def provider_of(model: str) -> str | None:
+    """Map a benchmarked system to one of the judge providers, or None (control
+    family, e.g. llama/gemma/qwen — no judge has a stake in it)."""
+    m = model.lower()
+    if "claude" in m:
+        return "anthropic"
+    if "gpt" in m or "openai" in m or m.startswith("o1") or m.startswith("o3"):
+        return "openai"
+    if "mistral" in m or "magistral" in m or "ministral" in m or "mixtral" in m:
+        return "mistral"
+    return None
+
+
+def self_preference(by_provider) -> list[dict]:
+    """Per-judge self-preference delta. For each judge J (provider P): on systems
+    from P's own family, how much higher does J score them than the OTHER judges
+    do on the same items (own_delta)? The same delta on non-P systems (ref_delta)
+    is the no-stake baseline. effect = own_delta - ref_delta; >0 = J inflates its
+    own family beyond a shared per-item shift. None of this needs expert labels."""
+    rows = []
+    for judge, scores in by_provider.items():
+        if judge not in JUDGE_PROVIDERS:
+            continue
+        own_d, ref_d = [], []
+        for key, dims in scores.items():
+            # mean over dimensions of (J - mean_other_judges) for this item
+            per_item = []
+            for d in DIMENSIONS:
+                if d not in dims:
+                    continue
+                other_vals = [by_provider[j][key][d] for j in by_provider
+                              if j != judge and key in by_provider[j]
+                              and d in by_provider[j][key]]
+                if other_vals:
+                    per_item.append(dims[d] - float(np.mean(other_vals)))
+            if not per_item:
+                continue
+            item_delta = float(np.mean(per_item))
+            # judge key IS the provider vocabulary, so compare directly
+            if provider_of(key[1]) == judge:
+                own_d.append(item_delta)
+            else:
+                ref_d.append(item_delta)
+        own = float(np.mean(own_d)) if own_d else np.nan
+        ref = float(np.mean(ref_d)) if ref_d else np.nan
+        rows.append({
+            "judge": judge,
+            "own_delta": own, "n_own": len(own_d),
+            "ref_delta": ref, "n_ref": len(ref_d),
+            "effect": (own - ref) if own_d and ref_d else np.nan,
+        })
+    return rows
 
 
 def load_human_ratings(eval_dir: Path) -> dict[tuple[str, str], dict[str, list[float]]]:
@@ -179,6 +271,19 @@ def write_ranking_csv(rows, path: Path):
         overall = "" if np.isnan(r["overall"]) else f"{r['overall']:.3f}"
         model = f'"{r["model"]}"' if "," in r["model"] else r["model"]
         lines.append(",".join([str(i), model, *vals, overall, str(r["n"])]))
+    path.write_text("\n".join(lines) + "\n")
+    print(f"Wrote: {path}")
+
+
+def write_self_pref_csv(rows, path: Path):
+    header = ["judge", "own_provider_delta", "n_own", "other_provider_delta",
+              "n_other", "self_preference_effect"]
+    lines = [",".join(header)]
+    for r in rows:
+        def f(v):
+            return "" if np.isnan(v) else f"{v:+.3f}"
+        lines.append(",".join([r["judge"], f(r["own_delta"]), str(r["n_own"]),
+                               f(r["ref_delta"]), str(r["n_ref"]), f(r["effect"])]))
     path.write_text("\n".join(lines) + "\n")
     print(f"Wrote: {path}")
 
@@ -300,7 +405,7 @@ def _cell_color(rho: float, p: float) -> str:
 
 
 def write_html(results, metrics, inter_expert, jsummary, n_items, path: Path,
-               ranking=None):
+               ranking=None, self_pref=None):
     """Self-contained explainer + heatmap report for colleagues."""
     def esc(s):
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -365,9 +470,9 @@ def write_html(results, metrics, inter_expert, jsummary, n_items, path: Path,
             rrows.append(f'<tr{hl}><td>{i}</td><th style="text-align:left">'
                          f'{esc(r["model"])}</th>{dc}<td><b>{ov}</b></td></tr>')
         n_rank = ranking[0]["n"] if ranking else 0
-        ranking_block = f"""<h2>5. Model ranking by the LLM judge</h2>
-<p>Mean judge score per system across the {n_rank} rated papers, all
-{len(ranking)} systems, best-first. These are the judge's own ratings (not a
+        ranking_block = f"""<h2>5. Model ranking by the LLM-judge panel</h2>
+<p>Mean panel-median score per system across the {n_rank} rated papers, all
+{len(ranking)} systems, best-first. These are the panel's own ratings (not a
 correlation), and exist for every system &mdash; the human-aligned ranking that
 manual evaluation could not produce at this scale. Top 3 highlighted.</p>
 <div class="scroll"><table>
@@ -377,6 +482,42 @@ manual evaluation could not produce at this scale. Top 3 highlighted.</p>
     else:
         ranking_block = ('<h2>5. Model ranking by the LLM judge</h2>'
                          '<p><em>Populated after the judge runs.</em></p>')
+
+    # self-preference section (only meaningful with a multi-provider panel)
+    if self_pref:
+        sp_rows = []
+        for r in self_pref:
+            def cell(v):
+                return "&mdash;" if np.isnan(v) else f"{v:+.3f}"
+            eff = r["effect"]
+            hl = "" if np.isnan(eff) or abs(eff) < 0.15 else (
+                ' style="background:#fdecea"' if eff > 0 else ' style="background:#eaf6ec"')
+            sp_rows.append(
+                f'<tr><th style="text-align:left">{esc(r["judge"])}</th>'
+                f'<td>{cell(r["own_delta"])}<br><small>n={r["n_own"]}</small></td>'
+                f'<td>{cell(r["ref_delta"])}<br><small>n={r["n_ref"]}</small></td>'
+                f'<td{hl}><b>{cell(eff)}</b></td></tr>')
+        self_pref_block = f"""<h2>6. Judge self-preference (bias control)</h2>
+<p>A single-provider judge could inflate summaries from its own model family.
+With a three-provider panel we can <em>measure</em> that directly, without any
+human labels. For each judge we compute, per item, how far its score sits above
+or below the mean of the <em>other two</em> judges on the same summary. Averaging
+that per-item delta over a judge's <b>own-family</b> systems and over all
+<b>other</b> systems gives two numbers; their difference is the
+<b>self-preference effect</b> &mdash; how much extra credit a judge gives its own
+family beyond any uniform lenience.</p>
+<div class="scroll"><table>
+  <thead><tr><th>Judge</th><th>Own-family &Delta;</th><th>Other-family &Delta;</th>
+  <th>Self-preference effect</th></tr></thead>
+  <tbody>{''.join(sp_rows)}</tbody>
+</table></div>
+<p><b>Read it like this:</b> an effect near 0 means the judge does not favour its
+own family &mdash; the panel median is unbiased. A clearly positive effect (red)
+flags a judge inflating its own systems; the panel median still damps it, and the
+per-provider number tells reviewers exactly how much. Systems with no judge
+provider (llama, gemma, qwen, &hellip;) form the neutral other-family baseline.</p>"""
+    else:
+        self_pref_block = ""
 
     header_cells = "".join(f"<th>{d.capitalize()}</th>" for d in DIMENSIONS)
     html = f"""<title>Human vs. automatic agreement &mdash; summarization benchmark</title>
@@ -462,13 +603,17 @@ grey = not significant. The orange row is the human&ndash;human agreement ceilin
 </table></div>
 
 <h2>4. LLM-as-a-judge vs. experts</h2>
-<p>The judge is given the <b>same rubric and the same evidence</b> the experts
-saw (title, abstract, reference highlights, and the summary) and returns a 1&ndash;5
-score per dimension via a constrained tool call at temperature 0, so its output
-is schema-valid and reproducible. It is first <b>validated</b> against the experts
-on the {n_items} jointly-covered items (the diagonal below), then applied to all
-63 systems on the same 20 papers &mdash; a human-aligned, multi-dimensional
-evaluation at a scale manual annotation cannot reach.</p>
+<p>A panel of <b>three judges from distinct providers</b> (Anthropic, OpenAI,
+Mistral &mdash; mid-tier peers, reasoning minimized) is each given the <b>same
+rubric and the same evidence</b> the experts saw (title, abstract, reference
+highlights, and the summary) and returns a 1&ndash;5 score per dimension via
+forced structured output, so every rating is schema-valid and reproducible. The
+headline score below is the <b>panel median</b> across the three judges, which
+resists any single judge's idiosyncrasy or self-preference (quantified in
+section&nbsp;6). It is first <b>validated</b> against the experts on the {n_items}
+jointly-covered items (the diagonal below), then applied to all systems on the
+same 20 papers &mdash; a human-aligned, multi-dimensional evaluation at a scale
+manual annotation cannot reach.</p>
 <p>Two quantities summarise the validation: the <b>diagonal</b> (judge's score for
 a dimension vs. the experts' score for that <em>same</em> dimension) measures
 agreement; the <b>off-diagonal</b> (judge's score for a dimension vs. experts'
@@ -478,7 +623,9 @@ rather than emitting one global impression.</p>
 
 {ranking_block}
 
-<h2>6. How to interpret the results</h2>
+{self_pref_block}
+
+<h2>7. How to interpret the results</h2>
 <div class="note">
 <p><b>Strength.</b> A high, significant &rho; means the metric ranks summaries in
 the same order experts do. Most metrics here reach &rho; up to ~0.85, so they
@@ -533,6 +680,28 @@ def demo():
     rank = judge_model_ranking(judge)
     assert [r["model"] for r in rank] == ["good", "bad"], rank
     assert abs(rank[0]["overall"] - 4.5) < 1e-9 and rank[0]["n"] == 2
+
+    # provider attribution (incl. locally-served family prefixes)
+    assert provider_of("gpt-4o") == "openai"
+    assert provider_of("claude-opus-4-1") == "anthropic"
+    assert provider_of("llama_mistral-nemo") == "mistral"
+    assert provider_of("llama_qwen3") is None
+
+    # panel median + self-preference: openai judge inflates its own family by +2
+    item = ("p1", "gpt-4o")  # openai-family system
+    ctrl = ("p1", "llama_qwen3")  # no-stake control
+    bp = {
+        "openai": {item: {d: 5 for d in DIMENSIONS}, ctrl: {d: 3 for d in DIMENSIONS}},
+        "anthropic": {item: {d: 3 for d in DIMENSIONS}, ctrl: {d: 3 for d in DIMENSIONS}},
+        "mistral": {item: {d: 3 for d in DIMENSIONS}, ctrl: {d: 3 for d in DIMENSIONS}},
+    }
+    agg = aggregate_judges(bp)
+    assert agg[item]["judge_coherence"] == 3.0  # median of [5,3,3]
+    sp = {r["judge"]: r for r in self_preference(bp)}
+    assert abs(sp["openai"]["own_delta"] - 2.0) < 1e-9  # 5 - mean(3,3)
+    assert abs(sp["openai"]["ref_delta"] - 0.0) < 1e-9  # 3 - mean(3,3)
+    assert abs(sp["openai"]["effect"] - 2.0) < 1e-9
+    assert abs(sp["anthropic"]["own_delta"]) < 1e-9 or np.isnan(sp["anthropic"]["own_delta"])
     print("selfcheck OK")
 
 
@@ -547,8 +716,9 @@ def main():
     human = load_human_ratings(EVAL_DIR)
     automatic = load_automatic_scores(PER_PAPER_JSON)
 
-    # merge LLM-judge scores as extra "metrics" if a judge run exists
-    judge = load_judge_scores(JUDGE_JSON)
+    # merge LLM-judge panel (median across providers) as extra "metrics"
+    by_provider = load_judge_by_provider(JUDGE_JSON)
+    judge = aggregate_judges(by_provider)
     metrics = list(METRICS)
     if judge:
         for key, dims in judge.items():
@@ -556,7 +726,7 @@ def main():
         metrics += JUDGE_METRICS
     print(f"Loaded {len(human)} human-rated items, "
           f"{len(automatic)} automatic-scored items, "
-          f"judge scores: {len(judge)}.")
+          f"judges: {sorted(by_provider)} ({len(judge)} pooled items).")
 
     results = correlate(human, automatic, metrics)
 
@@ -605,10 +775,22 @@ def main():
             print(f"    {i:>2d}. {ov:>4s}  {r['model']}")
         write_ranking_csv(ranking, BASE_DIR / "judge_model_ranking.csv")
 
+    self_pref = self_preference(by_provider) if len(by_provider) > 1 else []
+    if self_pref:
+        print("\n--- Judge self-preference (per-item delta vs. the other "
+              "judges; >0 = inflates) ---")
+        for r in self_pref:
+            own = "n/a" if np.isnan(r["own_delta"]) else f"{r['own_delta']:+.3f}"
+            ref = "n/a" if np.isnan(r["ref_delta"]) else f"{r['ref_delta']:+.3f}"
+            eff = "n/a" if np.isnan(r["effect"]) else f"{r['effect']:+.3f}"
+            print(f"    {r['judge']:>10s}: own-family {own} (n={r['n_own']})  "
+                  f"other {ref} (n={r['n_ref']})  effect {eff}")
+        write_self_pref_csv(self_pref, BASE_DIR / "judge_self_preference.csv")
+
     write_csv(results, BASE_DIR / "human_vs_automatic_spearman.csv", metrics)
     write_latex(results, BASE_DIR / "human_vs_automatic_correlation.tex", metrics)
     write_html(results, metrics, inter_expert, jsummary, n_items,
-               BASE_DIR / "human_vs_automatic_report.html", ranking)
+               BASE_DIR / "human_vs_automatic_report.html", ranking, self_pref)
     print("\nDone.")
 
 
