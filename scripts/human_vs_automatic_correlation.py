@@ -263,6 +263,17 @@ def judge_model_ranking(judge) -> list[dict]:
     return rows
 
 
+def per_judge_rankings(by_provider) -> dict[str, list[dict]]:
+    """judge -> model ranking from that judge alone (no panel median).
+    Reuses judge_model_ranking by remapping raw dims to judge_<dim> keys."""
+    out = {}
+    for judge, scores in by_provider.items():
+        remapped = {key: {f"judge_{d}": v for d, v in dims.items()}
+                    for key, dims in scores.items()}
+        out[judge] = judge_model_ranking(remapped)
+    return out
+
+
 def write_ranking_csv(rows, path: Path):
     header = ["rank", "model"] + [d.capitalize() for d in DIMENSIONS] + ["overall", "n"]
     lines = [",".join(header)]
@@ -405,7 +416,7 @@ def _cell_color(rho: float, p: float) -> str:
 
 
 def write_html(results, metrics, inter_expert, jsummary, n_items, path: Path,
-               ranking=None, self_pref=None):
+               ranking=None, self_pref=None, per_judge=None):
     """Self-contained explainer + heatmap report for colleagues."""
     def esc(s):
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -459,26 +470,45 @@ def write_html(results, metrics, inter_expert, jsummary, n_items, path: Path,
         experts do &mdash; something the bulk metrics below do not achieve.</p>"""
 
     # model ranking section
-    if ranking:
-        dim_h = "".join(f"<th>{d.capitalize()}</th>" for d in DIMENSIONS)
+    dim_h = "".join(f"<th>{d.capitalize()}</th>" for d in DIMENSIONS)
+
+    def rank_table(rows):
         rrows = []
-        for i, r in enumerate(ranking, 1):
+        for i, r in enumerate(rows, 1):
             dc = "".join(f"<td>{r[d]:.2f}</td>" if not np.isnan(r[d])
                          else "<td>&mdash;</td>" for d in DIMENSIONS)
             ov = "&mdash;" if np.isnan(r["overall"]) else f"{r['overall']:.2f}"
             hl = ' style="background:#eef7f0"' if i <= 3 else ""
             rrows.append(f'<tr{hl}><td>{i}</td><th style="text-align:left">'
                          f'{esc(r["model"])}</th>{dc}<td><b>{ov}</b></td></tr>')
+        return (f'<div class="scroll"><table><thead><tr><th>#</th><th>System</th>'
+                f'{dim_h}<th>Overall</th></tr></thead><tbody>'
+                f'{"".join(rrows)}</tbody></table></div>')
+
+    if ranking:
         n_rank = ranking[0]["n"] if ranking else 0
+        # per-judge breakdown: one collapsible table per provider
+        per_judge_html = ""
+        for judge in sorted(per_judge or {}):
+            rows = per_judge[judge]
+            if not rows:
+                continue
+            per_judge_html += (f'<details><summary>{esc(judge)} alone '
+                               f'({len(rows)} systems)</summary>'
+                               f'{rank_table(rows)}</details>')
+        per_judge_block = (
+            f'<p style="margin-top:1em"><b>Per-judge views.</b> The ranking above '
+            f'pools the panel (median across judges). Expand each judge to see its '
+            f'own ranking &mdash; useful for spotting where a single provider '
+            f'disagrees with the consensus.</p>{per_judge_html}'
+        ) if per_judge_html else ""
         ranking_block = f"""<h2>5. Model ranking by the LLM-judge panel</h2>
 <p>Mean panel-median score per system across the {n_rank} rated papers, all
 {len(ranking)} systems, best-first. These are the panel's own ratings (not a
 correlation), and exist for every system &mdash; the human-aligned ranking that
 manual evaluation could not produce at this scale. Top 3 highlighted.</p>
-<div class="scroll"><table>
-  <thead><tr><th>#</th><th>System</th>{dim_h}<th>Overall</th></tr></thead>
-  <tbody>{''.join(rrows)}</tbody>
-</table></div>"""
+{rank_table(ranking)}
+{per_judge_block}"""
     else:
         ranking_block = ('<h2>5. Model ranking by the LLM judge</h2>'
                          '<p><em>Populated after the judge runs.</em></p>')
@@ -754,6 +784,7 @@ def main():
         print(f"    {d:>12s}: rho={inter_expert[d]:+.3f}")
 
     ranking = judge_model_ranking(judge) if judge else None
+    pj_rankings = per_judge_rankings(by_provider) if len(by_provider) > 1 else {}
 
     if jsummary:
         print("\n--- Judge vs. expert agreement ---")
@@ -790,7 +821,8 @@ def main():
     write_csv(results, BASE_DIR / "human_vs_automatic_spearman.csv", metrics)
     write_latex(results, BASE_DIR / "human_vs_automatic_correlation.tex", metrics)
     write_html(results, metrics, inter_expert, jsummary, n_items,
-               BASE_DIR / "human_vs_automatic_report.html", ranking, self_pref)
+               BASE_DIR / "human_vs_automatic_report.html", ranking, self_pref,
+               pj_rankings)
     print("\nDone.")
 
 
