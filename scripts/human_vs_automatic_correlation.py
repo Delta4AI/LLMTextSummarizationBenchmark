@@ -220,6 +220,35 @@ def inter_expert_rho(evaluators) -> dict[str, float]:
     return out
 
 
+def loo_expert_rho(evaluators) -> dict[str, float]:
+    """Leave-one-out ceiling: each expert's ratings vs. the mean of the *other*
+    experts on shared items, averaged over experts. This matches the judge's
+    target (consensus across raters) on a held-out basis, so the judge and the
+    humans are compared on the same footing — unlike the pairwise number, which
+    pits one noisy rater against another."""
+    out = {}
+    n = len(evaluators)
+    for dim in DIMENSIONS:
+        rhos = []
+        for a in range(n):
+            xs, ys = [], []
+            for k in evaluators[a]:
+                if dim not in evaluators[a][k]:
+                    continue
+                others = [evaluators[b][k][dim] for b in range(n)
+                          if b != a and k in evaluators[b]
+                          and dim in evaluators[b][k]]
+                if not others:
+                    continue
+                xs.append(evaluators[a][k][dim])
+                ys.append(float(np.mean(others)))
+            if len(xs) < 3 or len(set(xs)) < 2 or len(set(ys)) < 2:
+                continue
+            rhos.append(spearmanr(xs, ys)[0])
+        out[dim] = float(np.mean(rhos)) if rhos else np.nan
+    return out
+
+
 def judge_summary(results) -> dict | None:
     """Judge-vs-expert agreement: per-dimension diagonal (judge dim vs same
     human dim) and the off-diagonal mean (discriminant check). None if no judge."""
@@ -415,8 +444,8 @@ def _cell_color(rho: float, p: float) -> str:
     return f"rgb({r},{g},{b})"
 
 
-def write_html(results, metrics, inter_expert, jsummary, n_items, path: Path,
-               ranking=None, self_pref=None, per_judge=None):
+def write_html(results, metrics, inter_expert, loo_expert, jsummary, n_items,
+               path: Path, ranking=None, self_pref=None, per_judge=None):
     """Self-contained explainer + heatmap report for colleagues."""
     def esc(s):
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -451,23 +480,31 @@ def write_html(results, metrics, inter_expert, jsummary, n_items, path: Path,
     if jsummary:
         diag = jsummary["diagonal_mean"]
         off = jsummary["off_diagonal_mean"]
+        loo = np.nanmean(list(loo_expert.values()))
         ie = np.nanmean(list(inter_expert.values()))
         judge_block = f"""
         <div class="cards">
           <div class="card"><div class="big">{diag:+.2f}</div>
-            <div>Judge&ndash;expert agreement<br><small>mean of matched
-            dimensions (the diagonal)</small></div></div>
-          <div class="card"><div class="big">{ie:+.2f}</div>
-            <div>Inter-expert ceiling<br><small>mean pairwise human&ndash;human
-            &rho; &mdash; the judge cannot be expected to beat this</small></div></div>
+            <div>Judge&ndash;expert agreement<br><small>judge vs. mean expert,
+            matched dimensions (the diagonal)</small></div></div>
+          <div class="card"><div class="big">{loo:+.2f}</div>
+            <div>Human ceiling (leave-one-out)<br><small>each expert vs. the mean
+            of the others &mdash; the fair, same-target benchmark for the judge
+            (pairwise inter-rater &rho; = {ie:+.2f})</small></div></div>
           <div class="card"><div class="big">{off:+.2f}</div>
             <div>Off-diagonal mean<br><small>judge dim vs <em>other</em> human
             dims; lower than the diagonal = dimension-specific</small></div></div>
         </div>
-        <p><b>Read it like this:</b> if the diagonal (judge rates the dimension it
-        was asked about) is close to the inter-expert ceiling <em>and</em> clearly
-        higher than the off-diagonal, the judge is tracking each construct the way
-        experts do &mdash; something the bulk metrics below do not achieve.</p>"""
+        <p><b>Read it like this:</b> the judge is compared against the
+        <b>leave-one-out</b> ceiling, because both are scored against the same
+        target &mdash; a held-out consensus of raters. (The raw <em>pairwise</em>
+        inter-rater &rho; = {ie:+.2f} answers a different question, how well two
+        individual humans agree, and is a noisier target, so it is not the
+        judge's yardstick.) The judge is faithful when the diagonal sits near the
+        leave-one-out ceiling <em>and</em> clearly exceeds the off-diagonal. Note
+        the diagonal&ndash;off-diagonal gap here is small: the judge tracks expert
+        quality closely but does <em>not</em> cleanly separate the four
+        dimensions &mdash; they co-move onto a single quality factor.</p>"""
 
     # model ranking section
     dim_h = "".join(f"<th>{d.capitalize()}</th>" for d in DIMENSIONS)
@@ -619,7 +656,11 @@ model's 20 summaries &mdash; to separate genuine metric&ndash;quality agreement
 from agreement that merely reflects the large quality gap <em>between</em>
 systems. The <b>inter-expert ceiling</b> (mean pairwise Spearman between experts
 who rated shared items) bounds how high any automatic measure could plausibly
-correlate, since experts do not perfectly agree either.</p>
+correlate, since experts do not perfectly agree either. Note this pairwise
+number pits one rater against another; for the LLM judge specifically
+(section&nbsp;4) we use the stricter <b>leave-one-out</b> ceiling, which scores
+each rater against the held-out consensus &mdash; the same target the judge is
+measured against.</p>
 
 <h2>3. Correlation with expert judgement (Spearman &rho;)</h2>
 <p>Cells are coloured by strength; <b>bold</b> = significant (p&nbsp;&lt;&nbsp;0.05),
@@ -628,7 +669,7 @@ grey = not significant. The orange row is the human&ndash;human agreement ceilin
   <thead><tr><th>Metric</th>{header_cells}</tr></thead>
   <tbody>
     {''.join(body_rows)}
-    <tr class="ceil"><th>Inter-expert ceiling</th>{ceil}</tr>
+    <tr class="ceil"><th>Inter-rater ceiling (pairwise)</th>{ceil}</tr>
   </tbody>
 </table></div>
 
@@ -672,7 +713,8 @@ ranking individual summaries of similar quality.</p>
 <p><b>Non-significant cells</b> (grey) indicate no measurable agreement &mdash;
 e.g. FactCC shows no significant correlation with experts on any dimension.</p>
 <p><b>Judge validity</b> is read from section 4: the diagonal relative to the
-inter-expert ceiling, and the diagonal relative to the off-diagonal.</p>
+leave-one-out human ceiling (same-target, fair comparison), and the diagonal
+relative to the off-diagonal (dimension-specificity).</p>
 </div>
 <p class="sub"><small>Generated by the analysis script
 <code>human_vs_automatic_correlation.py</code> from the expert ratings and
@@ -776,12 +818,15 @@ def main():
 
     # n of the analysis (rated items that also have automatic scores)
     n_items = sum(1 for k in human if k in automatic)
-    inter_expert = inter_expert_rho(load_evaluators(EVAL_DIR))
+    evaluators = load_evaluators(EVAL_DIR)
+    inter_expert = inter_expert_rho(evaluators)
+    loo_expert = loo_expert_rho(evaluators)
     jsummary = judge_summary(results)
 
-    print("\n--- Inter-expert agreement ceiling (mean pairwise Spearman) ---")
+    print("\n--- Expert agreement: pairwise vs. leave-one-out ceiling ---")
+    print(f"    {'':>12s}  {'pairwise':>9s}  {'leave-1-out':>11s}")
     for d in DIMENSIONS:
-        print(f"    {d:>12s}: rho={inter_expert[d]:+.3f}")
+        print(f"    {d:>12s}: {inter_expert[d]:>+9.3f}  {loo_expert[d]:>+11.3f}")
 
     ranking = judge_model_ranking(judge) if judge else None
     pj_rankings = per_judge_rankings(by_provider) if len(by_provider) > 1 else {}
@@ -790,7 +835,7 @@ def main():
         print("\n--- Judge vs. expert agreement ---")
         for d in DIMENSIONS:
             print(f"    {d:>12s}: judge rho={jsummary['diagonal'][d]:+.3f}  "
-                  f"(expert ceiling {inter_expert[d]:+.3f})")
+                  f"(LOO ceiling {loo_expert[d]:+.3f})")
         print(f"    {'diagonal mean':>12s}: {jsummary['diagonal_mean']:+.3f}")
         print(f"    {'off-diag mean':>12s}: {jsummary['off_diagonal_mean']:+.3f} "
               f"(lower = more dimension-specific)")
@@ -820,7 +865,7 @@ def main():
 
     write_csv(results, BASE_DIR / "human_vs_automatic_spearman.csv", metrics)
     write_latex(results, BASE_DIR / "human_vs_automatic_correlation.tex", metrics)
-    write_html(results, metrics, inter_expert, jsummary, n_items,
+    write_html(results, metrics, inter_expert, loo_expert, jsummary, n_items,
                BASE_DIR / "human_vs_automatic_report.html", ranking, self_pref,
                pj_rankings)
     print("\nDone.")
