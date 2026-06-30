@@ -48,3 +48,4 @@ exclude = ["tests", "*.tests", "*.tests.*", "tests.*"]
 
 [project.scripts]
 benchmark = "llm_summarization_benchmark.benchmark:main"
+proxy-validation = "llm_summarization_benchmark.goldstandard_proxy_validation:main"
