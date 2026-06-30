@@ -23,6 +23,9 @@ MODEL_LABELS = {
     "mistral_mistral-small-2506": "Mistral-Small-2506",
 }
 
+# Likert categories used by the agreement coefficients below
+CATEGORIES = [1, 2, 3, 4, 5]
+
 script_dir = Path(__file__).resolve().parent
 GH_HASH = "1362b291718b57188a7909f08de26da760a0b9346d52111c97671d97d713af38"
 base_dir = script_dir.parent / "Output" / "llm_summarization_benchmark" / GH_HASH
@@ -60,84 +63,117 @@ def aggregate_ratings(assessments):
                 ratings[model][dim].append(a["ratings"][dim])
     return ratings
 
-# krippendorff_alpha calculation (to analyze inter-rater agreement)
-def krippendorff_alpha(evaluators, dimension):
+
+# Gwet's AC2 and Brennan-Prediger (paradox-resistant agreement coefficients)
+def build_weights(categories, kind="quadratic"):
+    cats = list(categories)
+    q = len(cats)
+    if kind == "identity":
+        return [[1.0 if k == l else 0.0 for l in range(q)] for k in range(q)]
+    denom = (max(cats) - min(cats)) ** 2
+    return [[1.0 - ((cats[k] - cats[l]) ** 2) / denom for l in range(q)]
+            for k in range(q)]
+
+
+def _subject_counts(evaluators, dimension):
+    """Per-subject category-count vectors for one dimension (subjects with >=2 raters)."""
+    cat_index = {c: idx for idx, c in enumerate(CATEGORIES)}
     all_keys = set()
     for ev in evaluators:
         all_keys.update(ev.keys())
 
-    items = []
+    subjects = []
     for key in sorted(all_keys):
-        raters_with_val = [(i, ev[key][dimension])
-                           for i, ev in enumerate(evaluators)
-                           if key in ev and dimension in ev[key]]
-        if len(raters_with_val) >= 2:
-            items.append(raters_with_val)
+        counts = [0] * len(CATEGORIES)
+        n_raters = 0
+        for ev in evaluators:
+            if key in ev and dimension in ev[key]:
+                counts[cat_index[ev[key][dimension]]] += 1
+                n_raters += 1
+        if n_raters >= 2:
+            subjects.append(counts)
+    return subjects
 
-    if not items:
-        return None
 
-    do_sum = 0.0
-    do_pairs = 0
-    for item_ratings in items:
-        vals = [v for _, v in item_ratings]
-        for a, b in combinations(vals, 2):
-            do_sum += (a - b) ** 2
-            do_pairs += 1
-
-    if do_pairs == 0:
-        return None
-
-    do = do_sum / do_pairs
-
-    all_vals = [v for item_ratings in items for _, v in item_ratings]
-    de_sum = sum((a - b) ** 2 for a, b in combinations(all_vals, 2))
-    de_pairs = len(all_vals) * (len(all_vals) - 1) / 2
-    de = de_sum / de_pairs if de_pairs else 0
-
-    if de == 0:
-        return 1.0
-
-    return 1.0 - (do / de)
-
-def krippendorff_alpha_overall(evaluators):
-    evaluators_flat = []
+def _subject_counts_overall(evaluators):
+    cat_index = {c: idx for idx, c in enumerate(CATEGORIES)}
+    flat_evs = []
     for ev in evaluators:
         flat = {}
         for key, rats in ev.items():
             for dim in DIMENSIONS:
                 if dim in rats:
                     flat[(*key, dim)] = rats[dim]
-        evaluators_flat.append(flat)
+        flat_evs.append(flat)
 
     all_keys = set()
-    for ef in evaluators_flat:
-        all_keys.update(ef.keys())
+    for fe in flat_evs:
+        all_keys.update(fe.keys())
 
-    items_flat = []
+    subjects = []
     for key in sorted(all_keys):
-        raters_with_val = [(i, ef[key]) for i, ef in enumerate(evaluators_flat) if key in ef]
-        if len(raters_with_val) >= 2:
-            items_flat.append(raters_with_val)
+        counts = [0] * len(CATEGORIES)
+        n_raters = 0
+        for fe in flat_evs:
+            if key in fe:
+                counts[cat_index[fe[key]]] += 1
+                n_raters += 1
+        if n_raters >= 2:
+            subjects.append(counts)
+    return subjects
 
-    if not items_flat:
+
+def agreement_coefficients(subjects, W):
+    q = len(CATEGORIES)
+
+    pa_sum, used = 0.0, 0
+    for counts in subjects:
+        r_i = sum(counts)
+        if r_i < 2:
+            continue
+        weighted_pairs = 0.0
+        for k in range(q):
+            if counts[k] == 0:
+                continue
+            for l in range(q):
+                if counts[l] == 0:
+                    continue
+                weighted_pairs += W[k][l] * counts[k] * counts[l]
+        pa_sum += (weighted_pairs - r_i) / (r_i * (r_i - 1))
+        used += 1
+    if used == 0:
         return None
+    pa = pa_sum / used
 
-    do_sum = 0.0
-    do_pairs = 0
-    for item_ratings in items_flat:
-        vals = [v for _, v in item_ratings]
-        for a, b in combinations(vals, 2):
-            do_sum += (a - b) ** 2
-            do_pairs += 1
-    do = do_sum / do_pairs if do_pairs else 0
+    pi = [0.0] * q
+    for counts in subjects:
+        r_i = sum(counts)
+        if r_i < 2:
+            continue
+        for k in range(q):
+            pi[k] += counts[k] / r_i
+    pi = [p / used for p in pi]
 
-    all_vals = [v for item_ratings in items_flat for _, v in item_ratings]
-    de_sum = sum((a - b) ** 2 for a, b in combinations(all_vals, 2))
-    de_pairs = len(all_vals) * (len(all_vals) - 1) / 2
-    de = de_sum / de_pairs if de_pairs else 0
+    T_w = sum(W[k][l] for k in range(q) for l in range(q))
+    sum_pi = sum(pi[k] * (1 - pi[k]) for k in range(q))
 
-    return 1.0 - (do / de) if de != 0 else 1.0
+    pe_ac2 = (T_w / (q * (q - 1))) * sum_pi
+    pe_bp = T_w / (q * q)
+
+    ac2 = (pa - pe_ac2) / (1 - pe_ac2) if pe_ac2 != 1 else 1.0
+    bp = (pa - pe_bp) / (1 - pe_bp) if pe_bp != 1 else 1.0
+    return {"pa": pa, "pe_ac2": pe_ac2, "pe_bp": pe_bp,
+            "ac2": ac2, "bp": bp, "n": used}
+
+
+def gwet_ac2(evaluators, dimension, W):
+    res = agreement_coefficients(_subject_counts(evaluators, dimension), W)
+    return res["ac2"] if res else None
+
+
+def brennan_prediger(evaluators, dimension, W):
+    res = agreement_coefficients(_subject_counts(evaluators, dimension), W)
+    return res["bp"] if res else None
 
 # pairwise Spearman correlation between evaluators (to analyze ranking agreement)
 def pairwise_spearman(evaluators):
@@ -229,113 +265,6 @@ def pairwise_mann_whitney(ratings):
 
             print(f"    {l1:>25s} vs {l2:<25s}  U={stat:8.1f}  p={p_corr:.4f} {sig}")
 
-# TEMP -> LaTeX table generation for publication
-def generate_latex_table(ratings, evaluators, output_path):
-    models = list(MODEL_LABELS.keys())
-
-    overall_alpha = krippendorff_alpha_overall(evaluators)
-
-    # Compute per-dimension mean Spearman
-    n_eval = len(evaluators)
-    spearman_per_dim = {}
-    for dim in DIMENSIONS:
-        rho_values = []
-        for i, j in combinations(range(n_eval), 2):
-            shared_keys = sorted(
-                k for k in evaluators[i]
-                if k in evaluators[j]
-                and dim in evaluators[i][k]
-                and dim in evaluators[j][k]
-            )
-            if len(shared_keys) >= 3:
-                vals_i = [evaluators[i][k][dim] for k in shared_keys]
-                vals_j = [evaluators[j][k][dim] for k in shared_keys]
-                rho, _ = spearmanr(vals_i, vals_j)
-                rho_values.append(rho)
-        spearman_per_dim[dim] = np.mean(rho_values) if rho_values else None
-
-    # Compute overall mean Spearman
-    rho_values_all = []
-    for i, j in combinations(range(n_eval), 2):
-        shared_vals_i = []
-        shared_vals_j = []
-        for k in sorted(evaluators[i].keys()):
-            if k in evaluators[j]:
-                for dim in DIMENSIONS:
-                    if dim in evaluators[i][k] and dim in evaluators[j][k]:
-                        shared_vals_i.append(evaluators[i][k][dim])
-                        shared_vals_j.append(evaluators[j][k][dim])
-        if len(shared_vals_i) >= 3:
-            rho, _ = spearmanr(shared_vals_i, shared_vals_j)
-            rho_values_all.append(rho)
-    overall_spearman = np.mean(rho_values_all) if rho_values_all else None
-
-    # Determine n per model from data
-    first_model = list(MODEL_LABELS.keys())[0]
-    n_per_model = len(ratings[first_model][DIMENSIONS[0]])
-
-    lines = []
-    lines.append(r"\begin{table}[ht]")
-    lines.append(r"\centering")
-    lines.append(r"\caption{Expert assessment results (mean $\pm$ SEM, $n$="
-                 f"{n_per_model}"
-                 r" per model). "
-                 r"Krippendorff's $\alpha$ and mean pairwise Spearman's $\rho$ measure inter-rater agreement.}")
-    lines.append(r"\label{tab:human_eval}")
-    lines.append(r"\begin{tabular}{lcccc}")
-    lines.append(r"\toprule")
-    lines.append(r"Model & Coherence & Fluency & Relevance & Consistency \\")
-    lines.append(r"\midrule")
-
-    for m in models:
-        label = MODEL_LABELS[m]
-        cells = []
-        for dim in DIMENSIONS:
-            vals = ratings[m][dim]
-            mean = np.mean(vals)
-            sem = np.std(vals, ddof=1) / np.sqrt(len(vals))
-            cells.append(f"${mean:.2f} \\pm {sem:.2f}$")
-        lines.append(f"{label} & {' & '.join(cells)} \\\\")
-
-    lines.append(r"\midrule")
-
-    alpha_cells = []
-    for dim in DIMENSIONS:
-        a = krippendorff_alpha(evaluators, dim)
-        alpha_cells.append(f"${a:.3f}$" if a is not None else "---")
-    lines.append(f"Krippendorff's $\\alpha$ & {' & '.join(alpha_cells)} \\\\")
-
-    spearman_cells = []
-    for dim in DIMENSIONS:
-        rho = spearman_per_dim[dim]
-        spearman_cells.append(f"${rho:.3f}$" if rho is not None else "---")
-    lines.append(f"Spearman's $\\rho$ (mean) & {' & '.join(spearman_cells)} \\\\")
-
-    lines.append(r"\bottomrule")
-    lines.append(r"\end{tabular}")
-
-    footer_parts = []
-    if overall_alpha is not None:
-        footer_parts.append(f"Overall $\\alpha = {overall_alpha:.3f}$")
-    if overall_spearman is not None:
-        footer_parts.append(f"Overall $\\rho = {overall_spearman:.3f}$")
-    if footer_parts:
-        lines.append(r"\vspace{2pt}")
-        lines.append(f"\\\\\\small {', '.join(footer_parts)}")
-
-    lines.append(r"\end{table}")
-
-    latex_str = "\n".join(lines)
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
-        f.write(latex_str)
-
-    print(f"\nSaved LaTeX table: {output_path}")
-    print("\n--- LaTeX Table Preview ---")
-    print(latex_str)
-
-
 
 def main():
     evaluators = load_evaluator_data(EVAL_FILES)
@@ -353,27 +282,32 @@ def main():
             sem = np.std(vals, ddof=1) / np.sqrt(len(vals))
             print(f"  {dim:>12s}: mean={np.mean(vals):.2f}  sem={sem:.2f}  n={len(vals)}")
 
-    print("\n--- Inter-Rater Agreement (Krippendorff's alpha) ---")
-    for dim in DIMENSIONS:
-        alpha = krippendorff_alpha(evaluators, dim)
-        if alpha is not None:
-            print(f"  {dim:>12s}: α = {alpha:.3f}")
-        else:
-            print(f"  {dim:>12s}: not enough overlapping ratings")
+    # Inter-rater agreement: Gwet's AC2 (primary) with Brennan-Prediger as a
+    # paradox-resistant cross-check and the observed weighted agreement (pa).
+    print("\n--- Inter-Rater Agreement (Gwet's AC2, quadratic weights) ---")
+    print("  AC2 = primary coefficient; BP = Brennan-Prediger cross-check; "
+          "pa = observed agreement")
+    print(f"  {'dimension':>12s}  {'AC2':>7s}  {'BP':>7s}  {'pa':>7s}")
 
-    overall_alpha = krippendorff_alpha_overall(evaluators)
-    if overall_alpha is not None:
-        print(f"\n  {'overall':>12s}: α = {overall_alpha:.3f}")
+    W = build_weights(CATEGORIES, kind="quadratic")
+    for dim in DIMENSIONS:
+        res = agreement_coefficients(_subject_counts(evaluators, dim), W)
+        if res is None:
+            print(f"  {dim:>12s}: insufficient data")
+            continue
+        print(f"  {dim:>12s}  {res['ac2']:>7.3f}  {res['bp']:>7.3f}  {res['pa']:>7.3f}")
+
+    res_all = agreement_coefficients(_subject_counts_overall(evaluators), W)
+    if res_all is not None:
+        print(f"  {'overall':>12s}  {res_all['ac2']:>7.3f}  "
+              f"{res_all['bp']:>7.3f}  {res_all['pa']:>7.3f}")
 
     pairwise_spearman(evaluators)
 
     pairwise_mann_whitney(ratings)
 
-    # TEMP -> generate LaTeX table
-    latex_path = output_dir / "human_evaluation_table.tex"
-    generate_latex_table(ratings, evaluators, latex_path)
-
     print("\nDone.")
+
 
 if __name__ == "__main__":
     main()

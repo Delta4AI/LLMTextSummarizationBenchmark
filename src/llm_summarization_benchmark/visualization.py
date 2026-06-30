@@ -192,12 +192,14 @@ class SummarizationVisualizer:
 
         self._create_metric_comparison_plot()
         self._create_length_analysis_plot()
+        self._export_insufficient_findings()
         self._create_radar_chart()
 
         self._create_execution_time_boxplot()
         self._create_grouped_execution_time_boxplot()
         self._create_metric_correlation_matrix()
         self._create_rank_heatmap()
+
         self._create_group_bar_chart()
         self._create_generalpurpose_comparison_plot()
         self._create_reasoning_comparison_plot()
@@ -1097,6 +1099,52 @@ class SummarizationVisualizer:
         output_path = self.out_dir / "length_analysis.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
 
+        # export per-method compliance for the R supplementary figure
+        import csv
+        csv_path = self.out_dir / "length_compliance.csv"
+        with open(csv_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["method", "within_bounds_pct", "too_short_pct", "too_long_pct"])
+            for m in self.methods:
+                ls = self.results[m].length_stats
+                writer.writerow([m, ls["within_bounds_pct"], ls["too_short_pct"], ls["too_long_pct"]])
+        logger.info("Length compliance CSV written to %s", csv_path)
+
+
+    def _export_insufficient_findings(self):
+        """Count INSUFFICIENT_FINDINGS returns per method and export for reporting."""
+        import csv
+
+        rows = []
+        total_if = 0
+        total_summaries = 0
+
+        for m in self.methods:
+            summaries = self.results[m].summaries
+            n = len(summaries)
+            # strict: genuine INSUFFICIENT_FINDINGS returns only
+            if_count = sum(
+                1 for s in summaries
+                if isinstance(s, str) and s.strip().strip("'\"").startswith("INSUFFICIENT_FINDINGS")
+            )
+            rows.append((m, if_count, n, 100.0 * if_count / n if n else 0.0))
+            total_if += if_count
+            total_summaries += n
+
+        rows.sort(key=lambda r: r[3], reverse=True)
+
+        csv_path = self.out_dir / "insufficient_findings.csv"
+        with open(csv_path, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["method", "insufficient_findings_count", "n_summaries", "insufficient_findings_pct"])
+            w.writerows(rows)
+
+        n_models_used = sum(1 for r in rows if r[1] > 0)
+        logger.info("INSUFFICIENT_FINDINGS: %d / %d summaries (%.3f%%) across all methods",
+                    total_if, total_summaries, 100.0 * total_if / total_summaries if total_summaries else 0.0)
+        logger.info("INSUFFICIENT_FINDINGS: used by %d of %d methods", n_models_used, len(self.methods))
+        logger.info("INSUFFICIENT_FINDINGS CSV written to %s", csv_path)
+
     def _create_radar_chart(self, top_n: int = 10):
         """Create radar chart for top n performing methods ranked by aggregate score."""
         metrics = [
@@ -1489,67 +1537,167 @@ class SummarizationVisualizer:
 
         output_path = self.out_dir / "metric_correlation_matrix.html"
         pyo.plot(fig, filename=str(output_path), auto_open=False)
-    
-    def _create_rank_heatmap(self):
-        """
-        Shows ranks of models per metric in a heatmap.
-        Lower rank = better (1 is best).
-        Models sorted by average rank across metrics (best at top).
-        """
-        # metrics to rank (quality only)
-        metrics = [*self.metrics]
-        metric_labels = [m.label for m in metrics]
 
-        value_rows = []
-        for method in self.methods:
-            row = []
-            for metric in metrics:
-                try:
-                    val = metric.getter(method)["mean"]
-                except Exception:
-                    val = math.nan
-                row.append(val)
-            value_rows.append(row)
-        
-        A = np.array(value_rows, dtype=float)
 
-        # convert to rank matrix (1 = best)
-        ranks = np.zeros_like(A, dtype=float)
-        for j in range(A.shape[1]):
-            col = A[:, j]
-            if np.all(np.isnan(col)):
-                ranks[:, j] = np.nan
+
+    # Rank-heatmap config
+    RANK_HEATMAP_GROUPS = {
+        "lexical": [
+            ("rouge1", ["rouge-1", "rouge1", "r1"]),
+            ("rouge2", ["rouge-2", "rouge2", "r2"]),
+            ("rougel", ["rouge-l", "rougel", "rl", "rL"]),
+            ("meteor", ["meteor"]),
+            ("bleu", ["bleu"]),
+        ],
+        "semantic": [
+            ("roberta", ["roberta", "bertscore-roberta", "roberta-large"]),
+            ("deberta", ["deberta", "bertscore-deberta", "deberta-xlarge-mnli"]),
+            ("mpnet", ["all-mpnet-base-v2", "mpnet", "semantic similarity (all-mpnet-base-v2)", "semantic_similarity"]),
+        ],
+        "factual": [
+            ("alignscore", ["alignscore"]),
+            ("summac", ["summac", "summac-zs", "summac_zs"]),
+            ("minicheck_ft5", ["minicheck-ft5", "minicheck_ft5", "minicheck flan t5", "minicheck-flan-t5-large"]),
+            ("minicheck_7b", ["minicheck-7b", "minicheck_7b", "bespoke-minicheck-7b"]),
+        ],
+    }
+
+    # equal weights
+    RANK_HEATMAP_WEIGHTS = {
+        "lexical": 1 / 3,
+        "semantic": 1 / 3,
+        "factual": 1 / 3,
+    }
+
+    # "strict": require all metrics in a group
+    # "nanmean": average over available metrics
+    RANK_HEATMAP_GROUP_AVG_MODE = "strict"
+
+    RANK_HEATMAP_OUTPUT = "rank_heatmap.html"
+
+    def _rank_heatmap_norm_label(self, s: str) -> str:
+        return "".join(ch.lower() for ch in s.strip() if ch.isalnum() or ch in ["-", "_"])
+
+    def _rank_heatmap_get_metric_mean(self, label_to_metric: dict, method_name: str, aliases: list[str]) -> float:
+        """Try aliases in order, return metric mean or NaN."""
+        import math
+
+        for a in aliases:
+            m = label_to_metric.get(self._rank_heatmap_norm_label(a))
+            if m is None:
                 continue
-            col_nonan = np.nan_to_num(col, nan=-1e12)
-            sorted_idx = np.argsort(-col_nonan)
-            rank_col = np.empty_like(sorted_idx, dtype=float)
-            rank_col[sorted_idx] = np.arange(1, len(sorted_idx) + 1)
-            rank_col[np.isnan(col)] = np.nan
-            ranks[:, j] = rank_col
+            try:
+                return float(m.getter(method_name)["mean"])
+            except Exception:
+                return math.nan
+        return math.nan
 
-        # compute aggregate rank per model to sort (mean of available ranks)
-        avg_ranks = np.nanmean(ranks, axis=1)
-        sort_idx = np.argsort(avg_ranks)
+    def _rank_heatmap_group_avg(self, values, mode: str):
+        """Average within a group."""
+        import math
+        import numpy as np
 
-        # reorder methods and matrices
-        methods_sorted = [self.methods[i] for i in sort_idx]
-        ranks_sorted = ranks[sort_idx, :]
+        vals = np.array(values, dtype=float)
+        if mode == "nanmean":
+            if np.all(np.isnan(vals)):
+                return math.nan
+            return float(np.nanmean(vals))
 
-        # shorten some method names
+        # strict
+        if np.any(np.isnan(vals)):
+            return math.nan
+        return float(np.mean(vals))
+
+    def _rank_desc(self, scores):
+        """Rank descending (higher is better). 1 = best. NaNs stay NaN."""
+        import numpy as np
+
+        ranks = np.full_like(scores, np.nan, dtype=float)
+        valid = ~np.isnan(scores)
+        if not np.any(valid):
+            return ranks
+
+        valid_idx = np.where(valid)[0]
+        valid_scores = scores[valid]
+        order = np.argsort(-valid_scores)
+        ranked_idx = valid_idx[order]
+        ranks[ranked_idx] = np.arange(1, len(ranked_idx) + 1, dtype=float)
+        return ranks
+
+    def _zscore_nan(self, x):
+        """Z-score with NaN handling. Returns NaN if std is 0 or undefined."""
+        import math
+        import numpy as np
+
+        mu = np.nanmean(x)
+        sigma = np.nanstd(x)
+        if np.isnan(sigma) or sigma == 0:
+            return np.full_like(x, math.nan, dtype=float)
+        return (x - mu) / sigma
+
+    def _compute_group_aggregates(self):
+        """
+        Compute avg_lexical, avg_semantic, avg_factual per method.
+        Returns:
+            methods (list[str]),
+            avg_lexical (np.ndarray),
+            avg_semantic (np.ndarray),
+            avg_factual (np.ndarray)
+        """
+        import numpy as np
+
+        methods = list(self.methods)
+        label_to_metric = {self._rank_heatmap_norm_label(m.label): m for m in self.metrics}
+        mode = self.RANK_HEATMAP_GROUP_AVG_MODE
+
+        avg_lexical = []
+        avg_semantic = []
+        avg_factual = []
+
+        for method in methods:
+            lex_vals = [
+                self._rank_heatmap_get_metric_mean(label_to_metric, method, aliases)
+                for _, aliases in self.RANK_HEATMAP_GROUPS["lexical"]
+            ]
+            sem_vals = [
+                self._rank_heatmap_get_metric_mean(label_to_metric, method, aliases)
+                for _, aliases in self.RANK_HEATMAP_GROUPS["semantic"]
+            ]
+            fac_vals = [
+                self._rank_heatmap_get_metric_mean(label_to_metric, method, aliases)
+                for _, aliases in self.RANK_HEATMAP_GROUPS["factual"]
+            ]
+
+            avg_lexical.append(self._rank_heatmap_group_avg(lex_vals, mode))
+            avg_semantic.append(self._rank_heatmap_group_avg(sem_vals, mode))
+            avg_factual.append(self._rank_heatmap_group_avg(fac_vals, mode))
+
+        return (
+            methods,
+            np.array(avg_lexical, dtype=float),
+            np.array(avg_semantic, dtype=float),
+            np.array(avg_factual, dtype=float),
+        )
+
+    def _plot_rank_heatmap(self, methods, ranks, col_labels, title, output_filename):
+        """Shared Plotly heatmap rendering."""
+        import numpy as np
+        import plotly.graph_objects as go
+        import plotly.offline as pyo
+
         display_methods = [
             m.replace("huggingface_", "hf_") if m.startswith("huggingface_") else m
-            for m in methods_sorted
+            for m in methods
         ]
 
-        if np.all(np.isnan(ranks_sorted)):
+        if np.all(np.isnan(ranks)):
             max_rank = 1.0
         else:
-            max_rank = int(np.nanmax(ranks_sorted))
+            max_rank = int(np.nanmax(ranks))
 
-        Z = -ranks_sorted
+        Z = -ranks
         zmin, zmax = -max_rank, -1
 
-        # green (best) → yellow → red (worst)
         colorscale = [
             [0.0, "rgb(200, 0, 0)"],
             [0.5, "rgb(255, 215, 0)"],
@@ -1567,7 +1715,7 @@ class SummarizationVisualizer:
         fig = go.Figure(
             data=go.Heatmap(
                 z=Z,
-                x=metric_labels,
+                x=col_labels,
                 y=display_methods,
                 zmin=zmin,
                 zmax=zmax,
@@ -1582,18 +1730,17 @@ class SummarizationVisualizer:
             )
         )
 
-        # annotations: show rank number + 🥇🥈🥉 for top-3
         annotations = []
-        for i in range(ranks_sorted.shape[0]):
-            for j in range(ranks_sorted.shape[1]):
-                r = ranks_sorted[i, j]
+        for i in range(ranks.shape[0]):
+            for j in range(ranks.shape[1]):
+                r = ranks[i, j]
                 if np.isnan(r):
                     continue
                 r_int = int(r)
                 medal = " 🥇" if r_int == 1 else (" 🥈" if r_int == 2 else (" 🥉" if r_int == 3 else ""))
                 annotations.append(
                     dict(
-                        x=metric_labels[j],
+                        x=col_labels[j],
                         y=display_methods[i],
                         text=f"{r_int}{medal}",
                         showarrow=False,
@@ -1602,16 +1749,88 @@ class SummarizationVisualizer:
                 )
 
         fig.update_layout(
-            title="Model Ranks per Metric (higher is better; models sorted by average rank)",
+            title=title,
             annotations=annotations,
-            xaxis=dict(tickangle=45),
-            margin=dict(l=200, r=40, t=60, b=120),
+            xaxis=dict(tickangle=25),
+            margin=dict(l=200, r=40, t=60, b=100),
         )
 
         fig.update_yaxes(autorange="reversed")
-        
-        output_path = self.out_dir / "rank_heatmap.html"
+
+        output_path = self.out_dir / output_filename
         pyo.plot(fig, filename=str(output_path), auto_open=False)
+
+    # =========================================================
+    # Final rank heatmap:
+    # Option B — z-score normalize aggregates, then combine
+    # with equal weights
+    # =========================================================
+    def _create_rank_heatmap(self):
+        """
+        Final version:
+        1. Compute avg_lexical, avg_semantic, avg_factual
+        2. Z-score normalize each aggregate across models
+        3. Combine with equal weights
+        4. Rank models by combined z-score
+
+        Heatmap columns:
+        - Avg Lexical Rank
+        - Avg Semantic Rank
+        - Avg Factual Rank
+        - Performance Rank
+        """
+        import math
+        import numpy as np
+
+        wL = self.RANK_HEATMAP_WEIGHTS["lexical"]
+        wS = self.RANK_HEATMAP_WEIGHTS["semantic"]
+        wF = self.RANK_HEATMAP_WEIGHTS["factual"]
+
+        methods, avg_lex, avg_sem, avg_fac = self._compute_group_aggregates()
+
+        z_lex = self._zscore_nan(avg_lex)
+        z_sem = self._zscore_nan(avg_sem)
+        z_fac = self._zscore_nan(avg_fac)
+
+        perf = wL * z_lex + wS * z_sem + wF * z_fac
+        perf[np.isnan(z_lex) | np.isnan(z_sem) | np.isnan(z_fac)] = math.nan
+
+        # Raw aggregate ranks for interpretability
+        rank_lex = self._rank_desc(avg_lex)
+        rank_sem = self._rank_desc(avg_sem)
+        rank_fac = self._rank_desc(avg_fac)
+
+        # Final performance rank from z-score based combined score
+        rank_perf = self._rank_desc(perf)
+
+        ranks = np.vstack([rank_lex, rank_sem, rank_fac, rank_perf]).T
+        col_labels = [
+            "Avg Lexical Rank",
+            "Avg Semantic Rank",
+            "Avg Factual Rank",
+            "Performance Rank",
+        ]
+
+        def _nan_to_big(x):
+            return 1e9 if np.isnan(x) else x
+
+        sort_idx = np.lexsort((
+            np.array([_nan_to_big(rank_lex[i]) for i in range(len(methods))]),
+            np.array([_nan_to_big(rank_sem[i]) for i in range(len(methods))]),
+            np.array([_nan_to_big(rank_fac[i]) for i in range(len(methods))]),
+            np.array([_nan_to_big(rank_perf[i]) for i in range(len(methods))]),
+        ))
+
+        methods_sorted = [methods[i] for i in sort_idx]
+        ranks_sorted = ranks[sort_idx, :]
+
+        self._plot_rank_heatmap(
+            methods_sorted,
+            ranks_sorted,
+            col_labels,
+            title="Aggregated Model Ranks (z-score normalized aggregates, equal weights)",
+            output_filename=self.RANK_HEATMAP_OUTPUT,
+        )
 
 if __name__ == "__main__":
     """This script runs the visualization component of the text summarization benchmark pipeline without benchmarking.
