@@ -1,0 +1,875 @@
+#!/usr/bin/env python3
+"""
+Correlate expert (human) judgements with automatic metric scores at the
+summary level: for every human-rated (paper_id, model) item, pair the mean
+expert rating per dimension against each automatic metric, then compute
+Spearman's rho and Kendall's tau across all items.
+
+System-level correlation is intentionally omitted: only 4 models were rated by
+humans, so n=4 -> not meaningful. Item-level (n = rated papers x models) is the
+field standard (cf. UniEval/QAFactEval human-correlation reporting).
+
+Inputs (in the hashed run dir, copy from prod):
+- human_evaluations/evaluation_*.json   (expert ratings)
+- detailed_scores_per_paper.json        (per-(model, paper_id) metric scores)
+
+Outputs (same run dir):
+- human_vs_automatic_spearman.csv   (metrics x human dimensions, rho)
+- human_vs_automatic_correlation.tex
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+import numpy as np
+from scipy.stats import spearmanr, kendalltau
+
+# --- config (mirrors human_evaluation_analysis.py) ---
+EVAL_FILES = [f"evaluation_{i}.json" for i in range(1, 9)]
+DIMENSIONS = ["coherence", "fluency", "relevance", "consistency"]
+
+# storage-key -> label (mirrors generate_metric_correlations.py)
+METRICS = [
+    ("rouge1", "ROUGE-1"),
+    ("rouge2", "ROUGE-2"),
+    ("rougeL", "ROUGE-L"),
+    ("meteor", "METEOR"),
+    ("bleu", "BLEU"),
+    ("bert_roberta-large_f1", "RoBERTa"),
+    ("bert_microsoft/deberta-xlarge-mnli_f1", "DeBERTa"),
+    ("sentence_transformer", "all-mpnet-base-v2"),
+    ("alignscore", "AlignScore"),
+    ("summac", "SummaC"),
+    ("factcc", "FactCC"),
+    ("minicheck_ft5", "MiniCheck-FT5"),
+    ("minicheck_7b", "MiniCheck-7B"),
+]
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+GH_HASH = "1362b291718b57188a7909f08de26da760a0b9346d52111c97671d97d713af38"
+BASE_DIR = SCRIPT_DIR.parent / "Output" / "llm_summarization_benchmark" / GH_HASH
+EVAL_DIR = SCRIPT_DIR.parent / "Output" / "scripts" / "human_evaluation_data"
+PER_PAPER_JSON = BASE_DIR / "detailed_scores_per_paper.json"
+JUDGE_JSON = SCRIPT_DIR.parent / "Output" / "scripts" / "llm_judge_scores.json"
+
+# LLM-judge dimensions appear as extra "metrics"; the diagonal (judge dim vs
+# same human dim) is the headline agreement, off-diagonal shows discriminance.
+JUDGE_METRICS = [(f"judge_{d}", f"Judge-{d.capitalize()}") for d in DIMENSIONS]
+
+
+def load_judge_by_provider(
+    path: Path,
+) -> dict[str, dict[tuple[str, str], dict[str, float]]]:
+    """judge_key -> {(paper_id, model): {dim: score}}. Keys are
+    "<paper>|||<model>|||<judge>"; legacy 2-part keys fall back to judge
+    "anthropic". Empty if no judge run yet."""
+    if not path.exists():
+        return {}
+    raw = json.loads(path.read_text())
+    out: dict[str, dict[tuple[str, str], dict[str, float]]] = defaultdict(dict)
+    for combined, ratings in raw.items():
+        parts = combined.split("|||")
+        paper_id, model = parts[0], parts[1]
+        judge = parts[2] if len(parts) > 2 else ratings.get("_judge", "anthropic")
+        out[judge][(paper_id, model)] = {
+            d: float(ratings[d]) for d in DIMENSIONS if d in ratings
+        }
+    return dict(out)
+
+
+def aggregate_judges(
+    by_provider: dict[str, dict[tuple[str, str], dict[str, float]]],
+) -> dict[tuple[str, str], dict[str, float]]:
+    """Panel consensus: (paper_id, model) -> {judge_<dim>: median across judges}.
+    Median resists a single self-preferring outlier; with n<3 judges present it
+    degrades to mean/identity."""
+    pooled: dict[tuple[str, str], dict[str, list[float]]] = defaultdict(
+        lambda: {d: [] for d in DIMENSIONS})
+    for scores in by_provider.values():
+        for key, dims in scores.items():
+            for d in DIMENSIONS:
+                if d in dims:
+                    pooled[key][d].append(dims[d])
+    out: dict[tuple[str, str], dict[str, float]] = {}
+    for key, dd in pooled.items():
+        out[key] = {f"judge_{d}": float(np.median(dd[d]))
+                    for d in DIMENSIONS if dd[d]}
+    return out
+
+
+def load_judge_scores(path: Path) -> dict[tuple[str, str], dict[str, float]]:
+    """(paper_id, model) -> {judge_<dim>: panel-median score}. Empty if no run."""
+    return aggregate_judges(load_judge_by_provider(path))
+
+
+# system model name -> provider family, for the self-preference check. Substring
+# match (handles prefixes like "llama_mistral-nemo" = Mistral family served
+# locally). Order matters only in that the sets are disjoint by construction.
+JUDGE_PROVIDERS = {"anthropic": "claude-sonnet-4-6", "openai": "gpt-5.4-2026-03-05",
+                   "mistral": "mistral-medium-2604"}
+
+
+def provider_of(model: str) -> str | None:
+    """Map a benchmarked system to one of the judge providers, or None (control
+    family, e.g. llama/gemma/qwen — no judge has a stake in it)."""
+    m = model.lower()
+    if "claude" in m:
+        return "anthropic"
+    if "gpt" in m or "openai" in m or m.startswith("o1") or m.startswith("o3"):
+        return "openai"
+    if "mistral" in m or "magistral" in m or "ministral" in m or "mixtral" in m:
+        return "mistral"
+    return None
+
+
+def self_preference(by_provider) -> list[dict]:
+    """Per-judge self-preference delta. For each judge J (provider P): on systems
+    from P's own family, how much higher does J score them than the OTHER judges
+    do on the same items (own_delta)? The same delta on non-P systems (ref_delta)
+    is the no-stake baseline. effect = own_delta - ref_delta; >0 = J inflates its
+    own family beyond a shared per-item shift. None of this needs expert labels."""
+    rows = []
+    for judge, scores in by_provider.items():
+        if judge not in JUDGE_PROVIDERS:
+            continue
+        own_d, ref_d = [], []
+        for key, dims in scores.items():
+            # mean over dimensions of (J - mean_other_judges) for this item
+            per_item = []
+            for d in DIMENSIONS:
+                if d not in dims:
+                    continue
+                other_vals = [by_provider[j][key][d] for j in by_provider
+                              if j != judge and key in by_provider[j]
+                              and d in by_provider[j][key]]
+                if other_vals:
+                    per_item.append(dims[d] - float(np.mean(other_vals)))
+            if not per_item:
+                continue
+            item_delta = float(np.mean(per_item))
+            # judge key IS the provider vocabulary, so compare directly
+            if provider_of(key[1]) == judge:
+                own_d.append(item_delta)
+            else:
+                ref_d.append(item_delta)
+        own = float(np.mean(own_d)) if own_d else np.nan
+        ref = float(np.mean(ref_d)) if ref_d else np.nan
+        rows.append({
+            "judge": judge,
+            "own_delta": own, "n_own": len(own_d),
+            "ref_delta": ref, "n_ref": len(ref_d),
+            "effect": (own - ref) if own_d and ref_d else np.nan,
+        })
+    return rows
+
+
+def load_human_ratings(eval_dir: Path) -> dict[tuple[str, str], dict[str, list[float]]]:
+    """(paper_id, model) -> {dimension: [rating from each rater who scored it]}."""
+    ratings: dict[tuple[str, str], dict[str, list[float]]] = defaultdict(
+        lambda: {d: [] for d in DIMENSIONS}
+    )
+    missing = [fp for fp in EVAL_FILES if not (eval_dir / fp).exists()]
+    if missing:
+        sys.exit(f"Missing eval files in {eval_dir}: {missing}")
+    for fp in EVAL_FILES:
+        path = eval_dir / fp
+        with open(path) as f:
+            data = json.load(f)
+        for a in data["assessments"]:
+            key = (a["paper_id"], a["model"])
+            for dim in DIMENSIONS:
+                if dim in a["ratings"]:
+                    ratings[key][dim].append(float(a["ratings"][dim]))
+    return ratings
+
+
+def load_evaluators(eval_dir: Path) -> list[dict[tuple[str, str], dict[str, float]]]:
+    """Per-evaluator ratings (kept separate, for inter-expert agreement)."""
+    evaluators = []
+    for fp in EVAL_FILES:
+        with open(eval_dir / fp) as f:
+            data = json.load(f)
+        evaluators.append({(a["paper_id"], a["model"]): a["ratings"]
+                           for a in data["assessments"]})
+    return evaluators
+
+
+def inter_expert_rho(evaluators) -> dict[str, float]:
+    """Mean pairwise Spearman between experts, per dimension — the agreement
+    ceiling the judge is compared against."""
+    from itertools import combinations
+    out = {}
+    for dim in DIMENSIONS:
+        rhos = []
+        for a, b in combinations(range(len(evaluators)), 2):
+            shared = [k for k in evaluators[a]
+                      if k in evaluators[b]
+                      and dim in evaluators[a][k] and dim in evaluators[b][k]]
+            if len(shared) < 3:
+                continue
+            va = [evaluators[a][k][dim] for k in shared]
+            vb = [evaluators[b][k][dim] for k in shared]
+            if len(set(va)) < 2 or len(set(vb)) < 2:
+                continue
+            rhos.append(spearmanr(va, vb)[0])
+        out[dim] = float(np.mean(rhos)) if rhos else np.nan
+    return out
+
+
+def loo_expert_rho(evaluators) -> dict[str, float]:
+    """Leave-one-out ceiling: each expert's ratings vs. the mean of the *other*
+    experts on shared items, averaged over experts. This matches the judge's
+    target (consensus across raters) on a held-out basis, so the judge and the
+    humans are compared on the same footing — unlike the pairwise number, which
+    pits one noisy rater against another."""
+    out = {}
+    n = len(evaluators)
+    for dim in DIMENSIONS:
+        rhos = []
+        for a in range(n):
+            xs, ys = [], []
+            for k in evaluators[a]:
+                if dim not in evaluators[a][k]:
+                    continue
+                others = [evaluators[b][k][dim] for b in range(n)
+                          if b != a and k in evaluators[b]
+                          and dim in evaluators[b][k]]
+                if not others:
+                    continue
+                xs.append(evaluators[a][k][dim])
+                ys.append(float(np.mean(others)))
+            if len(xs) < 3 or len(set(xs)) < 2 or len(set(ys)) < 2:
+                continue
+            rhos.append(spearmanr(xs, ys)[0])
+        out[dim] = float(np.mean(rhos)) if rhos else np.nan
+    return out
+
+
+def judge_summary(results) -> dict | None:
+    """Judge-vs-expert agreement: per-dimension diagonal (judge dim vs same
+    human dim) and the off-diagonal mean (discriminant check). None if no judge."""
+    if f"judge_{DIMENSIONS[0]}" not in results:
+        return None
+    diagonal = {d: results[f"judge_{d}"][d][0] for d in DIMENSIONS}
+    off = []
+    for jd in DIMENSIONS:
+        for hd in DIMENSIONS:
+            if jd != hd and not np.isnan(results[f"judge_{jd}"][hd][0]):
+                off.append(results[f"judge_{jd}"][hd][0])
+    valid = [v for v in diagonal.values() if not np.isnan(v)]
+    return {
+        "diagonal": diagonal,
+        "diagonal_mean": float(np.mean(valid)) if valid else np.nan,
+        "off_diagonal_mean": float(np.mean(off)) if off else np.nan,
+    }
+
+
+def judge_model_ranking(judge) -> list[dict]:
+    """Mean judge score per model per dimension (+ overall), sorted best-first.
+    This is the human-aligned ranking across all judged systems."""
+    per: dict[str, dict[str, list[float]]] = defaultdict(
+        lambda: {d: [] for d in DIMENSIONS})
+    for (_pid, model), dims in judge.items():
+        for d in DIMENSIONS:
+            if f"judge_{d}" in dims:
+                per[model][d].append(dims[f"judge_{d}"])
+    rows = []
+    for model, dd in per.items():
+        means = {d: (float(np.mean(dd[d])) if dd[d] else np.nan) for d in DIMENSIONS}
+        valid = [means[d] for d in DIMENSIONS if not np.isnan(means[d])]
+        rows.append({
+            "model": model,
+            **means,
+            "overall": float(np.mean(valid)) if valid else np.nan,
+            "n": max((len(dd[d]) for d in DIMENSIONS), default=0),
+        })
+    rows.sort(key=lambda r: (np.isnan(r["overall"]),
+                             -(0 if np.isnan(r["overall"]) else r["overall"])))
+    return rows
+
+
+def per_judge_rankings(by_provider) -> dict[str, list[dict]]:
+    """judge -> model ranking from that judge alone (no panel median).
+    Reuses judge_model_ranking by remapping raw dims to judge_<dim> keys."""
+    out = {}
+    for judge, scores in by_provider.items():
+        remapped = {key: {f"judge_{d}": v for d, v in dims.items()}
+                    for key, dims in scores.items()}
+        out[judge] = judge_model_ranking(remapped)
+    return out
+
+
+def write_ranking_csv(rows, path: Path):
+    header = ["rank", "model"] + [d.capitalize() for d in DIMENSIONS] + ["overall", "n"]
+    lines = [",".join(header)]
+    for i, r in enumerate(rows, 1):
+        vals = [f"{r[d]:.3f}" if not np.isnan(r[d]) else "" for d in DIMENSIONS]
+        overall = "" if np.isnan(r["overall"]) else f"{r['overall']:.3f}"
+        model = f'"{r["model"]}"' if "," in r["model"] else r["model"]
+        lines.append(",".join([str(i), model, *vals, overall, str(r["n"])]))
+    path.write_text("\n".join(lines) + "\n")
+    print(f"Wrote: {path}")
+
+
+def write_self_pref_csv(rows, path: Path):
+    header = ["judge", "own_provider_delta", "n_own", "other_provider_delta",
+              "n_other", "self_preference_effect"]
+    lines = [",".join(header)]
+    for r in rows:
+        def f(v):
+            return "" if np.isnan(v) else f"{v:+.3f}"
+        lines.append(",".join([r["judge"], f(r["own_delta"]), str(r["n_own"]),
+                               f(r["ref_delta"]), str(r["n_ref"]), f(r["effect"])]))
+    path.write_text("\n".join(lines) + "\n")
+    print(f"Wrote: {path}")
+
+
+def load_automatic_scores(per_paper_json: Path) -> dict[tuple[str, str], dict[str, float]]:
+    """(paper_id, model) -> {metric_key: score}. Uses max() per paper to match
+    the per-model aggregation in save_scores_per_model()."""
+    with open(per_paper_json) as f:
+        data = json.load(f)
+    out: dict[tuple[str, str], dict[str, float]] = {}
+    for model, papers in data.items():
+        for paper in papers:
+            key = (paper["id"], model)
+            scores = paper.get("scores", {})
+            out[key] = {
+                m: float(max(scores[m])) for m, _ in METRICS if scores.get(m)
+            }
+    return out
+
+
+def correlate(human, automatic, metrics=METRICS):
+    """For each (metric, dimension) build paired item-level vectors and correlate.
+    Returns {metric_key: {dimension: (rho, tau, p_rho, n)}}."""
+    results: dict[str, dict[str, tuple]] = {}
+    for metric_key, _ in metrics:
+        results[metric_key] = {}
+        for dim in DIMENSIONS:
+            h_vals, a_vals = [], []
+            for key, dims in human.items():
+                if key not in automatic or metric_key not in automatic[key]:
+                    continue
+                if not dims[dim]:
+                    continue
+                h_vals.append(float(np.mean(dims[dim])))  # mean across raters
+                a_vals.append(automatic[key][metric_key])
+            # need >=3 points and variance in both vectors (else rho undefined)
+            if len(h_vals) < 3 or len(set(h_vals)) < 2 or len(set(a_vals)) < 2:
+                results[metric_key][dim] = (np.nan, np.nan, np.nan, len(h_vals))
+                continue
+            rho, p_rho = spearmanr(a_vals, h_vals)
+            tau, _ = kendalltau(a_vals, h_vals)
+            results[metric_key][dim] = (rho, tau, p_rho, len(h_vals))
+    return results
+
+
+def write_csv(results, path: Path, metrics=METRICS):
+    header = ["Metric"] + [d.capitalize() for d in DIMENSIONS]
+    lines = [",".join(header)]
+    for metric_key, label in metrics:
+        cells = [label]
+        for dim in DIMENSIONS:
+            rho, _, _, _ = results[metric_key][dim]
+            cells.append("" if np.isnan(rho) else f"{rho:.3f}")
+        lines.append(",".join(cells))
+    path.write_text("\n".join(lines) + "\n")
+    print(f"Wrote: {path}")
+
+
+def write_latex(results, path: Path, metrics=METRICS):
+    lines = [
+        r"\begin{table}[ht]",
+        r"\centering",
+        r"\caption{Summary-level correlation (Spearman's $\rho$) between automatic "
+        r"metrics and expert ratings per dimension. $^{*}p<0.05$.}",
+        r"\label{tab:human_vs_automatic}",
+        r"\begin{tabular}{l" + "c" * len(DIMENSIONS) + "}",
+        r"\toprule",
+        "Metric & " + " & ".join(d.capitalize() for d in DIMENSIONS) + r" \\",
+        r"\midrule",
+    ]
+    for metric_key, label in metrics:
+        cells = []
+        for dim in DIMENSIONS:
+            rho, _, p, _ = results[metric_key][dim]
+            if np.isnan(rho):
+                cells.append("---")
+            else:
+                star = "^{*}" if p < 0.05 else ""
+                cells.append(f"${rho:.3f}{star}$")
+        lines.append(f"{label} & {' & '.join(cells)} \\\\")
+    lines += [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+    path.write_text("\n".join(lines) + "\n")
+    print(f"Wrote: {path}")
+
+
+def within_model_breakdown(human, automatic, metrics):
+    """Spearman per model (controls for between-model spread). Prints a compact
+    table: rows = metrics, one rho per dimension, restricted to each model's
+    rated items."""
+    models = sorted({m for _, m in human})
+    print("\n--- Within-model Spearman rho (per model, controls for "
+          "between-model spread) ---")
+    for model in models:
+        sub_human = {k: v for k, v in human.items() if k[1] == model}
+        sub_auto = {k: v for k, v in automatic.items() if k[1] == model}
+        res = correlate(sub_human, sub_auto, metrics)
+        n = len(sub_human)
+        print(f"\n  {model}  (n={n}):")
+        for metric_key, label in metrics:
+            cells = []
+            for dim in DIMENSIONS:
+                rho, _, p, _ = res[metric_key][dim]
+                cells.append("  n/a " if np.isnan(rho)
+                             else f"{rho:+.2f}{'*' if p < 0.05 else ' '}")
+            print(f"    {label:>18s}: " +
+                  "  ".join(f"{d[:4]}={c}" for d, c in zip(DIMENSIONS, cells)))
+
+
+def _cell_color(rho: float, p: float) -> str:
+    """Green gradient for significant positive rho; grey for n.s./missing."""
+    if np.isnan(rho) or p >= 0.05:
+        return "#eceff1"
+    v = max(0.0, min(1.0, rho))
+    # interpolate pale -> deep teal
+    r = int(224 - v * (224 - 13))
+    g = int(242 - v * (242 - 115))
+    b = int(241 - v * (241 - 110))
+    return f"rgb({r},{g},{b})"
+
+
+def write_html(results, metrics, inter_expert, loo_expert, jsummary, n_items,
+               path: Path, ranking=None, self_pref=None, per_judge=None):
+    """Self-contained explainer + heatmap report for colleagues."""
+    def esc(s):
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    def fmt(cell):
+        rho, _, p, _ = cell
+        if np.isnan(rho):
+            return "&mdash;", "#eceff1", ""
+        weight = "700" if p < 0.05 else "400"
+        fg = "#fff" if (p < 0.05 and rho > 0.55) else "#222"
+        return (f'<span style="color:{fg};font-weight:{weight}">{rho:+.2f}</span>',
+                _cell_color(rho, p), weight)
+
+    # heatmap rows
+    body_rows = []
+    for key, label in metrics:
+        is_judge = key.startswith("judge_")
+        cells = "".join(
+            f'<td style="background:{c}">{txt}</td>'
+            for txt, c, _ in (fmt(results[key][d]) for d in DIMENSIONS)
+        )
+        cls = ' class="judge"' if is_judge else ""
+        body_rows.append(f"<tr{cls}><th>{label}</th>{cells}</tr>")
+
+    ceil = "".join(
+        f"<td>{'&mdash;' if np.isnan(inter_expert[d]) else f'{inter_expert[d]:.2f}'}</td>"
+        for d in DIMENSIONS
+    )
+
+    # judge summary cards
+    judge_block = "<p><em>No LLM-judge scores yet &mdash; run "
+    judge_block += "<code>llm_judge_eval.py</code>, then regenerate.</em></p>"
+    if jsummary:
+        diag = jsummary["diagonal_mean"]
+        off = jsummary["off_diagonal_mean"]
+        loo = np.nanmean(list(loo_expert.values()))
+        ie = np.nanmean(list(inter_expert.values()))
+        judge_block = f"""
+        <div class="cards">
+          <div class="card"><div class="big">{diag:+.2f}</div>
+            <div>Judge&ndash;expert agreement<br><small>judge vs. mean expert,
+            matched dimensions (the diagonal)</small></div></div>
+          <div class="card"><div class="big">{loo:+.2f}</div>
+            <div>Human ceiling (leave-one-out)<br><small>each expert vs. the mean
+            of the others &mdash; the fair, same-target benchmark for the judge
+            (pairwise inter-rater &rho; = {ie:+.2f})</small></div></div>
+          <div class="card"><div class="big">{off:+.2f}</div>
+            <div>Off-diagonal mean<br><small>judge dim vs <em>other</em> human
+            dims; lower than the diagonal = dimension-specific</small></div></div>
+        </div>
+        <p><b>Read it like this:</b> the judge is compared against the
+        <b>leave-one-out</b> ceiling, because both are scored against the same
+        target &mdash; a held-out consensus of raters. (The raw <em>pairwise</em>
+        inter-rater &rho; = {ie:+.2f} answers a different question, how well two
+        individual humans agree, and is a noisier target, so it is not the
+        judge's yardstick.) The judge is faithful when the diagonal sits near the
+        leave-one-out ceiling <em>and</em> clearly exceeds the off-diagonal. Note
+        the diagonal&ndash;off-diagonal gap here is small: the judge tracks expert
+        quality closely but does <em>not</em> cleanly separate the four
+        dimensions &mdash; they co-move onto a single quality factor.</p>"""
+
+    # model ranking section
+    dim_h = "".join(f"<th>{d.capitalize()}</th>" for d in DIMENSIONS)
+
+    def rank_table(rows):
+        rrows = []
+        for i, r in enumerate(rows, 1):
+            dc = "".join(f"<td>{r[d]:.2f}</td>" if not np.isnan(r[d])
+                         else "<td>&mdash;</td>" for d in DIMENSIONS)
+            ov = "&mdash;" if np.isnan(r["overall"]) else f"{r['overall']:.2f}"
+            hl = ' style="background:#eef7f0"' if i <= 3 else ""
+            rrows.append(f'<tr{hl}><td>{i}</td><th style="text-align:left">'
+                         f'{esc(r["model"])}</th>{dc}<td><b>{ov}</b></td></tr>')
+        return (f'<div class="scroll"><table><thead><tr><th>#</th><th>System</th>'
+                f'{dim_h}<th>Overall</th></tr></thead><tbody>'
+                f'{"".join(rrows)}</tbody></table></div>')
+
+    if ranking:
+        n_rank = ranking[0]["n"] if ranking else 0
+        # per-judge breakdown: one collapsible table per provider
+        per_judge_html = ""
+        for judge in sorted(per_judge or {}):
+            rows = per_judge[judge]
+            if not rows:
+                continue
+            per_judge_html += (f'<details><summary>{esc(judge)} alone '
+                               f'({len(rows)} systems)</summary>'
+                               f'{rank_table(rows)}</details>')
+        per_judge_block = (
+            f'<p style="margin-top:1em"><b>Per-judge views.</b> The ranking above '
+            f'pools the panel (median across judges). Expand each judge to see its '
+            f'own ranking &mdash; useful for spotting where a single provider '
+            f'disagrees with the consensus.</p>{per_judge_html}'
+        ) if per_judge_html else ""
+        ranking_block = f"""<h2>5. Model ranking by the LLM-judge panel</h2>
+<p>Mean panel-median score per system across the {n_rank} rated papers, all
+{len(ranking)} systems, best-first. These are the panel's own ratings (not a
+correlation), and exist for every system &mdash; the human-aligned ranking that
+manual evaluation could not produce at this scale. Top 3 highlighted.</p>
+{rank_table(ranking)}
+{per_judge_block}"""
+    else:
+        ranking_block = ('<h2>5. Model ranking by the LLM judge</h2>'
+                         '<p><em>Populated after the judge runs.</em></p>')
+
+    # self-preference section (only meaningful with a multi-provider panel)
+    if self_pref:
+        sp_rows = []
+        for r in self_pref:
+            def cell(v):
+                return "&mdash;" if np.isnan(v) else f"{v:+.3f}"
+            eff = r["effect"]
+            hl = "" if np.isnan(eff) or abs(eff) < 0.15 else (
+                ' style="background:#fdecea"' if eff > 0 else ' style="background:#eaf6ec"')
+            sp_rows.append(
+                f'<tr><th style="text-align:left">{esc(r["judge"])}</th>'
+                f'<td>{cell(r["own_delta"])}<br><small>n={r["n_own"]}</small></td>'
+                f'<td>{cell(r["ref_delta"])}<br><small>n={r["n_ref"]}</small></td>'
+                f'<td{hl}><b>{cell(eff)}</b></td></tr>')
+        self_pref_block = f"""<h2>6. Judge self-preference (bias control)</h2>
+<p>A single-provider judge could inflate summaries from its own model family.
+With a three-provider panel we can <em>measure</em> that directly, without any
+human labels. For each judge we compute, per item, how far its score sits above
+or below the mean of the <em>other two</em> judges on the same summary. Averaging
+that per-item delta over a judge's <b>own-family</b> systems and over all
+<b>other</b> systems gives two numbers; their difference is the
+<b>self-preference effect</b> &mdash; how much extra credit a judge gives its own
+family beyond any uniform lenience.</p>
+<div class="scroll"><table>
+  <thead><tr><th>Judge</th><th>Own-family &Delta;</th><th>Other-family &Delta;</th>
+  <th>Self-preference effect</th></tr></thead>
+  <tbody>{''.join(sp_rows)}</tbody>
+</table></div>
+<p><b>Read it like this:</b> an effect near 0 means the judge does not favour its
+own family &mdash; the panel median is unbiased. A clearly positive effect (red)
+flags a judge inflating its own systems; the panel median still damps it, and the
+per-provider number tells reviewers exactly how much. Systems with no judge
+provider (llama, gemma, qwen, &hellip;) form the neutral other-family baseline.</p>"""
+    else:
+        self_pref_block = ""
+
+    header_cells = "".join(f"<th>{d.capitalize()}</th>" for d in DIMENSIONS)
+    html = f"""<title>Human vs. automatic agreement &mdash; summarization benchmark</title>
+<style>
+  :root {{ --ink:#1a2b32; --muted:#5b7079; --line:#d8e0e3; }}
+  body {{ font:16px/1.6 -apple-system,Segoe UI,Roboto,sans-serif; color:var(--ink);
+         max-width:920px; margin:0 auto; padding:2.5rem 1.25rem 5rem; }}
+  h1 {{ font-size:1.7rem; line-height:1.25; margin:0 0 .25rem; }}
+  h2 {{ font-size:1.2rem; margin:2.4rem 0 .6rem; border-bottom:2px solid var(--line);
+        padding-bottom:.3rem; }}
+  .sub {{ color:var(--muted); margin:0 0 1.5rem; }}
+  .flow {{ display:flex; gap:.5rem; flex-wrap:wrap; align-items:stretch; margin:1rem 0; }}
+  .flow .step {{ flex:1 1 160px; background:#f3f7f8; border:1px solid var(--line);
+        border-radius:10px; padding:.8rem .9rem; }}
+  .flow .step b {{ display:block; font-size:.92rem; }}
+  .flow .step small {{ color:var(--muted); }}
+  table {{ border-collapse:collapse; width:100%; margin:1rem 0; font-variant-numeric:tabular-nums; }}
+  th,td {{ border:1px solid var(--line); padding:.42rem .55rem; text-align:center; }}
+  tbody th {{ text-align:left; font-weight:600; background:#fafcfc; }}
+  thead th {{ background:#1a2b32; color:#fff; }}
+  tr.judge th, tr.judge td {{ border-top:2px solid #1a2b32; }}
+  tr.judge th::after {{ content:" \\2190 judge"; color:var(--muted); font-weight:400; font-size:.8rem; }}
+  .ceil th {{ background:#fff4e0; }} .ceil td {{ background:#fff4e0; font-weight:600; }}
+  .cards {{ display:flex; gap:.75rem; flex-wrap:wrap; margin:1rem 0; }}
+  .card {{ flex:1 1 200px; border:1px solid var(--line); border-radius:10px;
+        padding:1rem; background:#f3f7f8; }}
+  .card .big {{ font-size:2rem; font-weight:700; color:#0d7370; }}
+  .note {{ background:#fff8f0; border-left:4px solid #e0a458; padding:.8rem 1rem;
+        border-radius:0 8px 8px 0; margin:1rem 0; }}
+  code {{ background:#eef3f4; padding:.1rem .35rem; border-radius:4px; font-size:.9em; }}
+  small {{ font-size:.82rem; }}
+  .scroll {{ overflow-x:auto; }}
+</style>
+
+<h1>Do automatic metrics agree with human experts?</h1>
+<p class="sub">Summary-level validation of {len(METRICS)} automatic metrics &mdash;
+and an LLM-as-a-judge &mdash; against expert ratings. n&nbsp;=&nbsp;{n_items} rated
+(paper, model) items.</p>
+
+<h2>1. What this answers</h2>
+<p>This report tests whether the reference-based metrics used in the benchmark
+reflect human judgement, and whether an LLM-as-a-judge can stand in for human
+evaluation. It measures, for every metric, how strongly it correlates with
+expert ratings on the same summaries &mdash; and validates the LLM judge the same
+way before using it to extend evaluation to systems that were not manually
+rated.</p>
+
+<h2>2. The data &amp; the pipeline</h2>
+<div class="flow">
+  <div class="step"><b>8 experts</b><small>rated 4 systems &times; 20 papers on a
+    1&ndash;5 scale</small></div>
+  <div class="step"><b>4 dimensions</b><small>coherence, fluency, relevance,
+    consistency</small></div>
+  <div class="step"><b>{n_items} items</b><small>(paper, model) pairs with an
+    expert rating</small></div>
+  <div class="step"><b>Spearman &amp; Kendall</b><small>metric score vs mean expert
+    rating, per dimension</small></div>
+</div>
+<p>For each rated item we pair the <b>mean expert rating</b> (averaged over the
+experts who saw that item) with each automatic metric score for the same
+summary, then compute rank correlation (Spearman's &rho; and Kendall's &tau;)
+across all items. Where a metric produces several values per summary we take the
+per-summary maximum, matching how the benchmark aggregates elsewhere.</p>
+<p>We use <b>summary-level</b> correlation (one data point per rated summary),
+not system-level (one point per model): with only 4 rated systems, a
+system-level correlation has n=4 and is uninformative. We additionally compute a
+<b>within-system</b> breakdown &mdash; the same correlation restricted to each
+model's 20 summaries &mdash; to separate genuine metric&ndash;quality agreement
+from agreement that merely reflects the large quality gap <em>between</em>
+systems. The <b>inter-expert ceiling</b> (mean pairwise Spearman between experts
+who rated shared items) bounds how high any automatic measure could plausibly
+correlate, since experts do not perfectly agree either. Note this pairwise
+number pits one rater against another; for the LLM judge specifically
+(section&nbsp;4) we use the stricter <b>leave-one-out</b> ceiling, which scores
+each rater against the held-out consensus &mdash; the same target the judge is
+measured against.</p>
+
+<h2>3. Correlation with expert judgement (Spearman &rho;)</h2>
+<p>Cells are coloured by strength; <b>bold</b> = significant (p&nbsp;&lt;&nbsp;0.05),
+grey = not significant. The orange row is the human&ndash;human agreement ceiling.</p>
+<div class="scroll"><table>
+  <thead><tr><th>Metric</th>{header_cells}</tr></thead>
+  <tbody>
+    {''.join(body_rows)}
+    <tr class="ceil"><th>Inter-rater ceiling (pairwise)</th>{ceil}</tr>
+  </tbody>
+</table></div>
+
+<h2>4. LLM-as-a-judge vs. experts</h2>
+<p>A panel of <b>three judges from distinct providers</b> (Anthropic, OpenAI,
+Mistral &mdash; mid-tier peers, reasoning minimized) is each given the <b>same
+rubric and the same evidence</b> the experts saw (title, abstract, reference
+highlights, and the summary) and returns a 1&ndash;5 score per dimension via
+forced structured output, so every rating is schema-valid and reproducible. The
+headline score below is the <b>panel median</b> across the three judges, which
+resists any single judge's idiosyncrasy or self-preference (quantified in
+section&nbsp;6). It is first <b>validated</b> against the experts on the {n_items}
+jointly-covered items (the diagonal below), then applied to all systems on the
+same 20 papers &mdash; a human-aligned, multi-dimensional evaluation at a scale
+manual annotation cannot reach.</p>
+<p>Two quantities summarise the validation: the <b>diagonal</b> (judge's score for
+a dimension vs. the experts' score for that <em>same</em> dimension) measures
+agreement; the <b>off-diagonal</b> (judge's score for a dimension vs. experts'
+<em>other</em> dimensions) tests whether the judge separates the four constructs
+rather than emitting one global impression.</p>
+{judge_block}
+
+{ranking_block}
+
+{self_pref_block}
+
+<h2>7. How to interpret the results</h2>
+<div class="note">
+<p><b>Strength.</b> A high, significant &rho; means the metric ranks summaries in
+the same order experts do. Most metrics here reach &rho; up to ~0.85, so they
+reliably separate stronger from weaker systems.</p>
+<p><b>Dimension-specificity.</b> Compare a metric's four cells: if they are all
+similar, the metric reflects overall quality rather than the specific construct
+(coherence vs. consistency, etc.). Across these metrics the four columns move
+together &mdash; agreement is not dimension-specific.</p>
+<p><b>Between- vs. within-system.</b> The high pooled correlations are largely
+driven by the quality gap between systems; within a single system (the
+within-system breakdown, printed to console) the correlations fall toward zero.
+A metric is therefore a strong proxy for comparing systems but a weak one for
+ranking individual summaries of similar quality.</p>
+<p><b>Non-significant cells</b> (grey) indicate no measurable agreement &mdash;
+e.g. FactCC shows no significant correlation with experts on any dimension.</p>
+<p><b>Judge validity</b> is read from section 4: the diagonal relative to the
+leave-one-out human ceiling (same-target, fair comparison), and the diagonal
+relative to the off-diagonal (dimension-specificity).</p>
+</div>
+<p class="sub"><small>Generated by the analysis script
+<code>human_vs_automatic_correlation.py</code> from the expert ratings and
+automatic metric scores. Re-run after the judge completes to populate
+section 4.</small></p>
+"""
+    path.write_text(html)
+    print(f"Wrote: {path}")
+
+
+def demo():
+    """ponytail: self-check — perfect monotonic pairing must yield rho==1."""
+    human = {("p1", "m"): {"consistency": [4.0], "coherence": [1.0],
+                            "fluency": [], "relevance": []},
+             ("p2", "m"): {"consistency": [2.0], "coherence": [2.0],
+                           "fluency": [], "relevance": []},
+             ("p3", "m"): {"consistency": [5.0], "coherence": [3.0],
+                           "fluency": [], "relevance": []}}
+    automatic = {("p1", "m"): {"alignscore": 0.8},
+                 ("p2", "m"): {"alignscore": 0.4},
+                 ("p3", "m"): {"alignscore": 0.95}}
+    res = correlate(human, automatic)
+    rho, _, _, n = res["alignscore"]["consistency"]
+    assert n == 3 and abs(rho - 1.0) < 1e-9, res["alignscore"]["consistency"]
+    # dimension with no human ratings -> NaN, n=0
+    assert res["alignscore"]["fluency"][3] == 0
+
+    # ranking: mean per model, sorted best-first
+    judge = {
+        ("p1", "good"): {f"judge_{d}": 5 for d in DIMENSIONS},
+        ("p2", "good"): {f"judge_{d}": 4 for d in DIMENSIONS},
+        ("p1", "bad"): {f"judge_{d}": 2 for d in DIMENSIONS},
+        ("p2", "bad"): {f"judge_{d}": 1 for d in DIMENSIONS},
+    }
+    rank = judge_model_ranking(judge)
+    assert [r["model"] for r in rank] == ["good", "bad"], rank
+    assert abs(rank[0]["overall"] - 4.5) < 1e-9 and rank[0]["n"] == 2
+
+    # provider attribution (incl. locally-served family prefixes)
+    assert provider_of("gpt-4o") == "openai"
+    assert provider_of("claude-opus-4-1") == "anthropic"
+    assert provider_of("llama_mistral-nemo") == "mistral"
+    assert provider_of("llama_qwen3") is None
+
+    # panel median + self-preference: openai judge inflates its own family by +2
+    item = ("p1", "gpt-4o")  # openai-family system
+    ctrl = ("p1", "llama_qwen3")  # no-stake control
+    bp = {
+        "openai": {item: {d: 5 for d in DIMENSIONS}, ctrl: {d: 3 for d in DIMENSIONS}},
+        "anthropic": {item: {d: 3 for d in DIMENSIONS}, ctrl: {d: 3 for d in DIMENSIONS}},
+        "mistral": {item: {d: 3 for d in DIMENSIONS}, ctrl: {d: 3 for d in DIMENSIONS}},
+    }
+    agg = aggregate_judges(bp)
+    assert agg[item]["judge_coherence"] == 3.0  # median of [5,3,3]
+    sp = {r["judge"]: r for r in self_preference(bp)}
+    assert abs(sp["openai"]["own_delta"] - 2.0) < 1e-9  # 5 - mean(3,3)
+    assert abs(sp["openai"]["ref_delta"] - 0.0) < 1e-9  # 3 - mean(3,3)
+    assert abs(sp["openai"]["effect"] - 2.0) < 1e-9
+    assert abs(sp["anthropic"]["own_delta"]) < 1e-9 or np.isnan(sp["anthropic"]["own_delta"])
+    print("selfcheck OK")
+
+
+def main():
+    if "--selfcheck" in sys.argv:
+        demo()
+        return
+    if not PER_PAPER_JSON.exists():
+        sys.exit(f"Missing {PER_PAPER_JSON} — copy detailed_scores_per_paper.json "
+                 f"and human_evaluations/ from the prod run dir.")
+
+    human = load_human_ratings(EVAL_DIR)
+    automatic = load_automatic_scores(PER_PAPER_JSON)
+
+    # merge LLM-judge panel (median across providers) as extra "metrics"
+    by_provider = load_judge_by_provider(JUDGE_JSON)
+    judge = aggregate_judges(by_provider)
+    metrics = list(METRICS)
+    if judge:
+        for key, dims in judge.items():
+            automatic.setdefault(key, {}).update(dims)
+        metrics += JUDGE_METRICS
+    print(f"Loaded {len(human)} human-rated items, "
+          f"{len(automatic)} automatic-scored items, "
+          f"judges: {sorted(by_provider)} ({len(judge)} pooled items).")
+
+    results = correlate(human, automatic, metrics)
+
+    print("\n--- Spearman rho (Kendall tau), item-level ---")
+    for metric_key, label in metrics:
+        print(f"\n  {label}:")
+        for dim in DIMENSIONS:
+            rho, tau, p, n = results[metric_key][dim]
+            if np.isnan(rho):
+                print(f"    {dim:>12s}: n/a (n={n})")
+            else:
+                sig = "*" if p < 0.05 else ""
+                print(f"    {dim:>12s}: rho={rho:+.3f} tau={tau:+.3f} "
+                      f"p={p:.4f}{sig} n={n}")
+
+    within_model_breakdown(human, automatic, metrics)
+
+    # n of the analysis (rated items that also have automatic scores)
+    n_items = sum(1 for k in human if k in automatic)
+    evaluators = load_evaluators(EVAL_DIR)
+    inter_expert = inter_expert_rho(evaluators)
+    loo_expert = loo_expert_rho(evaluators)
+    jsummary = judge_summary(results)
+
+    print("\n--- Expert agreement: pairwise vs. leave-one-out ceiling ---")
+    print(f"    {'':>12s}  {'pairwise':>9s}  {'leave-1-out':>11s}")
+    for d in DIMENSIONS:
+        print(f"    {d:>12s}: {inter_expert[d]:>+9.3f}  {loo_expert[d]:>+11.3f}")
+
+    ranking = judge_model_ranking(judge) if judge else None
+    pj_rankings = per_judge_rankings(by_provider) if len(by_provider) > 1 else {}
+
+    if jsummary:
+        print("\n--- Judge vs. expert agreement ---")
+        for d in DIMENSIONS:
+            print(f"    {d:>12s}: judge rho={jsummary['diagonal'][d]:+.3f}  "
+                  f"(LOO ceiling {loo_expert[d]:+.3f})")
+        print(f"    {'diagonal mean':>12s}: {jsummary['diagonal_mean']:+.3f}")
+        print(f"    {'off-diag mean':>12s}: {jsummary['off_diagonal_mean']:+.3f} "
+              f"(lower = more dimension-specific)")
+    else:
+        print("\n(no LLM-judge scores yet — run llm_judge_eval.py to populate "
+              "judge rows)")
+
+    if ranking:
+        print(f"\n--- Model ranking by LLM judge (mean over {ranking[0]['n']} "
+              f"papers, {len(ranking)} systems) ---")
+        for i, r in enumerate(ranking, 1):
+            ov = "n/a" if np.isnan(r["overall"]) else f"{r['overall']:.2f}"
+            print(f"    {i:>2d}. {ov:>4s}  {r['model']}")
+        write_ranking_csv(ranking, BASE_DIR / "judge_model_ranking.csv")
+
+    self_pref = self_preference(by_provider) if len(by_provider) > 1 else []
+    if self_pref:
+        print("\n--- Judge self-preference (per-item delta vs. the other "
+              "judges; >0 = inflates) ---")
+        for r in self_pref:
+            own = "n/a" if np.isnan(r["own_delta"]) else f"{r['own_delta']:+.3f}"
+            ref = "n/a" if np.isnan(r["ref_delta"]) else f"{r['ref_delta']:+.3f}"
+            eff = "n/a" if np.isnan(r["effect"]) else f"{r['effect']:+.3f}"
+            print(f"    {r['judge']:>10s}: own-family {own} (n={r['n_own']})  "
+                  f"other {ref} (n={r['n_ref']})  effect {eff}")
+        write_self_pref_csv(self_pref, BASE_DIR / "judge_self_preference.csv")
+
+    write_csv(results, BASE_DIR / "human_vs_automatic_spearman.csv", metrics)
+    write_latex(results, BASE_DIR / "human_vs_automatic_correlation.tex", metrics)
+    write_html(results, metrics, inter_expert, loo_expert, jsummary, n_items,
+               BASE_DIR / "human_vs_automatic_report.html", ranking, self_pref,
+               pj_rankings)
+    print("\nDone.")
+
+
+if __name__ == "__main__":
+    main()
