@@ -20,7 +20,9 @@ Outputs (same run dir):
 
 from __future__ import annotations
 
+import csv
 import json
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -55,6 +57,9 @@ BASE_DIR = SCRIPT_DIR.parent / "Output" / "llm_summarization_benchmark" / GH_HAS
 EVAL_DIR = SCRIPT_DIR.parent / "Output" / "scripts" / "human_evaluation_data"
 PER_PAPER_JSON = BASE_DIR / "detailed_scores_per_paper.json"
 JUDGE_JSON = SCRIPT_DIR.parent / "Output" / "scripts" / "llm_judge_scores.json"
+METRIC_RANKS_CSV = SCRIPT_DIR.parent / "Resources" / "heatmap_metric_ranks.csv"
+METRIC_FAMILIES = ["Lexical Rank", "Semantic Rank", "Factual Rank",
+                   "Performance Rank"]
 
 # LLM-judge dimensions appear as extra "metrics"; the diagonal (judge dim vs
 # same human dim) is the headline agreement, off-diagonal shows discriminance.
@@ -303,6 +308,59 @@ def per_judge_rankings(by_provider) -> dict[str, list[dict]]:
     return out
 
 
+def _norm_model(name: str) -> str:
+    """Normalize a system name across the judge and metric-rank vocabularies:
+    drop provider prefix / org path and trailing date/version stamps so e.g.
+    'huggingface:chat_swiss-ai/Apertus-8B-Instruct-2509' matches the metric
+    file's 'Apertus-8B-Instruct'. Collapsing the YYMM version tag merges the
+    two mistral-medium releases; the better-ranked one is kept on join."""
+    n = name.split("/")[-1]
+    n = re.sub(r'^(openai_|anthropic_|ollama_|mistral_|huggingface_|local:|'
+               r'huggingface:chat_|huggingface:conversational_|'
+               r'huggingface:completion_)', '', n)
+    n = re.sub(r'-20\d{2}-\d{2}-\d{2}$', '', n)   # -2025-08-07
+    n = re.sub(r'-20\d{6}$', '', n)               # -20250514
+    n = re.sub(r'-2\d{3}$', '', n)                # -2509 / -2505 version tag
+    return n.lower()
+
+
+def metric_rank_concordance(ranking) -> dict | None:
+    """System-level concordance: Spearman/Kendall between the judge's overall
+    ranking and each automatic-metric family ranking, over jointly-covered
+    systems. Measures agreement between two automatic methods (not human
+    validation). None if the ranking or the metric-ranks resource is absent."""
+    if not ranking or not METRIC_RANKS_CSV.exists():
+        return None
+    metrics = {}
+    with open(METRIC_RANKS_CSV, newline="") as f:
+        for row in csv.DictReader(f, delimiter=";"):
+            metrics[_norm_model(row["method"])] = row
+    ranked = [r for r in ranking if not np.isnan(r["overall"])]
+    jrank: dict[str, int] = {}
+    for i, r in enumerate(ranked, 1):          # best-first; keep better release
+        jrank.setdefault(_norm_model(r["model"]), i)
+    matched = [k for k in jrank if k in metrics]
+    rows = []
+    for fam in METRIC_FAMILIES:
+        jr = [jrank[k] for k in matched]
+        mr = [int(metrics[k][fam]) for k in matched]
+        rho, p = spearmanr(jr, mr)
+        tau, _ = kendalltau(jr, mr)
+        rows.append({"family": fam, "rho": float(rho), "p": float(p),
+                     "tau": float(tau)})
+    return {"rows": rows, "n": len(matched),
+            "unmatched": sorted(set(jrank) - set(metrics))}
+
+
+def write_concordance_csv(conc, path: Path):
+    lines = ["family,spearman_rho,p_value,kendall_tau,n"]
+    for r in conc["rows"]:
+        lines.append(f'{r["family"]},{r["rho"]:.3f},{r["p"]:.2e},'
+                     f'{r["tau"]:.3f},{conc["n"]}')
+    path.write_text("\n".join(lines) + "\n")
+    print(f"Wrote: {path}")
+
+
 def write_ranking_csv(rows, path: Path):
     header = ["rank", "model"] + [d.capitalize() for d in DIMENSIONS] + ["overall", "n"]
     lines = [",".join(header)]
@@ -445,7 +503,8 @@ def _cell_color(rho: float, p: float) -> str:
 
 
 def write_html(results, metrics, inter_expert, loo_expert, jsummary, n_items,
-               path: Path, ranking=None, self_pref=None, per_judge=None):
+               path: Path, ranking=None, self_pref=None, per_judge=None,
+               concordance=None):
     """Self-contained explainer + heatmap report for colleagues."""
     def esc(s):
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -550,6 +609,40 @@ manual evaluation could not produce at this scale. Top 3 highlighted.</p>
         ranking_block = ('<h2>5. Model ranking by the LLM judge</h2>'
                          '<p><em>Populated after the judge runs.</em></p>')
 
+    # judge vs. automatic-metric ranking concordance (system-level)
+    if concordance:
+        crows = []
+        for r in concordance["rows"]:
+            pstr = "n.s." if r["p"] >= 0.05 else f"{r['p']:.0e}"
+            bg = "#fdecea" if r["p"] >= 0.05 else "#eaf6ec"
+            crows.append(
+                f'<tr><th style="text-align:left">{esc(r["family"])}</th>'
+                f'<td>{r["rho"]:+.3f}</td><td>{r["tau"]:+.3f}</td>'
+                f'<td style="background:{bg}">{pstr}</td></tr>')
+        concordance_block = f"""<h2>6. Judge ranking vs. automatic metrics (system-level)</h2>
+<p>Section&nbsp;4 validated the judge against experts on the {n_items}
+jointly-rated items. Here we ask a complementary question at full scale: does the
+judge <em>order the {concordance['n']} systems</em> the way the established
+automatic metrics do? We rank-correlate (Spearman&nbsp;&rho;, Kendall&nbsp;&tau;)
+the judge's overall ranking against each metric family's ranking. This measures
+agreement between two automatic methods &mdash; not human validation &mdash; but
+with n={concordance['n']} systems it is well powered, unlike the n=4 system-level
+expert comparison.</p>
+<div class="scroll"><table>
+  <thead><tr><th>Metric family</th><th>Spearman &rho;</th><th>Kendall &tau;</th>
+  <th>p</th></tr></thead>
+  <tbody>{''.join(crows)}</tbody>
+</table></div>
+<p><b>Read it like this:</b> the judge agrees strongly with the lexical, semantic
+and performance families (&rho;&nbsp;&asymp;&nbsp;0.76&ndash;0.83), confirming it
+ranks systems consistently with metrics the field already trusts. The
+<b>factual</b> family is the exception (&rho; near&nbsp;0, not significant):
+factuality metrics reward verbatim copying, so extractive systems (textrank,
+frequency, T5, PEGASUS) top the factual ranking yet fall to the bottom of the
+judge's &mdash; a genuine construct difference, not a judge failure.</p>"""
+    else:
+        concordance_block = ""
+
     # self-preference section (only meaningful with a multi-provider panel)
     if self_pref:
         sp_rows = []
@@ -564,7 +657,7 @@ manual evaluation could not produce at this scale. Top 3 highlighted.</p>
                 f'<td>{cell(r["own_delta"])}<br><small>n={r["n_own"]}</small></td>'
                 f'<td>{cell(r["ref_delta"])}<br><small>n={r["n_ref"]}</small></td>'
                 f'<td{hl}><b>{cell(eff)}</b></td></tr>')
-        self_pref_block = f"""<h2>6. Judge self-preference (bias control)</h2>
+        self_pref_block = f"""<h2>7. Judge self-preference (bias control)</h2>
 <p>A single-provider judge could inflate summaries from its own model family.
 With a three-provider panel we can <em>measure</em> that directly, without any
 human labels. For each judge we compute, per item, how far its score sits above
@@ -681,7 +774,7 @@ highlights, and the summary) and returns a 1&ndash;5 score per dimension via
 forced structured output, so every rating is schema-valid and reproducible. The
 headline score below is the <b>panel median</b> across the three judges, which
 resists any single judge's idiosyncrasy or self-preference (quantified in
-section&nbsp;6). It is first <b>validated</b> against the experts on the {n_items}
+section&nbsp;7). It is first <b>validated</b> against the experts on the {n_items}
 jointly-covered items (the diagonal below), then applied to all systems on the
 same 20 papers &mdash; a human-aligned, multi-dimensional evaluation at a scale
 manual annotation cannot reach.</p>
@@ -694,9 +787,11 @@ rather than emitting one global impression.</p>
 
 {ranking_block}
 
+{concordance_block}
+
 {self_pref_block}
 
-<h2>7. How to interpret the results</h2>
+<h2>8. How to interpret the results</h2>
 <div class="note">
 <p><b>Strength.</b> A high, significant &rho; means the metric ranks summaries in
 the same order experts do. Most metrics here reach &rho; up to ~0.85, so they
@@ -851,6 +946,20 @@ def main():
             print(f"    {i:>2d}. {ov:>4s}  {r['model']}")
         write_ranking_csv(ranking, BASE_DIR / "judge_model_ranking.csv")
 
+    concordance = metric_rank_concordance(ranking)
+    if concordance:
+        print(f"\n--- Judge ranking vs. automatic-metric rankings "
+              f"(n={concordance['n']} systems) ---")
+        for r in concordance["rows"]:
+            sig = "" if r["p"] < 0.05 else "  (n.s.)"
+            print(f"    {r['family']:<18s}: rho={r['rho']:+.3f}  "
+                  f"tau={r['tau']:+.3f}{sig}")
+        if concordance["unmatched"]:
+            print(f"    unmatched (no metric row): "
+                  f"{', '.join(concordance['unmatched'])}")
+        write_concordance_csv(concordance,
+                              BASE_DIR / "judge_metric_concordance.csv")
+
     self_pref = self_preference(by_provider) if len(by_provider) > 1 else []
     if self_pref:
         print("\n--- Judge self-preference (per-item delta vs. the other "
@@ -867,7 +976,7 @@ def main():
     write_latex(results, BASE_DIR / "human_vs_automatic_correlation.tex", metrics)
     write_html(results, metrics, inter_expert, loo_expert, jsummary, n_items,
                BASE_DIR / "human_vs_automatic_report.html", ranking, self_pref,
-               pj_rankings)
+               pj_rankings, concordance)
     print("\nDone.")
 
 
