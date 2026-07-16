@@ -61,6 +61,7 @@ class OllamaSummaryClient(SummaryClient):
 
     def cleanup(self, model_name: str) -> None:
         try:
+            # Unload the specific model
             logger.info(f"Unloading model: {model_name} to free up resources")
             self.client.generate(
                 model=model_name,
@@ -68,6 +69,22 @@ class OllamaSummaryClient(SummaryClient):
                 options={"num_predict": 0},
                 keep_alive=0
             )
+
+            # Also unload any other models still loaded in Ollama (e.g. from a
+            # prior failed iteration that skipped cleanup)
+            try:
+                for m in self.client.ps().models:
+                    if m.model and m.model != model_name:
+                        logger.info(f"Unloading leftover model: {m.model}")
+                        self.client.generate(
+                            model=m.model,
+                            prompt="",
+                            options={"num_predict": 0},
+                            keep_alive=0
+                        )
+            except Exception as e:
+                logger.warning(f"Could not list/unload running models: {e}")
+
             time.sleep(2)
         except Exception as e:
             logger.error(f"Error unloading model: {e}")

@@ -3,9 +3,10 @@ name = "llm-summarization-benchmark"
 version = "0.3.7"
 description = "Scientific Paper Summarization Benchmark"
 readme = "README.md"
-requires-python = ">=3.11,<4.0"
+requires-python = ">=3.12,<3.13"
 dependencies = [
 	"alignscore",
+	"summac",
 	"anthropic>=0.76.0",
 	"bert-score>=0.3.13",
 	"mistralai>=1.10.0",
@@ -19,10 +20,17 @@ dependencies = [
 	"rouge-score>=0.1.2",
 	"sentence-transformers>=5.1.1",
 	"tiktoken>=0.12.0",
+	"en-core-web-sm",
+	"minicheck",
+	"accelerate>=1.12.0",
+	"vllm>=0.8.0",
 ]
 
 [tool.uv.sources]
 alignscore = { git = "https://github.com/MNikley/AlignScore" }
+summac = { git = "https://github.com/tingofurro/summac" }
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0.tar.gz" }
+minicheck = { git = "https://github.com/Liyan06/MiniCheck", tag = "main" }
 
 [build-system]
 requires = ["hatchling"]
@@ -40,3 +48,4 @@ exclude = ["tests", "*.tests", "*.tests.*", "tests.*"]
 
 [project.scripts]
 benchmark = "llm_summarization_benchmark.benchmark:main"
+proxy-validation = "llm_summarization_benchmark.goldstandard_proxy_validation:main"

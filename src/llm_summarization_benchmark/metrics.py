@@ -1,14 +1,21 @@
 import logging
 import gc
+import os
 import time
+import warnings
 from typing import TYPE_CHECKING
+
+import transformers
+
+# Suppress noisy "some weights were not initialized" warnings from HuggingFace models
+transformers.logging.set_verbosity_error()
+warnings.filterwarnings("ignore", message="Some weights of .* were not initialized")
 
 from nltk.translate.meteor_score import meteor_score
 from nltk.translate.bleu_score import sentence_bleu
 from rouge_score.rouge_scorer import RougeScorer
-from bert_score import score as bert_score, BERTScorer
+from bert_score import score as bert_score
 from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
 from alignscore import AlignScore
 
 from llm_apis.huggingface_client import init_hf_cache_dir
@@ -16,6 +23,10 @@ from llm_apis.huggingface_client import init_hf_cache_dir
 from utilities import get_project_root, get_min_max_mean_std
 
 try:
+    # Reduce CUDA memory fragmentation (must be set before first torch.cuda call)
+    if "PYTORCH_CUDA_ALLOC_CONF" not in os.environ:
+        os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+
     import torch
 
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -31,81 +42,14 @@ logger = logging.getLogger(__name__)
 ROUGE_TYPES = ['rouge1', 'rouge2', 'rougeL']
 ROUGE_SCORER = RougeScorer(ROUGE_TYPES, use_stemmer=True)
 OUT_DIR = get_project_root() / "Output" / "llm_summarization_benchmark"
-USE_MODEL_CACHE = False
 METRIC_TYPES = [
     "rouge_scores", "roberta_scores", "deberta_scores", "meteor_scores", "bleu_scores",
-    "mpnet_content_coverage_scores", "alignscore_scores"
+    "mpnet_content_coverage_scores", "alignscore_scores", "summac_scores", "factcc_scores",
+    "minicheck_ft5_scores", "minicheck_7b_scores"
 ]
 
 
 init_hf_cache_dir()
-
-
-class ModelCache:
-    """Cache for reusing models to avoid reloading"""
-
-    def __init__(self) -> None:
-        self.sentence_transformers = {}
-        self.bert_models = {}
-
-    def get_sentence_transformer(self, model_name: str) -> SentenceTransformer:
-        """Get or create a SentenceTransformer model"""
-        if not USE_MODEL_CACHE:
-            return SentenceTransformer(model_name, device=self._get_best_device())
-
-        if model_name not in self.sentence_transformers:
-            logger.info(f"Loading SentenceTransformer model: {model_name}")
-
-            device = self._get_best_device()
-
-            self.sentence_transformers[model_name] = SentenceTransformer(
-                model_name,
-                device=device
-            )
-
-            self._log_memory_usage(f"After loading {model_name}")
-
-        return self.sentence_transformers[model_name]
-
-    @staticmethod
-    def _get_best_device() -> str:
-        """Determine the best device to use"""
-        if torch and torch.cuda.is_available():
-            # Check available GPU memory
-            gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024 ** 3
-            allocated = torch.cuda.memory_allocated(0) / 1024 ** 3
-            free_memory = gpu_memory - allocated
-
-            # Use GPU only if we have enough free memory (at least 1GB)
-            if free_memory > 1.0:
-                return 'cuda'
-            else:
-                logger.warning(f"Low GPU memory ({free_memory:.2f}GB), using CPU for SentenceTransformer")
-                return 'cpu'
-        return 'cpu'
-
-    @staticmethod
-    def _log_memory_usage(context: str = ""):
-        """Log current memory usage"""
-        if torch and torch.cuda.is_available():
-            allocated = torch.cuda.memory_allocated(0) / 1024 ** 3
-            cached = torch.cuda.memory_reserved(0) / 1024 ** 3
-            total = torch.cuda.get_device_properties(0).total_memory / 1024 ** 3
-            free = total - allocated
-            logger.info(f"{context} - GPU: {allocated:.2f}GB allocated, {cached:.2f}GB cached, {free:.2f}GB free")
-
-    def cleanup_all(self):
-        """Clean up all cached models"""
-        self.sentence_transformers.clear()
-        self.bert_models.clear()
-
-        gc.collect()
-        empty_cuda_cache(sync=True)
-        self._log_memory_usage("After Cleanup")
-        time.sleep(5)
-
-
-_model_cache = ModelCache()
 
 
 def get_length_scores(summaries: list[str], min_words: int, max_words: int) -> dict:
@@ -148,8 +92,6 @@ def get_rouge_scores(generated: list[str], references: list[list[str]],
         for rouge_type in ROUGE_TYPES:
             rouge_scores[rouge_type].append(max_scores[rouge_type])
 
-    time.sleep(5)
-
     return {
         rouge_type: get_min_max_mean_std(rouge_scores[rouge_type])
         for rouge_type in ROUGE_TYPES
@@ -182,8 +124,6 @@ def get_meteor_scores(generated: list[str], references: list[list[str]],
         logger.error(f"METEOR calculation failed: {str(e)}")
         raise
 
-    time.sleep(5)
-
     return get_min_max_mean_std(meteor_scores)
 
 
@@ -198,43 +138,108 @@ def get_bert_scores(generated: list[str], references: list[list[str]], model: st
         logger.info(f"Calculating BERTScore with model: {model}")
         empty_cuda_cache()
 
-        for idx, (gen, ref_list, paper) in enumerate(zip(generated, references, irc.papers)):
-            with torch.no_grad():
-                P, R, F1 = bert_score(
-                    cands=[gen] * len(ref_list),
-                    refs=ref_list,
-                    model_type=model,
-                    lang="en",
-                    verbose=False,
-                    device='cuda' if torch and torch.cuda.is_available() else 'cpu',
-                    batch_size=8,
-                )
+        # Flatten all (generated, reference) pairs for batched scoring
+        flat_cands = []
+        flat_refs = []
+        paper_indices = []
+        for paper_idx, (gen, ref_list) in enumerate(zip(generated, references)):
+            for ref in ref_list:
+                flat_cands.append(gen)
+                flat_refs.append(ref)
+                paper_indices.append(paper_idx)
 
-            precision = P.max().item()
-            recall = R.max().item()
-            f1 = F1.max().item()
+        device = 'cuda' if torch and torch.cuda.is_available() else 'cpu'
+        logger.info(f"BERTScore: scoring {len(flat_cands)} pairs on {device}")
 
-            best_precision.append(precision)
-            best_recall.append(recall)
+        # Some models (e.g. DeBERTa) report tokenizer.model_max_length ≈ 10^30
+        # but only support max_position_embeddings = 512.  bert_score uses the
+        # tokenizer limit for truncation, so inputs pass through untruncated and
+        # cause OOM on the attention matrix.  Pre-truncate when needed.
+        from transformers import AutoConfig, AutoTokenizer
+        _config = AutoConfig.from_pretrained(model)
+        _max_pos = getattr(_config, "max_position_embeddings", None)
+        if _max_pos:
+            _tokenizer = AutoTokenizer.from_pretrained(model)
+            if _tokenizer.model_max_length > _max_pos:
+                logger.info(f"BERTScore: truncating inputs to {_max_pos} tokens for {model} "
+                            f"(tokenizer reports model_max_length={_tokenizer.model_max_length})")
+                flat_cands = [
+                    _tokenizer.decode(
+                        _tokenizer.encode(c, truncation=True, max_length=_max_pos),
+                        skip_special_tokens=True
+                    ) for c in flat_cands
+                ]
+                flat_refs = [
+                    _tokenizer.decode(
+                        _tokenizer.encode(r, truncation=True, max_length=_max_pos),
+                        skip_special_tokens=True
+                    ) for r in flat_refs
+                ]
+            del _tokenizer
+        del _config
+
+        # Adaptive batching: start large, halve on OOM, fall back to CPU
+        batch_size = 128
+        P = R = F1 = None
+        while True:
+            try:
+                with torch.no_grad():
+                    P, R, F1 = bert_score(
+                        cands=flat_cands,
+                        refs=flat_refs,
+                        model_type=model,
+                        lang="en",
+                        verbose=False,
+                        device=device,
+                        batch_size=batch_size,
+                    )
+                logger.info(f"BERTScore: completed with batch_size={batch_size} on {device}")
+                break
+            except Exception as e:
+                if not _is_oom_error(e):
+                    raise
+                if batch_size > 1:
+                    logger.warning(f"BERTScore OOM at batch_size={batch_size}, "
+                                   f"retrying with {batch_size // 2}")
+                    P = R = F1 = None
+                    empty_cuda_cache(sync=True)
+                    time.sleep(1)
+                    batch_size //= 2
+                elif device != 'cpu':
+                    logger.warning(f"BERTScore OOM at batch_size=1 on {device}, "
+                                   f"falling back to CPU")
+                    P = R = F1 = None
+                    empty_cuda_cache(sync=True)
+                    device = 'cpu'
+                    batch_size = 32
+                else:
+                    raise
+
+        # Re-aggregate: take max score per paper across its references
+        for paper_idx in range(len(generated)):
+            indices = [i for i, pi in enumerate(paper_indices) if pi == paper_idx]
+            p = max(P[i].item() for i in indices)
+            r = max(R[i].item() for i in indices)
+            f1 = max(F1[i].item() for i in indices)
+
+            best_precision.append(p)
+            best_recall.append(r)
             best_f1.append(f1)
 
-            paper.scores[f"bert_{model}_precision"].append(precision)
-            paper.scores[f"bert_{model}_recall"].append(recall)
+            paper = irc.papers[paper_idx]
+            paper.scores[f"bert_{model}_precision"].append(p)
+            paper.scores[f"bert_{model}_recall"].append(r)
             paper.scores[f"bert_{model}_f1"].append(f1)
 
-            del P, R, F1
-
-            if (idx + 1) % 100 == 0:
-                logger.info(f"Processed {idx + 1}/{len(generated)} documents for {model}")
-
+        del P, R, F1
 
     except Exception as e:
         logger.error(f"BERTScore calculation failed: {e}")
         raise
     finally:
-        if hasattr(BERTScorer, '_model'):
-            BERTScorer._model = None
-
+        # bert_score.score() creates the model as a local variable that is
+        # already out of scope by the time we reach this finally block, so
+        # gc.collect() can reclaim it and empty_cuda_cache frees the VRAM.
         gc.collect()
         empty_cuda_cache(sync=True)
 
@@ -262,54 +267,71 @@ def get_bleu_scores(generated: list[str], references: list[list[str]],
 
 def get_sentence_transformer_similarity(generated: list[str], source_documents: list[str], model_name: str,
                                         irc: 'InterferenceRunContainer') -> dict[str, float]:
-    """Calculate sentence transformer similarity using cached model."""
-    similarities = []
-
+    """Calculate sentence transformer similarity."""
+    model = None
     try:
         logger.info(f"Calculating SentenceTransformer similarity with model: {model_name}")
-        model = _model_cache.get_sentence_transformer(model_name)
         empty_cuda_cache()
 
-        batch_size = 4
+        model = SentenceTransformer(model_name, device=DEVICE)
 
-        for i in range(0, len(generated), batch_size):
-            if i % 100 == 0:
-                logger.info(f"Processed sentence transformer similarities for {i}/{len(generated)} documents "
-                            f"for {model_name}")
-            batch_gen = generated[i:i + batch_size]
-            batch_src = source_documents[i:i + batch_size]
-            batch_papers = irc.papers[i:i + batch_size]
+        # Adaptive batch encoding: encode all texts, halve batch_size on OOM
+        batch_size = 128
+        gen_embeddings = src_embeddings = None
+        while True:
+            try:
+                with torch.no_grad():
+                    gen_embeddings = model.encode(
+                        generated, batch_size=batch_size,
+                        convert_to_tensor=True, show_progress_bar=False,
+                    )
+                    src_embeddings = model.encode(
+                        source_documents, batch_size=batch_size,
+                        convert_to_tensor=True, show_progress_bar=False,
+                    )
+                logger.info(f"SentenceTransformer: encoded {len(generated)} pairs "
+                            f"(batch_size={batch_size})")
+                break
+            except Exception as e:
+                if not _is_oom_error(e) or batch_size <= 1:
+                    raise
+                logger.warning(f"SentenceTransformer OOM at batch_size={batch_size}, "
+                               f"retrying with {batch_size // 2}")
+                gen_embeddings = src_embeddings = None
+                empty_cuda_cache(sync=True)
+                time.sleep(1)
+                batch_size //= 2
 
-            for gen, src, paper in zip(batch_gen, batch_src, batch_papers):
-                with torch.no_grad():  # Disable gradient computation
-                    embeddings = model.encode([gen, src], convert_to_tensor=True)
-                    similarity = cosine_similarity(
-                        embeddings[0].cpu().numpy().reshape(1, -1),
-                        embeddings[1].cpu().numpy().reshape(1, -1)
-                    )[0][0]
-                    similarities.append(float(similarity))
-                    paper.scores["sentence_transformer"].append(similarity)
+        # Vectorised element-wise cosine similarity
+        similarities_t = torch.nn.functional.cosine_similarity(
+            gen_embeddings, src_embeddings,
+        )
+        similarities = similarities_t.cpu().tolist()
 
-                # Clean up tensors
-                del embeddings
-                empty_cuda_cache(silent=True)
+        for sim, paper in zip(similarities, irc.papers):
+            paper.scores["sentence_transformer"].append(float(sim))
+
+        del gen_embeddings, src_embeddings, similarities_t
 
     except Exception as e:
         logger.error(f"Sentence Transformer embedding similarity {model_name} failed: {e}")
         raise
     finally:
-        empty_cuda_cache()
-        _model_cache.cleanup_all()
+        if model is not None:
+            del model
+        gc.collect()
+        empty_cuda_cache(sync=True)
 
     return get_min_max_mean_std(similarities)
 
 def get_alignscore_scores(generated: list[str], references: list[str],
                           irc: 'InterferenceRunContainer') -> dict[str, float]:
     """
-    Calculate AlignScore between generated summaries and abstracts.
+    Calculate AlignScore between generated summaries and source documents (title + abstract).
     """
     scores = []
     ckpt_path = OUT_DIR / "AlignScore-large.ckpt"
+    aligner = None
 
     try:
         logger.info(f"Calculating AlignScore on device: {DEVICE}")
@@ -318,27 +340,43 @@ def get_alignscore_scores(generated: list[str], references: list[str],
         aligner = AlignScore(
             model="roberta-large",
             ckpt_path=ckpt_path,
-            batch_size=16,
+            batch_size=512,  # high ceiling; actual batch size controlled below
             device=DEVICE,
         )
 
-        batch_size = 16
-        for i in range(0, len(generated), batch_size):
+        batch_size = 64
+        i = 0
+        while i < len(generated):
             batch_gen = generated[i:i + batch_size]
             batch_ref = references[i:i + batch_size]
             batch_papers = irc.papers[i:i + batch_size]
 
             try:
                 batch_scores = aligner.score(batch_ref, batch_gen)
-                scores.extend(batch_scores)
-                for score, paper in zip(batch_scores, batch_papers):
-                    paper.scores["alignscore"].append(score)
             except Exception as e:
-                logger.warning(f"AlignScore batch {i // batch_size + 1} failed: {e}")
-                continue
+                if _is_oom_error(e) and batch_size > 1:
+                    logger.warning(f"AlignScore OOM at batch_size={batch_size}, "
+                                   f"reducing to {batch_size // 2}")
+                    empty_cuda_cache(sync=True)
+                    time.sleep(1)
+                    batch_size = max(batch_size // 2, 1)
+                    continue
+                logger.warning(f"AlignScore batch failed ({e}), "
+                               f"falling back to per-sample scoring")
+                batch_scores = []
+                for j, (ref, gen_text) in enumerate(zip(batch_ref, batch_gen)):
+                    try:
+                        batch_scores.extend(aligner.score([ref], [gen_text]))
+                    except Exception as e2:
+                        logger.warning(f"AlignScore sample {i + j} failed ({e2}), scoring as 0.0")
+                        batch_scores.append(0.0)
 
-            if torch and torch.cuda.is_available():
-                torch.cuda.empty_cache()
+            scores.extend(batch_scores)
+            for score, paper in zip(batch_scores, batch_papers):
+                paper.scores["alignscore"].append(score)
+
+            empty_cuda_cache(silent=True)
+            i += len(batch_gen)
 
         logger.info(f"AlignScore computed for {len(scores)} pairs")
 
@@ -347,9 +385,394 @@ def get_alignscore_scores(generated: list[str], references: list[str],
         logger.error(f"Make sure this file exists: {ckpt_path}")
         raise
     finally:
-        empty_cuda_cache()
+        if aligner is not None:
+            del aligner
+        gc.collect()
+        empty_cuda_cache(sync=True)
 
     return get_min_max_mean_std(scores)
+
+
+def get_summac_scores(generated: list[str], references: list[str],
+                      irc: 'InterferenceRunContainer') -> dict[str, float]:
+    """Calculate SummaC-ZS (zero-shot) factual consistency scores.
+
+    Uses NLI-based sentence-level entailment aggregation to assess whether
+    generated summaries are factually consistent with the source documents.
+    """
+    from summac.model_summac import SummaCZS
+
+    model = None
+    try:
+        logger.info(f"Calculating SummaC-ZS on device: {DEVICE}")
+        empty_cuda_cache()
+
+        model = SummaCZS(model_name="vitc", granularity="sentence", device=DEVICE)
+
+        scores = []
+        batch_size = 32
+        i = 0
+        while i < len(generated):
+            batch_gen = generated[i:i + batch_size]
+            batch_ref = references[i:i + batch_size]
+            batch_papers = irc.papers[i:i + batch_size]
+
+            try:
+                result = model.score(batch_ref, batch_gen)
+                batch_scores = result["scores"]
+            except Exception as e:
+                if _is_oom_error(e) and batch_size > 1:
+                    logger.warning(f"SummaC OOM at batch_size={batch_size}, "
+                                   f"reducing to {batch_size // 2}")
+                    empty_cuda_cache(sync=True)
+                    time.sleep(1)
+                    batch_size = max(batch_size // 2, 1)
+                    continue
+                logger.warning(f"SummaC batch failed ({e}), "
+                               f"falling back to per-sample scoring")
+                batch_scores = []
+                for j, (ref, gen_text) in enumerate(zip(batch_ref, batch_gen)):
+                    try:
+                        result = model.score([ref], [gen_text])
+                        batch_scores.append(result["scores"][0])
+                    except Exception as e2:
+                        logger.warning(f"SummaC sample {i + j} failed ({e2}), scoring as 0.0")
+                        batch_scores.append(0.0)
+
+            scores.extend(batch_scores)
+            for score, paper in zip(batch_scores, batch_papers):
+                paper.scores["summac"].append(score)
+
+            empty_cuda_cache(silent=True)
+            i += len(batch_gen)
+
+            if i % 100 < len(batch_gen):
+                logger.info(f"SummaC-ZS: processed {i}/{len(generated)} documents")
+
+        logger.info(f"SummaC-ZS computed for {len(scores)} pairs")
+
+    except Exception as e:
+        logger.error(f"SummaC-ZS calculation failed: {e}")
+        raise
+    finally:
+        if model is not None:
+            del model
+        gc.collect()
+        empty_cuda_cache(sync=True)
+
+    return get_min_max_mean_std(scores)
+
+
+def _factcc_score_batch(tokenizer, model, correct_idx,
+                        refs: list[str], gens: list[str]) -> list[float]:
+    inputs = tokenizer(refs, gens, max_length=512,
+                       padding="max_length", truncation=True,
+                       return_tensors="pt").to(DEVICE)
+    with torch.no_grad():
+        logits = model(**inputs).logits
+    probs = torch.softmax(logits, dim=1)
+    result = probs[:, correct_idx].tolist()
+    del inputs, logits, probs
+    return result
+
+
+def _factcc_score_batch_individually(tokenizer, model, correct_idx,
+                                     refs: list[str], gens: list[str]) -> list[float]:
+    results = []
+    for j, (ref, gen) in enumerate(zip(refs, gens)):
+        try:
+            results.extend(_factcc_score_batch(tokenizer, model, correct_idx, [ref], [gen]))
+        except Exception as e:
+            logger.warning(f"FactCC sample {j} failed ({e}), scoring as 0.0")
+            results.append(0.0)
+    return results
+
+
+def get_factcc_scores(generated: list[str], references: list[str],
+                      irc: 'InterferenceRunContainer') -> dict[str, float]:
+    """Calculate FactCC factual consistency scores using manueldeprada/FactCC.
+
+    Uses a BERT-based binary consistency classifier that returns P(CORRECT)
+    as a continuous score in [0, 1].
+    """
+    from transformers import BertForSequenceClassification, BertTokenizer
+
+    model_path = "manueldeprada/FactCC"
+
+    model = None
+    tokenizer = None
+    try:
+        logger.info(f"Calculating FactCC on device: {DEVICE}")
+        empty_cuda_cache()
+
+        tokenizer = BertTokenizer.from_pretrained(model_path)
+        model = BertForSequenceClassification.from_pretrained(model_path).to(DEVICE)
+        model.eval()
+        correct_idx = model.config.label2id["CORRECT"]
+
+        scores = []
+        batch_size = 64
+        i = 0
+        while i < len(generated):
+            batch_gen = generated[i:i + batch_size]
+            batch_ref = references[i:i + batch_size]
+            batch_papers = irc.papers[i:i + batch_size]
+
+            try:
+                batch_scores = _factcc_score_batch(
+                    tokenizer, model, correct_idx, batch_ref, batch_gen
+                )
+            except Exception as e:
+                if _is_oom_error(e) and batch_size > 1:
+                    logger.warning(f"FactCC OOM at batch_size={batch_size}, "
+                                   f"reducing to {batch_size // 2}")
+                    empty_cuda_cache(sync=True)
+                    time.sleep(1)
+                    batch_size = max(batch_size // 2, 1)
+                    continue
+                logger.warning(
+                    f"FactCC batch failed ({e}), "
+                    f"falling back to per-sample scoring"
+                )
+                batch_scores = _factcc_score_batch_individually(
+                    tokenizer, model, correct_idx, batch_ref, batch_gen
+                )
+
+            scores.extend(batch_scores)
+            for score, paper in zip(batch_scores, batch_papers):
+                paper.scores["factcc"].append(score)
+
+            empty_cuda_cache(silent=True)
+            i += len(batch_gen)
+
+            if i % 100 < len(batch_gen):
+                logger.info(f"FactCC: processed {i}/{len(generated)} documents")
+
+        logger.info(f"FactCC computed for {len(scores)} pairs")
+
+    except Exception as e:
+        logger.error(f"FactCC calculation failed: {e}")
+        raise
+    finally:
+        if model is not None:
+            del model
+        if tokenizer is not None:
+            del tokenizer
+        gc.collect()
+        empty_cuda_cache(sync=True)
+
+    return get_min_max_mean_std(scores)
+
+
+def get_minicheck_scores(generated: list[str], references: list[str],
+                         irc: 'InterferenceRunContainer',
+                         model_name: str) -> dict[str, float]:
+    """Calculate MiniCheck factual consistency scores via sentence-level verification.
+
+    Decomposes each summary into sentences, scores each (source, sentence) pair,
+    and aggregates per-paper scores via mean.
+
+    Args:
+        generated: Generated summaries.
+        references: Source documents (title + abstract) to verify against.
+        irc: Interference run container with paper objects.
+        model_name: MiniCheck model variant — "flan-t5-large" or "Bespoke-MiniCheck-7B".
+    """
+    from minicheck.minicheck import MiniCheck
+    from nltk.tokenize import sent_tokenize
+
+    score_key = "minicheck_ft5" if "flan" in model_name.lower() else "minicheck_7b"
+
+    scorer = None
+    try:
+        logger.info(f"Calculating MiniCheck ({model_name}) on device: {DEVICE}")
+        empty_cuda_cache()
+
+        scorer = MiniCheck(model_name=model_name, max_model_len=4096)
+
+        total = len(generated)
+        skipped = 0
+        scores = []
+        for idx, (gen, ref, paper) in enumerate(zip(generated, references, irc.papers)):
+            sentences = sent_tokenize(gen)
+            if not sentences:
+                logger.warning(f"MiniCheck ({model_name}): paper {idx + 1}/{total} has no sentences, assigning 0.0")
+                scores.append(0.0)
+                paper.scores[score_key].append(0.0)
+                skipped += 1
+                continue
+
+            docs = [ref] * len(sentences)
+            try:
+                _, sent_scores, _, _ = scorer.score(docs=docs, claims=sentences)
+            except Exception as e:
+                if not _is_oom_error(e):
+                    raise
+                logger.warning(f"MiniCheck ({model_name}): OOM on paper {idx + 1}/{total} "
+                               f"({len(sentences)} sentences), falling back to per-sentence scoring")
+                empty_cuda_cache(sync=True)
+                sent_scores = []
+                for s_idx, sent in enumerate(sentences):
+                    try:
+                        _, s_scores, _, _ = scorer.score(docs=[ref], claims=[sent])
+                        sent_scores.extend(s_scores)
+                    except Exception as e2:
+                        logger.warning(f"MiniCheck ({model_name}): sentence {s_idx} failed ({e2}), scoring as 0.0")
+                        sent_scores.append(0.0)
+
+            paper_score = sum(sent_scores) / len(sent_scores)
+            scores.append(paper_score)
+            paper.scores[score_key].append(paper_score)
+
+            if (idx + 1) % 100 == 0:
+                logger.info(f"MiniCheck ({model_name}): processed {idx + 1}/{total} papers")
+
+        logger.info(f"MiniCheck ({model_name}) computed for {len(scores)} papers"
+                     f"{f', skipped {skipped} (no sentences)' if skipped else ''}")
+
+    except Exception as e:
+        logger.error(f"MiniCheck ({model_name}) calculation failed: {e}")
+        raise
+    finally:
+        if scorer is not None:
+            del scorer
+        gc.collect()
+        empty_cuda_cache(sync=True)
+
+    return get_min_max_mean_std(scores)
+
+
+# ---------------------------------------------------------------------------
+# MiniCheck-7B via Ollama (quantised GGUF, fits on <=16 GB VRAM GPUs)
+# ---------------------------------------------------------------------------
+
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MINICHECK_MODEL = os.environ.get(
+    "OLLAMA_MINICHECK_MODEL", "bespoke-minicheck"
+)
+
+
+def _score_claim_via_ollama(doc: str, claim: str) -> float:
+    """Score a single (doc, claim) pair via Ollama bespoke-minicheck.
+
+    Returns 1.0 when the model responds "Yes" (claim is consistent),
+    0.0 otherwise.
+    """
+    import requests
+
+    response = requests.post(
+        f"{OLLAMA_BASE_URL}/api/chat",
+        json={
+            "model": OLLAMA_MINICHECK_MODEL,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"Document: {doc}\nClaim: {claim}",
+                },
+            ],
+            "options": {"temperature": 0, "num_predict": 1},
+            "stream": False,
+        },
+    )
+    response.raise_for_status()
+
+    content = response.json()["message"]["content"].strip().lower()
+    if content.startswith("yes"):
+        return 1.0
+    if content.startswith("no"):
+        return 0.0
+
+    logger.warning(
+        "MiniCheck-7B (Ollama): unexpected response %r, treating as 0.0", content
+    )
+    return 0.0
+
+
+def get_minicheck_ollama_scores(
+    generated: list[str],
+    references: list[str],
+    irc: 'InterferenceRunContainer',
+) -> dict[str, float]:
+    """Calculate MiniCheck-7B factual consistency scores via Ollama.
+
+    Uses the same sentence-level decomposition as the upstream ``minicheck``
+    library, but routes inference through a locally running Ollama instance
+    (quantised GGUF model).
+
+    Configure via environment variables:
+        OLLAMA_BASE_URL  – default ``http://localhost:11434``
+        OLLAMA_MINICHECK_MODEL – default ``bespoke-minicheck``
+    """
+    from nltk.tokenize import sent_tokenize
+
+    score_key = "minicheck_7b"
+    scores: list[float] = []
+    total = len(generated)
+    skipped = 0
+
+    logger.info(
+        "Calculating MiniCheck-7B via Ollama (%s at %s) ...",
+        OLLAMA_MINICHECK_MODEL,
+        OLLAMA_BASE_URL,
+    )
+
+    try:
+        for idx, (gen, ref, paper) in enumerate(
+            zip(generated, references, irc.papers)
+        ):
+            sentences = sent_tokenize(gen)
+            if not sentences:
+                logger.warning(
+                    "MiniCheck-7B (Ollama): paper %d/%d has no sentences, "
+                    "assigning 0.0",
+                    idx + 1,
+                    total,
+                )
+                scores.append(0.0)
+                paper.scores[score_key].append(0.0)
+                skipped += 1
+                continue
+
+            sent_scores = [
+                _score_claim_via_ollama(ref, sent) for sent in sentences
+            ]
+            paper_score = sum(sent_scores) / len(sent_scores)
+            scores.append(paper_score)
+            paper.scores[score_key].append(paper_score)
+
+            if (idx + 1) % 100 == 0:
+                logger.info(
+                    "MiniCheck-7B (Ollama): processed %d/%d papers",
+                    idx + 1,
+                    total,
+                )
+
+        logger.info(
+            "MiniCheck-7B (Ollama) computed for %d papers%s",
+            len(scores),
+            f", skipped {skipped} (no sentences)" if skipped else "",
+        )
+
+    except Exception as e:
+        logger.error("MiniCheck-7B (Ollama) calculation failed: %s", e)
+        raise
+
+    return get_min_max_mean_std(scores)
+
+
+def _is_oom_error(e: Exception) -> bool:
+    """Check if an exception (or any exception in its cause chain) is a CUDA OOM error."""
+    current: BaseException | None = e
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if torch is not None and hasattr(torch.cuda, 'OutOfMemoryError'):
+            if isinstance(current, torch.cuda.OutOfMemoryError):
+                return True
+        if isinstance(current, (RuntimeError, ValueError)) and "out of memory" in str(current).lower():
+            return True
+        current = current.__cause__ or current.__context__
+    return False
 
 
 def empty_cuda_cache(sync: bool = False, silent: bool = False):
@@ -357,14 +780,15 @@ def empty_cuda_cache(sync: bool = False, silent: bool = False):
         if not silent:
             logger.info("Clearing CUDA cache ..")
         gc.collect()
-        torch.cuda.empty_cache()
         if sync:
             if not silent:
                 logger.info("Syncing CUDA cache ..")
             torch.cuda.synchronize()
+        torch.cuda.empty_cache()
 
 
 def cleanup_metrics_cache():
-    """Clean up all cached models in metrics"""
+    """Clean up any residual GPU memory from metric computations."""
     logger.info("Cleaning up metrics cache")
-    _model_cache.cleanup_all()
+    gc.collect()
+    empty_cuda_cache(sync=True)

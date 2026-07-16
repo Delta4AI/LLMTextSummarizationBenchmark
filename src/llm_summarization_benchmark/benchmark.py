@@ -17,7 +17,6 @@ from copy import deepcopy
 import os
 
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
-os.environ["HF_HUB_OFFLINE"] = "1"
 
 import hashlib
 import json
@@ -57,7 +56,10 @@ from llm_summarization_benchmark.metrics import (get_length_scores, get_meteor_s
                                                  get_rouge_scores,
                                                  get_bert_scores, get_bleu_scores,
                                                  get_sentence_transformer_similarity,
-                                                 get_alignscore_scores, cleanup_metrics_cache, empty_cuda_cache,
+                                                 get_alignscore_scores, get_summac_scores,
+                                                 get_factcc_scores, get_minicheck_scores,
+                                                 get_minicheck_ollama_scores,
+                                                 cleanup_metrics_cache, empty_cuda_cache,
                                                  METRIC_TYPES)
 from llm_summarization_benchmark.visualization import SummarizationVisualizer
 from data_models import RunStatus, Paper, EvaluationResult, InterferenceRunContainer
@@ -94,7 +96,11 @@ class SummarizationResult:
         return self.data.get(self.papers_hash, {}).get(method_name, None) is not None
 
     def same_size_as(self, method_name: str, input_set_size: int) -> bool:
-        return len(self.data.get(self.papers_hash, {}).get(method_name, {}).full_responses) == input_set_size
+        result = self.data.get(self.papers_hash, {}).get(method_name)
+        if result is None:
+            return False
+        stored_count = result.input_paper_count if result.input_paper_count is not None else len(result.full_responses)
+        return stored_count == input_set_size
 
     def add(self, method_name: str, result: EvaluationResult):
         if not self.data.get(self.papers_hash):
@@ -264,7 +270,8 @@ class SummarizationBenchmark:
             clear_api_cache = True
             clear_metrics = True
 
-        if f"{platform}_{model_name}" in self.reset_metrics_for_models:
+        _key = f"{platform}_{model_name}" if model_name else platform
+        if _key in self.reset_metrics_for_models:
             clear_metrics = True
 
         self._clear_cache(platform=platform, model_name=model_name,
@@ -285,20 +292,6 @@ class SummarizationBenchmark:
         for k, v in run_status_counts.items():
             logger.info(f"{k:<12}{v:<6}")
 
-    def run_retry_loop(self, max_retries: int = 5):
-        retries = 0
-        while any(k == RunStatus.FAILED for k in self.run_status.values()):
-            if retries >= max_retries:
-                logger.info(f"Aborting retry loop after {max_retries} retries")
-                break
-
-            retries += 1
-            wait_time = min(10 * (2 ** (retries - 1)), 300)
-            logger.info(f"Retry attempt {retries}/{max_retries}, waiting {wait_time} seconds ..")
-            time.sleep(wait_time)
-            self.run()
-            self.get_status()
-
     def _clear_cache(self, platform: str, model_name: str,
                      clear_api_cache: bool = False, clear_metrics: bool = False) -> None:
         method_name = f"{platform}_{model_name}" if model_name else platform
@@ -314,7 +307,11 @@ class SummarizationBenchmark:
             "meteor_scores": ["meteor"],
             "bleu_scores": ["bleu"],
             "mpnet_content_coverage_scores": ["sentence_transformer"],
-            "alignscore_scores": ["alignscore"]
+            "alignscore_scores": ["alignscore"],
+            "summac_scores": ["summac"],
+            "factcc_scores": ["factcc"],
+            "minicheck_ft5_scores": ["minicheck_ft5"],
+            "minicheck_7b_scores": ["minicheck_7b"]
         }
 
         if clear_api_cache:
@@ -325,30 +322,28 @@ class SummarizationBenchmark:
             try:
                 if (self.results and self.papers_hash in self.results.data and method_name in self.results.data[
                     self.papers_hash]):
-                    if self.reset_metric_types == METRIC_TYPES:
-                        del self.results.data[self.papers_hash][method_name]
-                        self.results.save()
-                        logger.info(f"Cleared all metric results for {method_name}")
-                    else:
-                        for metric in self.reset_metric_types:
-                            existing_result = self.results.data[self.papers_hash][method_name]
-                            setattr(existing_result, metric, {})
+                    metrics_to_clear = self.reset_metric_types
+                    existing_result = self.results.data[self.papers_hash][method_name]
+                    for metric in metrics_to_clear:
+                        setattr(existing_result, metric, {})
+                        if hasattr(existing_result, "full_paper_details"):
                             for paper in existing_result.full_paper_details:
                                 for k in metric_type_map.get(metric, []):
                                     if k in paper.scores:
                                         del paper.scores[k]
-                                    else:
-                                        logger.warning(f"Could not clear {metric} for {method_name} as it is not "
-                                                       f"existent yet")
-                            logger.info(f"Cleared {metric} metric results for {method_name}")
-                        self.results.save()
+                        logger.info(f"Cleared {metric} metric results for {method_name}")
+                    self.results.save()
 
 
             except Exception as exc:
                 logger.warning(f"Failed to clear results database for {method_name}: {exc}")
 
     def run(self, reset_metrics: bool = False):
+        self._force_recalc_all = reset_metrics
         logger.info(f"Running benchmark for {len(self.models)} models ..")
+
+        # Whether user explicitly requested specific metric types (not the default)
+        has_explicit_metric_types = self.reset_metric_types != METRIC_TYPES
 
         for idx, (platform, model_name, model_param_overrides, tokenizer_param_overrides,
                   batch) in enumerate(self.models):
@@ -369,28 +364,43 @@ class SummarizationBenchmark:
 
             needs_metric_recalc = _method_name in self.reset_metrics_for_models
 
-            if skip_inference and not reset_metrics and not needs_metric_recalc:
+            # Check if any metric types are missing on the existing result
+            # Uses __dict__ lookup to bypass __getattr__ fallback which returns placeholder values
+            needs_missing_metrics = False
+            if skip_inference:
+                existing = self.results.data.get(self.papers_hash, {}).get(irc.method_name)
+                if existing is not None:
+                    for metric_type in METRIC_TYPES:
+                        val = existing.__dict__.get(metric_type)
+                        if val is None or not val:
+                            needs_missing_metrics = True
+                            break
+
+            if skip_inference and not reset_metrics and not needs_metric_recalc \
+                    and not needs_missing_metrics and not has_explicit_metric_types:
                 logger.info(f"Skipping interference and metrics for existing method: {irc.method_name}")
                 self.run_status[_method_name] = RunStatus.SKIPPED
                 continue
 
             try:
-                if batch:
+                if skip_inference and (reset_metrics or needs_metric_recalc
+                                       or needs_missing_metrics or has_explicit_metric_types):
+                    logger.info(f"Recalculating metrics for existing method: {irc.method_name}")
+                    result = self._recalculate_metrics_from_cache(irc=irc)
+                elif batch:
                     result = self._check_batch(irc=irc)
                 else:
-                    if skip_inference and (reset_metrics or needs_metric_recalc):
-                        logger.info(f"Recalculating metrics for existing method: {irc.method_name}")
-                        result = self._recalculate_metrics_from_cache(irc=irc)
-                    else:
-                        logger.info(f"Running interference and calculating metrics for method: {irc.method_name}")
-                        result = self._run_interference_and_calculate_metrics(irc=irc)
-                        if result is None:
-                            self.run_status[_method_name] = RunStatus.NO_RESULTS
-                            continue
+                    logger.info(f"Running interference and calculating metrics for method: {irc.method_name}")
+                    result = self._run_interference_and_calculate_metrics(irc=irc)
+                    if result is None:
+                        self.run_status[_method_name] = RunStatus.NO_RESULTS
+                        continue
             except Exception as e:
                 logger.error(f"Failed to run interference and calculating metrics for method: {irc.method_name}: {e}")
                 logger.error("Re-run the benchmark to retry. Pipeline will continue now.")
                 self.run_status[_method_name] = RunStatus.FAILED
+                self._cleanup(run_params=irc)
+                cleanup_metrics_cache()
                 continue
 
             if result:
@@ -405,7 +415,29 @@ class SummarizationBenchmark:
     def _recalculate_metrics_from_cache(self, irc: InterferenceRunContainer) -> EvaluationResult:
         existing = self.results.data[self.papers_hash][irc.method_name]
         generated_summaries = [extract_response(r) for r in existing.full_responses]
+
+        # The original run may have filtered papers with no response, so
+        # existing.full_responses can be shorter than irc.papers.  Align
+        # irc.papers to the papers that actually produced responses.
+        n_existing = len(existing.full_responses)
+        if n_existing != len(irc.papers):
+            if hasattr(existing, "full_paper_details"):
+                kept_ids = {p.id for p in existing.full_paper_details}
+                irc.papers = [p for p in irc.papers if p.id in kept_ids]
+            if len(irc.papers) != n_existing:
+                logger.warning(
+                    f"Paper count mismatch for {irc.method_name}: "
+                    f"{n_existing} existing responses vs {len(irc.papers)} papers. "
+                    f"Truncating to match existing responses."
+                )
+                irc.papers = irc.papers[:n_existing]
+
         reference_summaries = [p.summaries for p in irc.papers]
+
+        # Restore response data onto fresh papers (not set during metric-only recalc)
+        for paper, raw_resp, extracted in zip(irc.papers, existing.full_responses, generated_summaries):
+            paper.raw_response = raw_resp
+            paper.extracted_response = extracted
 
         return self._get_evaluation_result(
             irc=irc,
@@ -424,6 +456,9 @@ class SummarizationBenchmark:
                 logger.error(f"Interference failed for {irc.method_name}: {e}")
                 return None
 
+        # Unload the LLM before computing GPU-based metrics to free VRAM
+        self._cleanup(run_params=irc)
+
         original_count = len(irc.papers)
         irc.papers = [p for p in irc.papers if p.extracted_response is not None]
         deleted_count = original_count - len(irc.papers)
@@ -438,7 +473,8 @@ class SummarizationBenchmark:
             irc=irc,
             generated_summaries=generated_summaries,
             reference_summaries=reference_summaries,
-            existing_data=None
+            existing_data=None,
+            input_paper_count=original_count
         )
 
     def _needs_recalc(self, metric_attr: str, existing_data: EvaluationResult | None) -> bool:
@@ -446,8 +482,19 @@ class SummarizationBenchmark:
             empty_cuda_cache(sync=True)
             return True
 
-        existing_value = getattr(existing_data, metric_attr, None)
-        if existing_value is None or not existing_value or metric_attr in self.reset_metric_types:
+        # --reset-all-metrics: force recalculate everything
+        if self._force_recalc_all:
+            empty_cuda_cache(sync=True)
+            return True
+
+        # --reset-metric-types X Y: force recalculate explicitly requested metrics
+        if self.reset_metric_types != METRIC_TYPES and metric_attr in self.reset_metric_types:
+            empty_cuda_cache(sync=True)
+            return True
+
+        # Auto-detect: recalculate if the metric value is missing or empty
+        val = existing_data.__dict__.get(metric_attr)
+        if val is None or not val:
             empty_cuda_cache(sync=True)
             return True
 
@@ -457,7 +504,8 @@ class SummarizationBenchmark:
             self, irc: InterferenceRunContainer,
             generated_summaries: list[str],
             reference_summaries: list[list[str]],
-            existing_data: EvaluationResult | None
+            existing_data: EvaluationResult | None,
+            input_paper_count: int | None = None
     ) -> EvaluationResult:
 
         if existing_data:
@@ -472,51 +520,170 @@ class SummarizationBenchmark:
             _output_tokens = [p.output_tokens for p in irc.papers if p.output_tokens is not None]
 
         _length_stats = get_length_scores(generated_summaries, self.min_words, self.max_words)
+        _failed_metrics: list[str] = []
+
+        def _fallback(metric_attr: str):
+            """Return cached value if available, otherwise empty dict."""
+            if existing_data is not None:
+                return existing_data.__dict__.get(metric_attr, {})
+            return {}
 
         if self._needs_recalc("rouge_scores", existing_data):
-            _rouge_scores = get_rouge_scores(generated_summaries, reference_summaries, irc)
+            try:
+                _rouge_scores = get_rouge_scores(generated_summaries, reference_summaries, irc)
+            except Exception as e:
+                logger.error(f"rouge_scores computation failed: {e}")
+                _rouge_scores = _fallback("rouge_scores")
+                _failed_metrics.append("rouge_scores")
         else:
             _rouge_scores = existing_data.rouge_scores
 
         if self._needs_recalc("roberta_scores", existing_data):
-            _roberta_scores = get_bert_scores(generated_summaries, reference_summaries, "roberta-large", irc)
+            try:
+                _roberta_scores = get_bert_scores(generated_summaries, reference_summaries, "roberta-large", irc)
+            except Exception as e:
+                logger.error(f"roberta_scores computation failed: {e}")
+                _roberta_scores = _fallback("roberta_scores")
+                _failed_metrics.append("roberta_scores")
         else:
             _roberta_scores = existing_data.roberta_scores
 
         if self._needs_recalc("deberta_scores", existing_data):
-            _deberta_scores = get_bert_scores(generated_summaries, reference_summaries, "microsoft/deberta-xlarge-mnli",
-                                              irc)
+            try:
+                _deberta_scores = get_bert_scores(generated_summaries, reference_summaries, "microsoft/deberta-xlarge-mnli",
+                                                  irc)
+            except Exception as e:
+                logger.error(f"deberta_scores computation failed: {e}")
+                _deberta_scores = _fallback("deberta_scores")
+                _failed_metrics.append("deberta_scores")
         else:
             _deberta_scores = existing_data.deberta_scores
 
         if self._needs_recalc("meteor_scores", existing_data):
-            _meteor_scores = get_meteor_scores(generated_summaries, reference_summaries, irc)
+            try:
+                _meteor_scores = get_meteor_scores(generated_summaries, reference_summaries, irc)
+            except Exception as e:
+                logger.error(f"meteor_scores computation failed: {e}")
+                _meteor_scores = _fallback("meteor_scores")
+                _failed_metrics.append("meteor_scores")
         else:
             _meteor_scores = existing_data.meteor_scores
 
         if self._needs_recalc("bleu_scores", existing_data):
-            _bleu_scores = get_bleu_scores(generated_summaries, reference_summaries, irc)
+            try:
+                _bleu_scores = get_bleu_scores(generated_summaries, reference_summaries, irc)
+            except Exception as e:
+                logger.error(f"bleu_scores computation failed: {e}")
+                _bleu_scores = _fallback("bleu_scores")
+                _failed_metrics.append("bleu_scores")
         else:
             _bleu_scores = existing_data.bleu_scores
 
         if self._needs_recalc("mpnet_content_coverage_scores", existing_data):
-            _mpnet_content_coverage_scores = get_sentence_transformer_similarity(
-                generated=generated_summaries,
-                source_documents=[p.full_text for p in irc.papers],
-                model_name="all-mpnet-base-v2",
-                irc=irc
-            )
+            try:
+                _mpnet_content_coverage_scores = get_sentence_transformer_similarity(
+                    generated=generated_summaries,
+                    source_documents=[p.full_text for p in irc.papers],
+                    model_name="all-mpnet-base-v2",
+                    irc=irc
+                )
+            except Exception as e:
+                logger.error(f"mpnet_content_coverage_scores computation failed: {e}")
+                _mpnet_content_coverage_scores = _fallback("mpnet_content_coverage_scores")
+                _failed_metrics.append("mpnet_content_coverage_scores")
         else:
             _mpnet_content_coverage_scores = existing_data.mpnet_content_coverage_scores
 
         if self._needs_recalc("alignscore_scores", existing_data):
-            _alignscore_scores = get_alignscore_scores(
-                generated=generated_summaries,
-                references=[p.abstract for p in irc.papers],
-                irc=irc
-            )
+            try:
+                _alignscore_scores = get_alignscore_scores(
+                    generated=generated_summaries,
+                    references=[p.full_text for p in irc.papers],
+                    irc=irc
+                )
+            except Exception as e:
+                logger.error(f"alignscore_scores computation failed: {e}")
+                _alignscore_scores = _fallback("alignscore_scores")
+                _failed_metrics.append("alignscore_scores")
         else:
             _alignscore_scores = existing_data.alignscore_scores
+
+        if self._needs_recalc("summac_scores", existing_data):
+            try:
+                _summac_scores = get_summac_scores(
+                    generated=generated_summaries,
+                    references=[p.full_text for p in irc.papers],
+                    irc=irc
+                )
+            except Exception as e:
+                logger.error(f"summac_scores computation failed: {e}")
+                _summac_scores = _fallback("summac_scores")
+                _failed_metrics.append("summac_scores")
+        else:
+            _summac_scores = existing_data.summac_scores
+
+        if self._needs_recalc("factcc_scores", existing_data):
+            try:
+                _factcc_scores = get_factcc_scores(
+                    generated=generated_summaries,
+                    references=[p.full_text for p in irc.papers],
+                    irc=irc
+                )
+            except Exception as e:
+                logger.error(f"factcc_scores computation failed: {e}")
+                _factcc_scores = _fallback("factcc_scores")
+                _failed_metrics.append("factcc_scores")
+        else:
+            _factcc_scores = existing_data.factcc_scores
+
+        if self._needs_recalc("minicheck_ft5_scores", existing_data):
+            try:
+                _minicheck_ft5_scores = get_minicheck_scores(
+                    generated=generated_summaries,
+                    references=[p.full_text for p in irc.papers],
+                    irc=irc,
+                    model_name="flan-t5-large"
+                )
+            except Exception as e:
+                logger.error(f"minicheck_ft5_scores computation failed: {e}")
+                _minicheck_ft5_scores = _fallback("minicheck_ft5_scores")
+                _failed_metrics.append("minicheck_ft5_scores")
+        else:
+            _minicheck_ft5_scores = existing_data.minicheck_ft5_scores
+
+        if self._needs_recalc("minicheck_7b_scores", existing_data):
+            try:
+                _minicheck_7b_scores = get_minicheck_ollama_scores(
+                    generated=generated_summaries,
+                    references=[p.full_text for p in irc.papers],
+                    irc=irc,
+                )
+            except Exception as e:
+                logger.error(f"minicheck_7b_scores computation failed: {e}")
+                _minicheck_7b_scores = _fallback("minicheck_7b_scores")
+                _failed_metrics.append("minicheck_7b_scores")
+        else:
+            _minicheck_7b_scores = existing_data.minicheck_7b_scores
+
+        if _failed_metrics:
+            logger.warning(f"Failed metrics for {irc.method_name}: {_failed_metrics}. "
+                           f"Successfully computed metrics will still be saved. "
+                           f"Re-run the benchmark to retry failed metrics.")
+
+        _input_paper_count = input_paper_count
+        if _input_paper_count is None and existing_data is not None:
+            _input_paper_count = existing_data.input_paper_count
+        if _input_paper_count is None:
+            _input_paper_count = len(generated_summaries)
+
+        # Merge old per-paper scores into the fresh irc.papers so that
+        # metrics that were NOT recalculated (served from cache) are still
+        # present in full_paper_details → detailed_scores_per_model.json.
+        if existing_data is not None and hasattr(existing_data, "full_paper_details"):
+            for new_paper, old_paper in zip(irc.papers, existing_data.full_paper_details):
+                for key, values in old_paper.scores.items():
+                    if key not in new_paper.scores:
+                        new_paper.scores[key] = values
 
         return EvaluationResult(
             method_name=irc.method_name,
@@ -533,7 +700,12 @@ class SummarizationBenchmark:
             bleu_scores=_bleu_scores,
             mpnet_content_coverage_scores=_mpnet_content_coverage_scores,
             alignscore_scores=_alignscore_scores,
-            full_paper_details=deepcopy(irc.papers)
+            summac_scores=_summac_scores,
+            factcc_scores=_factcc_scores,
+            minicheck_ft5_scores=_minicheck_ft5_scores,
+            minicheck_7b_scores=_minicheck_7b_scores,
+            full_paper_details=deepcopy(irc.papers),
+            input_paper_count=_input_paper_count
         )
 
     def _warmup(self, run_params: InterferenceRunContainer) -> None:
@@ -891,11 +1063,12 @@ class SummarizationBenchmark:
 
         if cache.status == BatchStatus.COMPLETED:
             self._update_papers_from_batch(irc=irc, cache=cache)
+            existing = self.results.data.get(self.papers_hash, {}).get(irc.method_name)
             return self._get_evaluation_result(
                 irc=irc,
                 generated_summaries=[p.extracted_response for p in irc.papers],
                 reference_summaries=[p.summaries for p in irc.papers],
-                existing_data=None
+                existing_data=existing
             )
 
         return None
@@ -1068,7 +1241,6 @@ def main():
         exit(1)
 
     benchmark.get_status()
-    benchmark.run_retry_loop()
     benchmark.apply_token_size_hotfix()
     benchmark.export()
 
