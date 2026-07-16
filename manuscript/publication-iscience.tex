@@ -1,11 +1,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%  Patterns (Cell Press) template — adapted to
-%%%  share section files with the bioRxiv build.
-%%%
-%%%  Build:  latexmk -pdf publication-patterns.tex
+%%%  iScience (Cell Press) version
+%%%  Build:  latexmk -pdf publication-iscience.tex
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\newif\ifpatterns \patternstrue        % flag consumed by shared sections
 \PassOptionsToPackage{left}{lineno}   % must precede authblk
 \documentclass[12pt,letterpaper]{article}
 \usepackage[a4paper, total={7in, 10in}]{geometry}
@@ -18,7 +15,6 @@
 \newcommand{\loadacronyms}{\input{acronyms}}
 \usepackage{graphicx}
 \usepackage{booktabs}
-\usepackage{amssymb}
 \usepackage{tabularx}
 \usepackage{amsmath}
 \usepackage{fvextra}          % shared sections use \begin{Verbatim}
@@ -30,18 +26,12 @@
 \usepackage{lineno}
 \linenumbers
 
-%%% ── Compatibility shims for shared sections ──
-%%% Sections use \section{} (numbered, bioRxiv style).
-%%% Patterns wants unnumbered headings → override:
+%%% ── Compatibility shims for shared section files ──
+%%% Section files use numbered \section{}; render unnumbered:
 \setcounter{secnumdepth}{0}
 
-%%% Sections use figure*/table* (two-column spanning, bioRxiv).
-%%% Single-column Patterns → map them to plain figure/table:
-\let\oldfigurestar\figure
-\let\endoldfigurestar\endfigure
+%%% Section files use figure*/table*; map them to single-column figure/table:
 \renewenvironment{figure*}{\begin{figure}}{\end{figure}}
-\let\oldtablestar\table
-\let\endoldtablestar\endtable
 \renewenvironment{table*}{\begin{table}}{\end{table}}
 
 \makeatletter
@@ -56,7 +46,6 @@
 %%%  Title
 
 \title{A systematic evaluation and benchmarking of text summarization methods for biomedical literature: From word-frequency methods to language models}
-\date{}
 
 %%%  Authors and affiliations
 
@@ -90,7 +79,7 @@
 
 \section*{Summary}
 
-The rapid expansion of biomedical literature demands automated summarization tools that can reliably condense research articles into concise, accurate summaries. We benchmarked 62 text summarization methods, ranging from frequency-based and TextRank extractors to encoder-decoder models (EDMs) and large language models (LLMs), on 1,000 biomedical abstracts with author-generated highlights as reference summaries. Models were evaluated using a composite suite of lexical, semantic, and factual metrics, including ROUGE, BLEU, METEOR, embedding-based similarity, and factuality scores. Our results indicate that general-purpose language models (LMs) achieve the highest overall performance across lexical and semantic dimensions, outperforming both reasoning-oriented and domain-specific models. Notably, medium-sized models often outperform frontier-scale counterparts, suggesting an optimal balance between model capacity and computational efficiency. Statistical extractive methods consistently lag behind neural approaches. These findings provide a systematic reference for selecting biomedical summarization tools and highlight that broad pretraining remains more effective than narrow domain adaptation for generating high-quality scientific summaries.
+The rapid expansion of biomedical literature demands automated summarization tools that reliably condense research articles into concise, accurate summaries. We benchmarked 62 summarization methods, ranging from frequency-based and TextRank extractors to encoder-decoder models (EDMs) and large language models (LLMs), on 1,000 biomedical abstracts from 20 journals across \textit{ScienceDirect} and \textit{Cell Press}, using author-written highlights as reference summaries. Models were evaluated with a composite suite of lexical, semantic, and factual metrics, including ROUGE, BLEU, METEOR, embedding-based similarity, and factuality scores. General-purpose models (e.g., Mistral, GPT, Llama) achieved the highest overall performance across lexical and semantic dimensions, outperforming reasoning-oriented (e.g., DeepSeek, Magistral) and domain-specific (e.g., BioGPT, BioMistral) models. Notably, medium-sized models outperformed large-scale models, suggesting an optimal balance between model capacity and efficiency, while classical extractive methods lagged behind neural approaches. These findings provide a systematic reference for selecting biomedical summarization tools and highlight that broad pretraining outperforms narrow domain adaptation.
 
 \section*{Keywords}
 
@@ -114,7 +103,14 @@ biomedical text summarization, natural language processing, large language model
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{Visualizations/supplementary1.png}
+    \includegraphics[height=0.75\textheight,keepaspectratio]{Visualizations/length_compliance.png}
+    \caption{\textbf{Summary length compliance per method:} Proportion of generated summaries that fell within the target length of 15--100 words, were too short, or were too long, shown for each of the 62 evaluated methods. Methods are ordered by decreasing share of within-bounds summaries, with the within-bounds percentage annotated at the right of each bar.}
+    \label{fig:length_compliance}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.80\textwidth]{Visualizations/supplementary1.png}
     \caption{\textbf{Model performance across metrics:} Overview of the performance of all evaluated models across all metrics.}
     \label{fig:supplementary_overview}
 \end{figure}
@@ -220,7 +216,7 @@ F.B., E.B., L.F., L.G., K.K.-I., S.W., P.A., P.P. and M.L. are employees of Delt
 
 \section*{Declaration of generative AI and AI-assisted technologies in the writing process}
 
-During the preparation of this work the author(s) used Anthropic (Claude 4.5 Opus) and OpenAI (ChatGPT-5) in order to enhance textual clarity and readability without introducing of new hypotheses or data. After using this tool/service, the author(s) reviewed and edited the content as needed and take(s) full responsibility for the content of the published article.
+During the preparation of this work the author(s) used Anthropic (Claude Opus 4.5) and OpenAI (GPT-5) in order to enhance textual clarity and readability without introducing of new hypotheses or data. After using this tool/service, the author(s) reviewed and edited the content as needed and take(s) full responsibility for the content of the published article.
 
 \bibliography{refs}
 
