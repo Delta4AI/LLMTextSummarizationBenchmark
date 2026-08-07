@@ -1,0 +1,5 @@
+family,spearman_rho,p_value,kendall_tau,n
+Lexical Rank,0.750,2.18e-12,0.568,62
+Semantic Rank,0.828,1.11e-16,0.644,62
+Factual Rank,0.092,4.75e-01,0.064,62
+Performance Rank,0.778,9.63e-14,0.607,62

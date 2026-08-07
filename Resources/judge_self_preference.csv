@@ -1,0 +1,4 @@
+judge,own_provider_delta,n_own,other_provider_delta,n_other,self_preference_effect
+anthropic,-0.113,80,-0.416,1179,+0.304
+openai,+0.015,200,+0.093,1059,-0.078
+mistral,+0.302,179,+0.318,1079,-0.016
