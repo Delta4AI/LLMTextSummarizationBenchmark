@@ -12,15 +12,6 @@ Concerning factual consistency metrics, AlignScore and the two MiniCheck variant
 
 Overall, these relationships demonstrate that the various metrics are broadly consistent while providing complementary perspectives. This supports the use of an aggregated ``Overall Performance Score'' as a balanced indicator of overall summarization performance.
 
-\begin{figure*}[H]
-\centering
-\includegraphics[width=0.85\textwidth]{Visualizations/metric_correlation.png}
-\captionsetup{skip=6pt}
-\caption{
-\textbf{Spearman correlation between evaluation metrics:}
-Spearman correlation coefficients ($\rho$) between two metrics based on their mean scores across all models are given. Metric categories (lexical, semantic, factual) are indicated on the x and y axes. For visualization purposes, cells with values higher than 0.8 are shown with white text.\label{fig:metric_correlation}}
-\end{figure*}
-
 \subsection{Overall Model Performance}
 
 Based on overall performance ranks, referred to as ``Performance Rank" and derived from our multi-metric evaluation framework (\ref{subsec:overall_performance_metric} Overall Performance Metric), models from the Mistral family were top-ranked across the three evaluated metric dimensions, as depicted in Figure~\ref{fig:rank_heatmap}. 
@@ -33,15 +24,6 @@ Considering each metric dimension separately, several Mistral models ranked high
 
 Models could also decline to summarize by returning the INSUFFICIENT\_FINDINGS token. This was rare overall, occurring in 736 of 62,000 generated summaries (1.2\%) and exclusively among prompt-based models. Usage was concentrated in the two domain-specific biomedical models OpenBioLLM-Llama3-8B (20.0\%) and medllama2 (9.7\%), while all other models returned it in fewer than 6\% of cases.
 
-\begin{figure*}[H]
-\centering
-\includegraphics[width=0.7\textwidth]{Visualizations/rank_heatmap.png}
-\captionsetup{skip=6pt}
-\caption{
-\textbf{Ranking of summarization models:}
-Overview of the performance of all evaluated models across lexical, semantic, and factual metric dimensions. Each row corresponds to one model. Columns show the overall Performance Rank and independent ranks for each metric dimension, with lower ranks indicating better performance. The figure displays each model’s family and category. Models are sorted by the overall Performance Rank. Ranks are displayed using a continuous diverging color gradient, ranging from navy-blue tones for top-performing models through light neutral shades for mid-ranked models to dark red tones for low-performing models. \label{fig:rank_heatmap}}
-\end{figure*}
-
 \subsection{Category Comparisons}
 
 To compare model performance across categories, we displayed the distribution of overall performance scores within each category, along with the best- and worst-performing individual models (Figure~\ref{fig:category_boxplots_and_gameshowell}a). Results of the Games-Howell post-hoc comparisons between individual groups are given in Figure~\ref{fig:category_boxplots_and_gameshowell}b.
@@ -50,27 +32,6 @@ All general-purpose \acp{LLM} achieved high overall scores, thus forming the top
 
 Domain-specific \acp{EDM}, domain-specific \acp{SLM}, traditional models, and general-purpose \acp{EDM} performed significantly worse as compared to general-purpose \acp{LM}. Domain-specific \acp{EDM} and domain-specific \acp{SLM} displayed the widest spread of performance (Figure~\ref{fig:category_boxplots_and_gameshowell}a).
 
-\begin{figure*}[!htbp]
-\centering
-\includegraphics[width=0.85\textwidth]{Visualizations/category_boxplot.png}
-\vspace{8pt}
-\includegraphics[width=0.85\textwidth]{Visualizations/category_gameshowell.png}
-\captionsetup{skip=6pt}
-\caption{
-\textbf{(a)} 
-\textbf{Overall performance of model categories:}
-Distributions of overall performance scores across the nine model categories,
-with each model represented by a black dot. Categories are ordered from lowest to highest-performing according to the median performance score.
-The best- and worst-performing models of each category are highlighted.
-\textbf{(b)} 
-\textbf{Games-Howell Post-hoc Test across model categories:}
-Games-Howell pairwise adjusted $p$-value matrix comparing all category pairs.
-Each cell shows the adjusted $p$-value for the difference in metric mean scores between two categories,
-with white-to-gray shading indicating smaller $p$-values.
-}
-\label{fig:category_boxplots_and_gameshowell}
-\end{figure*}
-
 \subsection{Family Comparisons}
 
 To complement the category-level findings, we examined performance across model families, since models within the same family often share architectural features or training strategies that may cause consistent performance trends. Figure~\ref{fig:family_boxplots_and_gameshowell}a shows the distribution of overall performance scores across all model families. Similar to the category-level analysis, there were clear performance differences between architectural lineages. The Mistral family achieved the strongest overall results, with several members ranking among the top performers in the benchmark. Families dominated by modern \ac{LLM} or \ac{SLM} architectures, such as Granite, Claude, and Gemma, consistently outperformed more traditional extractive approaches and families built on encoder-decoder architectures such as \ac{LED}, \ac{BART}, \ac{T5} and \ac{PEGASUS}.
@@ -78,29 +39,6 @@ To complement the category-level findings, we examined performance across model 
 In particular, the \ac{GPT} and \ac{Llama} families showed lower performance scores than expected given the competitive performance of their top models. This was primarily due to the inclusion of domain-specific small models, such as BioGPT and OpenBioLLM-Llama3-8B, which performed substantially worse than their general-purpose counterparts and therefore pulled down the family-level averages.
 
 Regarding the Games-Howell post-hoc matrix in the family comparison (Figure~\ref{fig:family_boxplots_and_gameshowell}b), a combination of significant and non-significant differences between families was observed, reflecting the greater heterogeneity within some lineages. While many high-performing families differed significantly from traditional and encoder-decoder dominated families, several comparisons among modern \acp{SLM} and \acp{LLM} dominated families did not reach statistical significance.
-
-\begin{figure*}[!htbp]
-\centering
-\includegraphics[width=0.85\textwidth]{Visualizations/family_boxplot.png}
-\vspace{8pt}
-\includegraphics[width=0.85\textwidth]{Visualizations/family_gameshowell.png}
-\captionsetup{skip=6pt}
-\caption{
-\textbf{(a)} 
-\textbf{Overall performance of model families:}
-Distributions of overall performance scores across all model families,
-with each model represented by a black dot. Families are ordered from lowest to highest-performing according to the performance score.
-The best- and worst-performing models of each family are highlighted.
-\textbf{(b)} 
-\textbf{Games-Howell Post-hoc Test across model families:}
-Games-Howell pairwise adjusted $p$-value matrix comparing all family pairs. 
-Each cell shows the adjusted $p$-value for the difference in metric mean scores between two families, 
-with white-to-gray shading indicating smaller $p$-values.
-}
-\label{fig:family_boxplots_and_gameshowell}
-\end{figure*}
-
-\clearpage
 
 \subsection{Data Leakage Assessment}
 
@@ -118,27 +56,6 @@ Average \ac{ROUGE}-L scores were nearly identical for pre-cutoff and post-cutoff
 
 If memorization effects had occurred, substantially higher similarity scores would be expected for abstracts from pre-cutoff articles. As this was not the case, we concluded that the models were not reproducing memorized content from their training data.
 
-\begin{table*}[!htbp]
-\centering
-\scriptsize
-\caption{\textbf{Abstract completion probe results.} 
-Shows \ac{ROUGE}-L scores for completions of abstracts published before (pre-cutoff) and after (post-cutoff) the respective training cutoff dates. $\Delta$ denotes the difference between both groups. Statistical significance was assessed using a one-sided Mann-Whitney U test.\label{tab:completion_probe}}
-\begin{tabularx}{\linewidth}{X l r r r r r r}
-\toprule
-\textbf{Model} & \textbf{Cutoff} & \textbf{Pre ROUGE-L} & \textbf{Post ROUGE-L} & \textbf{$\Delta$} & \textbf{95\% CI} & \textbf{$p$-value} & \textbf{Effect($r$)} \\
-\midrule
-claude-sonnet-4-20250514 (closed-source) & 2025-03 & 15.2 & 15.2 & +0.0 & [-0.5, +0.4] & 0.598 & +0.01 \\
-claude-opus-4-20250514 (closed-source) & 2025-03 & 15.3 & 15.0 & +0.2 & [-0.3, +0.8] & 0.239 & -0.03 \\
-claude-opus-4-1-20250805 (closed-source) & 2025-03 & 15.2 & 14.9 & +0.3 & [-0.2, +0.8] & 0.161 & -0.04 \\
-deepseek-r1:1.5b & 2025-01 & 10.3 & 10.5 & -0.1 & [-0.7, +0.4] & 0.598 & +0.01 \\
-deepseek-r1:7b & 2025-01 & 11.7 & 11.9 & -0.2 & [-0.6, +0.3] & 0.524 & +0.00 \\
-deepseek-r1:8b & 2025-01 & 13.2 & 13.5 & -0.3 & [-0.7, +0.2] & 0.834 & +0.04 \\
-deepseek-r1:14b & 2025-01 & 13.4 & 13.4 & -0.1 & [-0.4, +0.3] & 0.662 & +0.02 \\
-gpt-5-2025-08-07 (closed-source) & 2024-10 & 13.7 & 13.5 & +0.2 & [-0.2, +0.7] & 0.399 & -0.01 \\
-\bottomrule
-\end{tabularx}
-\end{table*}
-
 \subsection{Expert Assessment Results}
 
 The results of the expert assessment are summarized in Figure~\ref{fig:assessment_results} and Table~\ref{tab:human_eval}. Values are reported as mean $\pm$ \ac{SEM}. The two Mistral-based models (mistral-small3.2:24b and mistral-small-2506) consistently outperformed the two \acp{EDM} (bigbird-pegasus-large-pubmed and mT5\_multilingual\_XLSum) across all four evaluation dimensions.
@@ -149,97 +66,13 @@ Differences were even more pronounced for relevance and consistency. The Mistral
 
 Inter-rater agreement was strong on both measures. Gwet's AC2 indicated substantial absolute agreement across all dimensions, ranging from 0.713 (relevance) to 0.794 (fluency), with an overall value of AC2 = 0.725. Mean pairwise Spearman correlations were likewise strong across all dimensions, ranging from $\rho = 0.707$ (coherence) to $\rho = 0.801$ (consistency), with an overall mean of $\rho = 0.765$ (all $p < 0.001$). These results show that evaluators consistently agreed both on the absolute quality of the summaries and on the relative ranking between models.
 
-\begin{figure*}[H]
-\centering
-\includegraphics[width=0.95\textwidth]{Visualizations/assessment_results.png}
-\captionsetup{skip=6pt}
-\caption{
-\textbf{Expert assessment results across four quality dimensions:}
-Distribution of expert ratings for coherence, fluency, relevance, and consistency for each model are shown with average ratings shown above the box-violin plots. \label{fig:assessment_results}}
-\end{figure*}
-
-\begin{table*}[ht]
-\centering
-\caption{
-\textbf{Expert assessment results (mean $\pm$ SEM, $n$=160 per model):} 
-Gwet's AC2 (quadratic weights) and mean pairwise Spearman's $\rho$ measure inter-rater agreement.}
-\label{tab:human_eval}
-\begin{tabular}{lcccc}
-\toprule
-Model & Coherence & Fluency & Relevance & Consistency \\
-\midrule
-BigBird-Pegasus & $2.08 \pm 0.08$ & $2.23 \pm 0.07$ & $1.40 \pm 0.05$ & $1.41 \pm 0.05$ \\
-mT5-XLSum & $3.20 \pm 0.10$ & $3.67 \pm 0.09$ & $1.54 \pm 0.06$ & $2.17 \pm 0.09$ \\
-Mistral-Small-3.2 (24B) & $4.83 \pm 0.03$ & $4.86 \pm 0.03$ & $4.07 \pm 0.07$ & $4.56 \pm 0.06$ \\
-Mistral-Small-2506 & $4.82 \pm 0.04$ & $4.90 \pm 0.03$ & $4.09 \pm 0.07$ & $4.59 \pm 0.05$ \\
-\midrule
-Gwet's AC2 & $0.735$ & $0.794$ & $0.713$ & $0.735$ \\
-Spearman's $\rho$ (mean) & $0.707$ & $0.722$ & $0.799$ & $0.801$ \\
-\bottomrule
-\end{tabular}
-\vspace{2pt}
-\\\small Overall AC2 $= 0.725$, Overall $\rho = 0.765$
-\end{table*}
-
-\subsection{LLM-as-a-judge evaluation}
+\subsection{LLM-as-a-Judge Evaluation}
 The LLM-as-a-judge panel agreed closely with expert assessments on every dimension (Table~\ref{tab:judge-expert}). To benchmark against human reliability, we computed a leave-one-out ceiling on the same target the judges were scored against: each expert's ratings were correlated against the mean of the remaining experts. The judge's mean agreement ($\rho=0.87$) exceeded this ceiling ($\rho=0.82$), leading to the assumption that it tracked the expert consensus at least as closely as a typical individual expert.
 
-\begin{table}[ht]
-\centering
-\caption{LLM-as-a-judge panel vs.\ expert assessments (Spearman's $\rho$, $n=80$
-summaries). \emph{Diagonal}: judge dimension vs.\ the same expert dimension.
-\emph{Leave-one-out ceiling}: each expert vs.\ the mean of the others (fair, same-target
-human upper bound). \emph{Pairwise}: raw inter-rater agreement between two
-individual experts.}
-\label{tab:judge-expert}
-\begin{tabular}{lccc}
-\toprule
-Dimension & Judge $\rho$ & Leave-one-out ceiling & Pairwise \\
-\midrule
-Coherence   & 0.88 & 0.78 & 0.71 \\
-Fluency     & 0.87 & 0.80 & 0.72 \\
-Relevance   & 0.88 & 0.84 & 0.80 \\
-Consistency & 0.87 & 0.84 & 0.80 \\
-\midrule
-Mean        & \textbf{0.87} & 0.82 & 0.76 \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 The judge panel did not separate the four dimensions well. Its agreement with the matching expert dimension (diagonal $\rho=0.87$) was barely higher than its agreement with the other dimensions (off-diagonal $\rho=0.85$), a gap of only $0.02$. In effect the judge measured a single overall-quality signal rather than four independent constructs, so its per-dimension scores should not be over-interpreted.
 
 We questioned whether the LLM-as-a-judge panel was capable of ranking the 62 models in a comparable manner to the evaluation metrics (Table~\ref{tab:concordance}). The judge ranking agreed strongly with the lexical, semantic, and composite performance ranks ($\rho=0.75$-$0.83$). The factual metrics were an exception ($\rho=0.09$, n.s.), as they reward verbatim copying, so extractive systems (TextRank, frequency, T5, PEGASUS) ranked highly on factuality but performed poorly under the judge - a construct difference rather than a judge failure.
-
-\begin{table}[ht]
-\centering
-\caption{System-level rank concordance between the LLM-as-a-judge ranks and each evaluation metric category across all $n=62$ models. Judge ranks derive from the 20-publication subset, metric ranks use the full benchmark. This measures agreement between two automatic methods, not human validation.}
-\label{tab:concordance}
-\begin{tabular}{lccc}
-\toprule
-Metric family & $\rho$ & $\tau$ & $p$ \\
-\midrule
-Lexical     & 0.75 & 0.57 & $<10^{-11}$ \\
-Semantic    & 0.83 & 0.64 & $<10^{-15}$ \\
-Performance & 0.78 & 0.61 & $<10^{-12}$ \\
-Factual     & 0.09 & 0.06 & $0.48$ (n.s.) \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{table}[ht]
-\centering
-\caption{LLM-as-a-judge self-preference: a judge's mean score for its own model family minus its score for other systems, each measured relative to the other two judges (1-5 scale). Positive values indicate inflation of the judge's own family.}
-\label{tab:selfpref}
-\begin{tabular}{lc}
-\toprule
-Judge provider & Self-preference effect \\
-\midrule
-Anthropic & $+0.30$ \\
-OpenAI    & $-0.08$ \\
-Mistral   & $-0.02$ \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 To analyze the tendency of judges to favor their own model family, we computed, for each judge, how far its score sat above or below the mean of the other two judges, and contrasted its own-family models with all others (Table~\ref{tab:selfpref}). Anthropic exhibited a clear self-preference effect ($+0.30$ on the 1-5 scale), whereas OpenAI and Mistral showed no detectable differential effect ($\leq 0.08$ in magnitude). The direction is consistent with self-preference reported for rubric-based judging \citep{panicksseryLLMEvaluatorsRecognize2024,pombalSelfPreferenceBiasRubricBased2026}. Taking the median across the three judges damped this bias in the final scores.
 

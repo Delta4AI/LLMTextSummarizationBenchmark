@@ -1,0 +1,162 @@
+\section{Main Tables}
+
+\subsection{Table 1}
+
+\begin{table*}[H]
+\refstepcounter{table}\label{tab:goldstandard}
+\centering
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+\textbf{Publisher} & \textbf{Journals} \\
+\midrule
+\textit{ScienceDirect} & 
+Cytokine; Developmental Cell; Drug Discovery Today; FEBS Letters; Gene;
+Genomics; Journal of Biotechnology; Journal of Molecular Biology;
+Journal of Proteomics; The International Journal of Biochemistry \& Cell Biology \\
+\addlinespace[0.3em]
+\textit{Cell Press} & 
+Cancer Cell; Cell; Cell Chemical Biology; Cell Genomics;
+Cell Host \& Microbe; Cell Metabolism; Cell Reports;
+Cell Reports Medicine; Cell Stem Cell; Cell Systems \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\subsection{Table 2}
+
+\begin{table*}[H]
+\refstepcounter{table}\label{tab:models}
+\centering
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+\textbf{Category} & \textbf{Methods/Models} \\
+\midrule
+Traditional models & frequency; textrank \\
+\midrule
+General-purpose \acp{EDM} & facebook/bart-base; google/pegasus-large; google-t5/t5-base; google-t5/t5-large \\
+\midrule
+Domain-specific \acp{EDM} & csebuetnlp/mT5\_multilingual\_XLSum; facebook/bart-large-cnn; google/bigbird-pegasuslarge-pubmed; google/pegasus-cnn\_dailymail; google/pegasus-pubmed; google/pegasusxsum; led\_large\_16384\_arxiv\_summarization \\
+\midrule
+General-purpose \acp{SLM} & chat\_swiss-ai/Apertus-8B-Instruct-2509; gemma3:1b; gemma3:270M; gemma3:4b; gpt-4.1-mini; gpt-4o-mini; granite3.3:2b; granite3.3:8b; granite4:micro; granite4:micro-h; granite4:small-h; granite4:tiny-h; llama3.1:8b; llama3.2:1b; llama3.2:3b; mistral:7b; PetrosStav/gemma3-tools:4b; phi3:3.8b \\
+\midrule
+General-purpose \acp{LLM} & claude-3-5-haiku-20241022; gemma3:12b; gpt-3.5-turbo; gpt-4.1; gpt-4o; mistral-large-2411; mistral-medium-2505; mistral-nemo:12b; mistral-small-2506; mistral-small3.2:24b; phi4:14b \\
+\midrule
+Reasoning-oriented \acp{SLM} & deepseek-r1:1.5b; deepseek-r1:7b; deepseek-r1:8b; qwen3:4b; qwen3:8b \\
+\midrule
+Reasoning-oriented \acp{LLM} & claude-opus-4-1-20250805; claude-opus-4-20250514; claude-sonnet-4-20250514; deepseek-r1:14b; gpt-5-2025-08-07; gpt-5-mini-2025-08-07; gpt-5-nano-2025-08-07; gpt-oss:20b; magistral-medium-2509 \\
+\midrule
+Domain-specific \acp{SLM} & chat\_aaditya/OpenBioLLM-Llama3-8B; chat\_Uni-SMART/SciLitLLM1.5-7B; completion\_microsoft/biogpt; conversational\_BioMistral/BioMistral-7B; medllama2:7b \\
+\midrule
+Domain-specific \acp{LLM} & chat\_Uni-SMART/SciLitLLM1.5-14B \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\subsection{Table 3}
+
+\begin{table*}[H]
+\refstepcounter{table}\label{tab:completion_probe}
+\centering
+\scriptsize
+\begin{tabularx}{\linewidth}{X l r r r r r r}
+\toprule
+\textbf{Model} & \textbf{Cutoff} & \textbf{Pre ROUGE-L} & \textbf{Post ROUGE-L} & \textbf{$\Delta$} & \textbf{95\% CI} & \textbf{$p$-value} & \textbf{Effect($r$)} \\
+\midrule
+claude-sonnet-4-20250514 (closed-source) & 2025-03 & 15.2 & 15.2 & +0.0 & [-0.5, +0.4] & 0.598 & +0.01 \\
+claude-opus-4-20250514 (closed-source) & 2025-03 & 15.3 & 15.0 & +0.2 & [-0.3, +0.8] & 0.239 & -0.03 \\
+claude-opus-4-1-20250805 (closed-source) & 2025-03 & 15.2 & 14.9 & +0.3 & [-0.2, +0.8] & 0.161 & -0.04 \\
+deepseek-r1:1.5b & 2025-01 & 10.3 & 10.5 & -0.1 & [-0.7, +0.4] & 0.598 & +0.01 \\
+deepseek-r1:7b & 2025-01 & 11.7 & 11.9 & -0.2 & [-0.6, +0.3] & 0.524 & +0.00 \\
+deepseek-r1:8b & 2025-01 & 13.2 & 13.5 & -0.3 & [-0.7, +0.2] & 0.834 & +0.04 \\
+deepseek-r1:14b & 2025-01 & 13.4 & 13.4 & -0.1 & [-0.4, +0.3] & 0.662 & +0.02 \\
+gpt-5-2025-08-07 (closed-source) & 2024-10 & 13.7 & 13.5 & +0.2 & [-0.2, +0.7] & 0.399 & -0.01 \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\subsection{Table 4}
+
+\begin{table*}[H]
+\refstepcounter{table}\label{tab:human_eval}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Model & Coherence & Fluency & Relevance & Consistency \\
+\midrule
+BigBird-Pegasus & $2.08 \pm 0.08$ & $2.23 \pm 0.07$ & $1.40 \pm 0.05$ & $1.41 \pm 0.05$ \\
+mT5-XLSum & $3.20 \pm 0.10$ & $3.67 \pm 0.09$ & $1.54 \pm 0.06$ & $2.17 \pm 0.09$ \\
+Mistral-Small-3.2 (24B) & $4.83 \pm 0.03$ & $4.86 \pm 0.03$ & $4.07 \pm 0.07$ & $4.56 \pm 0.06$ \\
+Mistral-Small-2506 & $4.82 \pm 0.04$ & $4.90 \pm 0.03$ & $4.09 \pm 0.07$ & $4.59 \pm 0.05$ \\
+\midrule
+Gwet's AC2 & $0.735$ & $0.794$ & $0.713$ & $0.735$ \\
+Spearman's $\rho$ (mean) & $0.707$ & $0.722$ & $0.799$ & $0.801$ \\
+\bottomrule
+\end{tabular}
+\vspace{2pt}
+\\\small Overall AC2 $= 0.725$, Overall $\rho = 0.765$
+\end{table*}
+
+\subsection{Table 5}
+
+\begin{table}[H]
+\refstepcounter{table}\label{tab:judge-expert}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Dimension & Judge $\rho$ & Leave-one-out ceiling & Pairwise \\
+\midrule
+Coherence   & 0.88 & 0.78 & 0.71 \\
+Fluency     & 0.87 & 0.80 & 0.72 \\
+Relevance   & 0.88 & 0.84 & 0.80 \\
+Consistency & 0.87 & 0.84 & 0.80 \\
+\midrule
+Mean        & \textbf{0.87} & 0.82 & 0.76 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Table 6}
+
+\begin{table}[H]
+\refstepcounter{table}\label{tab:concordance}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Metric family & $\rho$ & $\tau$ & $p$ \\
+\midrule
+Lexical     & 0.75 & 0.57 & $<10^{-11}$ \\
+Semantic    & 0.83 & 0.64 & $<10^{-15}$ \\
+Performance & 0.78 & 0.61 & $<10^{-12}$ \\
+Factual     & 0.09 & 0.06 & $0.48$ (n.s.) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Table 7}
+
+\begin{table}[H]
+\refstepcounter{table}\label{tab:selfpref}
+\centering
+\begin{tabular}{lc}
+\toprule
+Judge provider & Self-preference effect \\
+\midrule
+Anthropic & $+0.30$ \\
+OpenAI    & $-0.08$ \\
+Mistral   & $-0.02$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Table Legends}
+
+\begin{itemize}
+	\item Table 1: \textbf{Overview of journals included in the gold-standard dataset:} Each journal contributed 50 articles, resulting in 500 articles from \textit{ScienceDirect} and 500 articles from \textit{Cell Press}.
+	\item Table 2: \textbf{Overview of summarization methods evaluated in this study:} Models organized by category.
+	\item Table 3: \textbf{Abstract completion probe:} \ac{ROUGE}-L scores for completions of abstracts published before (pre-cutoff) and after (post-cutoff) the respective training cutoff dates. $\Delta$ denotes the difference between both groups. Statistical significance was assessed using a one-sided Mann-Whitney U test.
+	\item Table 4: \textbf{Expert assessment results (mean $\pm$ SEM, $n$=160 per model):} Gwet's AC2 (quadratic weights) and mean pairwise Spearman's $\rho$ measure inter-rater agreement.
+	\item Table 5: \textbf{Judge-expert agreement against the human ceiling:} LLM-as-a-judge panel vs. expert assessments (Spearman's $\rho$, $n=80$ summaries). \emph{Diagonal}: judge dimension vs.\ the same expert dimension. \emph{Leave-one-out ceiling}: each expert vs.\ the mean of the others (fair, same-target human upper bound). \emph{Pairwise}: raw inter-rater agreement between two individual experts.
+	\item Table 6: \textbf{Rank concordance of judge and metric rankings:} System-level rank concordance between the LLM-as-a-judge ranks and each evaluation metric category across all $n=62$ models. Judge ranks derive from the 20-publication subset, metric ranks use the full benchmark. This measures agreement between two automatic methods, not human validation.
+	\item Table 7: \textbf{LLM-as-a-judge self-preference:} A judge's mean score for its own model family minus its score for other systems, each measured relative to the other two judges (1-5 scale). Positive values indicate inflation of the judge's own family.
+
+\end{itemize}
