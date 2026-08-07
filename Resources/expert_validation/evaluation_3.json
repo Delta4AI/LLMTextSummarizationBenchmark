@@ -1,0 +1,1336 @@
+{
+  "token": "r_c69bfd02e8a1",
+  "name": "SW",
+  "created_at": "2026-03-13T16:10:32.776253+00:00",
+  "rating_mode": "detailed",
+  "assignments": [
+    {
+      "paper_index": 14,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 7,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 8,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 7,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 2,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 9,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 9,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 7,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 11,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 6,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 9,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 18,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 10,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 11,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 18,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 12,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 4,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 18,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 0,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 17,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 6,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 15,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 5,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 8,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 16,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 2,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 7,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 13,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 1,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 3,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 4,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 19,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 5,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 2,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 17,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 0,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 10,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 9,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 13,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 14,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 14,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 3,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 1,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 13,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 10,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 15,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 17,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 18,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 16,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 19,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 4,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 12,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 12,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 12,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 11,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 10,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 0,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 13,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 15,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 4,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 14,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 2,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 8,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 1,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 17,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 16,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 15,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 3,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 5,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 5,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 19,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 6,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 0,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 1,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 8,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 16,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 19,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 11,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 6,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 3,
+      "model": "mistral_mistral-small-2506"
+    }
+  ],
+  "assessments": [
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115863",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T09:51:28.963491+00:00",
+      "originally_submitted_at": "2026-03-13T16:30:31.503358+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169184",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "Domain-swapped nature of dimer missing in summary.",
+      "submitted_at": "2026-03-31T07:58:28.916178+00:00",
+      "originally_submitted_at": "2026-03-16T10:49:52.379469+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115798",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "Missing \"depletion of dominant TCRb chains\" disease prevention point in summary",
+      "submitted_at": "2026-03-31T08:08:00.176705+00:00",
+      "originally_submitted_at": "2026-03-16T10:53:31.582321+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169184",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 2
+      },
+      "comment": "Missing key points of F420 and fusion receptors, somehow goes off on a tangent about touch.",
+      "submitted_at": "2026-03-31T08:09:13.023236+00:00",
+      "originally_submitted_at": "2026-03-16T10:56:31.122539+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.febslet.2015.09.023",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "Key points and summary differ, i.e. no mentions of any specific factors or miRNAs in the key points, nor is the intron definition model or associations with specific abiotic stresses mentioned in the summary. Caveat: Key points are not fully reflected in abstract!",
+      "submitted_at": "2026-03-31T08:15:26.869100+00:00",
+      "originally_submitted_at": "2026-03-16T11:00:38.942505+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.023",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 2
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T08:18:00.480231+00:00",
+      "originally_submitted_at": "2026-03-16T11:05:50.456056+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.023",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 4,
+        "consistency": 1,
+        "fluency": 5
+      },
+      "comment": "Summary very superficial, missing nearly all specific points, also glucose is the source and not the product",
+      "submitted_at": "2026-03-31T08:19:11.216144+00:00",
+      "originally_submitted_at": "2026-03-16T11:08:40.912948+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169184",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T08:23:20.372494+00:00",
+      "originally_submitted_at": "2026-03-16T11:12:44.622844+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115872",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 5,
+        "consistency": 2,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T08:27:47.184180+00:00",
+      "originally_submitted_at": "2026-03-16T11:13:55.915734+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.biocel.2023.106508",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T09:09:19.259410+00:00",
+      "originally_submitted_at": "2026-03-16T12:58:51.251773+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.023",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "missing reduced ketoisovalerate rate",
+      "submitted_at": "2026-03-31T09:14:28.599183+00:00",
+      "originally_submitted_at": "2026-03-16T13:01:37.166574+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.007",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T09:25:24.977519+00:00",
+      "originally_submitted_at": "2026-03-16T13:04:16.876204+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.chembiol.2024.07.018",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "multiple statements from the summary not reflected in the key points, soluble analog missing in summary",
+      "submitted_at": "2026-03-31T09:33:30.370950+00:00",
+      "originally_submitted_at": "2026-03-16T13:14:48.317242+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115872",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T09:38:47.130290+00:00",
+      "originally_submitted_at": "2026-03-16T13:16:33.330934+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.007",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 3,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T09:45:26.329429+00:00",
+      "originally_submitted_at": "2026-03-16T13:18:27.320595+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.017",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T09:51:14.305702+00:00",
+      "originally_submitted_at": "2026-03-16T13:20:54.415818+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.drudis.2025.104366",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "fluency": 1,
+        "relevance": 1,
+        "consistency": 1,
+        "coherence": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-03-16T13:22:27.366511+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.007",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T09:52:39.646939+00:00",
+      "originally_submitted_at": "2026-03-16T13:24:41.255569+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ccell.2023.11.008",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "fluency": 1,
+        "relevance": 1,
+        "consistency": 1,
+        "coherence": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-03-16T13:26:22.694937+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169236",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "small artefacts (Word count), the focus on low-similarity datasets also is a bit higher in the summary then the source",
+      "submitted_at": "2026-03-31T10:49:57.339569+00:00",
+      "originally_submitted_at": "2026-03-16T13:29:17.016860+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.biocel.2023.106508",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T10:50:45.379595+00:00",
+      "originally_submitted_at": "2026-03-16T13:34:08.585022+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149646",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T10:57:13.308957+00:00",
+      "originally_submitted_at": "2026-03-16T13:37:16.675402+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149551",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T11:02:20.217238+00:00",
+      "originally_submitted_at": "2026-03-16T13:40:26.115183+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115798",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T11:03:57.274457+00:00",
+      "originally_submitted_at": "2026-03-17T13:44:26.887220+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.003",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 1,
+        "fluency": 5
+      },
+      "comment": "beyond missing most points also reports wrong species",
+      "submitted_at": "2026-03-31T11:04:47.215100+00:00",
+      "originally_submitted_at": "2026-03-17T13:46:14.417080+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.febslet.2015.09.023",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 5,
+        "consistency": 1,
+        "fluency": 5
+      },
+      "comment": "Focus of key points and summary are very different and both mention aspects not present in the other",
+      "submitted_at": "2026-03-31T11:10:39.222598+00:00",
+      "originally_submitted_at": "2026-03-17T13:49:07.766890+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169184",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 5,
+        "consistency": 2,
+        "fluency": 5
+      },
+      "comment": "Superficial description and complete miss of chemogenetic aspect",
+      "submitted_at": "2026-03-31T11:10:54.977072+00:00",
+      "originally_submitted_at": "2026-03-17T13:51:46.097416+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.022",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "VSV were not inhibited as a cell line but were the target to inhibit vero cells.",
+      "submitted_at": "2026-03-31T11:14:18.562262+00:00",
+      "originally_submitted_at": "2026-03-17T13:54:30.497738+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.cyto.2025.156904",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T11:16:43.065099+00:00",
+      "originally_submitted_at": "2026-03-17T16:40:10.591381+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ygeno.2025.111018",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 3,
+        "consistency": 1,
+        "fluency": 4
+      },
+      "comment": "wrong genus (Cryptocarya vs tropicalcarya), arthropoda are completely off as trees are not really related to invertrbrates.",
+      "submitted_at": "2026-03-31T11:20:55.614610+00:00",
+      "originally_submitted_at": "2026-03-17T16:42:36.043167+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.drudis.2025.104366",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "most aspects from key points are not reflected in the summary",
+      "submitted_at": "2026-03-31T11:22:01.335066+00:00",
+      "originally_submitted_at": "2026-03-17T16:44:05.697055+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jprot.2025.105457",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "Aspects in key points and summaries are not reflected in the other",
+      "submitted_at": "2026-03-31T11:25:05.680875+00:00",
+      "originally_submitted_at": "2026-03-17T16:46:17.903947+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149551",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T11:26:02.758908+00:00",
+      "originally_submitted_at": "2026-03-17T16:46:55.044097+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.febslet.2015.09.023",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "wrong species (barley vs drosophila), most key points are missed.",
+      "submitted_at": "2026-03-31T11:27:26.679564+00:00",
+      "originally_submitted_at": "2026-03-17T16:48:16.162300+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169236",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 2,
+        "consistency": 1,
+        "fluency": 2
+      },
+      "comment": "p53 not mentioned in abstract, nor pip3 signaling, nor 'protein prediction language'",
+      "submitted_at": "2026-03-31T11:31:22.273805+00:00",
+      "originally_submitted_at": "2026-03-17T16:49:27.376249+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ccell.2023.11.008",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "B3GALT6 predicts poor outcome but is not a key regulator according to the abstract.",
+      "submitted_at": "2026-03-31T11:36:20.907553+00:00",
+      "originally_submitted_at": "2026-03-18T09:28:08.812492+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.chembiol.2024.07.018",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T11:37:01.500692+00:00",
+      "originally_submitted_at": "2026-03-18T09:29:30.486468+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.023",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T11:37:56.773683+00:00",
+      "originally_submitted_at": "2026-03-18T09:30:38.176537+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.022",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T11:38:42.395838+00:00",
+      "originally_submitted_at": "2026-03-18T09:31:23.893032+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115863",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T11:39:22.182480+00:00",
+      "originally_submitted_at": "2026-03-18T10:25:13.895318+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115863",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 1,
+        "consistency": 2,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T11:39:46.917178+00:00",
+      "originally_submitted_at": "2026-03-18T10:26:07.532984+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ygeno.2025.111018",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 1,
+        "fluency": 4
+      },
+      "comment": "the transcript is about the mitochondrial genome, not the genome of the species itself, beyond missing most relevant points",
+      "submitted_at": "2026-03-31T11:40:14.616232+00:00",
+      "originally_submitted_at": "2026-03-18T10:27:32.155097+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.cyto.2025.156904",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T11:44:26.524264+00:00",
+      "originally_submitted_at": "2026-03-18T10:30:23.082308+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.022",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 2
+      },
+      "comment": "only hub genes were up-/downregulated not whole signaling pathways",
+      "submitted_at": "2026-03-31T11:47:31.441435+00:00",
+      "originally_submitted_at": "2026-03-18T10:31:20.205837+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.chembiol.2024.07.018",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 4,
+        "consistency": 2,
+        "fluency": 4
+      },
+      "comment": "CKalpha is not mentioned in summary, ATP has high levels in extracellular spare and not the key activity itels, same for ectinase",
+      "submitted_at": "2026-03-31T11:51:16.442387+00:00",
+      "originally_submitted_at": "2026-03-18T10:33:31.654392+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149646",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:11:17.927102+00:00",
+      "originally_submitted_at": "2026-03-18T10:34:19.744934+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169236",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 2,
+        "consistency": 1,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:11:47.485824+00:00",
+      "originally_submitted_at": "2026-03-18T10:34:58.234820+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.007",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 2
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:12:17.327955+00:00",
+      "originally_submitted_at": "2026-03-18T12:53:27.370265+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.003",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 2
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:13:55.622497+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jprot.2025.105457",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 2,
+        "consistency": 1,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:24:11.447650+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.drudis.2025.104366",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:24:47.378497+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.017",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:26:45.118976+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.017",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:27:46.112599+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.017",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:28:06.896434+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115872",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:28:36.808725+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.chembiol.2024.07.018",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:31:27.359619+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ccell.2023.11.008",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:35:35.655725+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.022",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:36:47.396780+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149646",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:37:08.299746+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.drudis.2025.104366",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:38:04.568966+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115863",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:40:34.859268+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.febslet.2015.09.023",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:41:07.187432+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115798",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:41:33.169167+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.cyto.2025.156904",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 5,
+        "consistency": 2,
+        "fluency": 5
+      },
+      "comment": "topic seems not to be general development of gastric diseases but particularly mechanism of H. pylori infected subjects",
+      "submitted_at": "2026-03-31T12:42:44.042232+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169236",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:43:28.191940+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.003",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:44:01.315509+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149646",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:44:21.030087+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ygeno.2025.111018",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:44:58.840929+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149551",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:45:47.451115+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149551",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:46:10.965635+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jprot.2025.105457",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:47:37.607396+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.biocel.2023.106508",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:48:14.111783+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ccell.2023.11.008",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:48:42.154326+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.cyto.2025.156904",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:49:43.769936+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115798",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:50:52.497357+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.003",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:51:21.882493+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jprot.2025.105457",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 5,
+        "consistency": 3,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:52:00.769057+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115872",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:52:31.177584+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.biocel.2023.106508",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:53:10.181709+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ygeno.2025.111018",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-03-31T12:54:20.115087+00:00"
+    }
+  ]
+}

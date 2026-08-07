@@ -1,0 +1,650 @@
+{
+  "description": "Data-leakage plausibility check: articles published on or before a model's training-cutoff could theoretically appear in its training data.",
+  "benchmark_dataset": {
+    "total_articles": 1000,
+    "articles_with_publication_date": 1000,
+    "articles_without_publication_date": 0,
+    "earliest_publication": "2015-10",
+    "latest_publication": "2025-11",
+    "publication_distribution": {
+      "2015-10": 10,
+      "2015-11": 39,
+      "2015-12": 1,
+      "2024-01": 16,
+      "2024-02": 2,
+      "2024-03": 17,
+      "2024-04": 18,
+      "2024-05": 15,
+      "2024-06": 20,
+      "2024-07": 13,
+      "2024-08": 52,
+      "2024-09": 28,
+      "2024-10": 9,
+      "2024-11": 37,
+      "2024-12": 29,
+      "2025-01": 25,
+      "2025-02": 30,
+      "2025-03": 41,
+      "2025-04": 9,
+      "2025-05": 63,
+      "2025-06": 110,
+      "2025-07": 155,
+      "2025-08": 43,
+      "2025-09": 151,
+      "2025-10": 65,
+      "2025-11": 2
+    }
+  },
+  "models": [
+    {
+      "platform": "anthropic",
+      "model": "claude-sonnet-4-20250514",
+      "training_cutoff": "2025-03",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 402,
+      "articles_after_cutoff": 598,
+      "pct_potentially_leaked": 40.2,
+      "risk_level": "moderate"
+    },
+    {
+      "platform": "anthropic",
+      "model": "claude-opus-4-20250514",
+      "training_cutoff": "2025-03",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 402,
+      "articles_after_cutoff": 598,
+      "pct_potentially_leaked": 40.2,
+      "risk_level": "moderate"
+    },
+    {
+      "platform": "anthropic",
+      "model": "claude-opus-4-1-20250805",
+      "training_cutoff": "2025-03",
+      "cutoff_source": "community_dataset",
+      "articles_before_cutoff": 402,
+      "articles_after_cutoff": 598,
+      "pct_potentially_leaked": 40.2,
+      "risk_level": "moderate"
+    },
+    {
+      "platform": "ollama",
+      "model": "deepseek-r1:1.5b",
+      "training_cutoff": "2025-01",
+      "cutoff_source": "community_dataset",
+      "articles_before_cutoff": 331,
+      "articles_after_cutoff": 669,
+      "pct_potentially_leaked": 33.1,
+      "risk_level": "moderate"
+    },
+    {
+      "platform": "ollama",
+      "model": "deepseek-r1:7b",
+      "training_cutoff": "2025-01",
+      "cutoff_source": "community_dataset",
+      "articles_before_cutoff": 331,
+      "articles_after_cutoff": 669,
+      "pct_potentially_leaked": 33.1,
+      "risk_level": "moderate"
+    },
+    {
+      "platform": "ollama",
+      "model": "deepseek-r1:8b",
+      "training_cutoff": "2025-01",
+      "cutoff_source": "community_dataset",
+      "articles_before_cutoff": 331,
+      "articles_after_cutoff": 669,
+      "pct_potentially_leaked": 33.1,
+      "risk_level": "moderate"
+    },
+    {
+      "platform": "ollama",
+      "model": "deepseek-r1:14b",
+      "training_cutoff": "2025-01",
+      "cutoff_source": "community_dataset",
+      "articles_before_cutoff": 331,
+      "articles_after_cutoff": 669,
+      "pct_potentially_leaked": 33.1,
+      "risk_level": "moderate"
+    },
+    {
+      "platform": "openai",
+      "model": "gpt-5-2025-08-07",
+      "training_cutoff": "2024-10",
+      "cutoff_source": "community_dataset",
+      "articles_before_cutoff": 240,
+      "articles_after_cutoff": 760,
+      "pct_potentially_leaked": 24.0,
+      "risk_level": "low"
+    },
+    {
+      "platform": "ollama",
+      "model": "gemma3:270M",
+      "training_cutoff": "2024-08",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 203,
+      "articles_after_cutoff": 797,
+      "pct_potentially_leaked": 20.3,
+      "risk_level": "low"
+    },
+    {
+      "platform": "ollama",
+      "model": "gemma3:1b",
+      "training_cutoff": "2024-08",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 203,
+      "articles_after_cutoff": 797,
+      "pct_potentially_leaked": 20.3,
+      "risk_level": "low"
+    },
+    {
+      "platform": "ollama",
+      "model": "gemma3:4b",
+      "training_cutoff": "2024-08",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 203,
+      "articles_after_cutoff": 797,
+      "pct_potentially_leaked": 20.3,
+      "risk_level": "low"
+    },
+    {
+      "platform": "ollama",
+      "model": "gemma3:12b",
+      "training_cutoff": "2024-08",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 203,
+      "articles_after_cutoff": 797,
+      "pct_potentially_leaked": 20.3,
+      "risk_level": "low"
+    },
+    {
+      "platform": "ollama",
+      "model": "PetrosStav/gemma3-tools:4b",
+      "training_cutoff": "2024-08",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 203,
+      "articles_after_cutoff": 797,
+      "pct_potentially_leaked": 20.3,
+      "risk_level": "low"
+    },
+    {
+      "platform": "ollama",
+      "model": "phi4:14b",
+      "training_cutoff": "2024-06",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 138,
+      "articles_after_cutoff": 862,
+      "pct_potentially_leaked": 13.8,
+      "risk_level": "low"
+    },
+    {
+      "platform": "ollama",
+      "model": "gpt-oss:20b",
+      "training_cutoff": "2024-06",
+      "cutoff_source": "community_dataset",
+      "articles_before_cutoff": 138,
+      "articles_after_cutoff": 862,
+      "pct_potentially_leaked": 13.8,
+      "risk_level": "low"
+    },
+    {
+      "platform": "openai",
+      "model": "gpt-4.1",
+      "training_cutoff": "2024-06",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 138,
+      "articles_after_cutoff": 862,
+      "pct_potentially_leaked": 13.8,
+      "risk_level": "low"
+    },
+    {
+      "platform": "openai",
+      "model": "gpt-4.1-mini",
+      "training_cutoff": "2024-06",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 138,
+      "articles_after_cutoff": 862,
+      "pct_potentially_leaked": 13.8,
+      "risk_level": "low"
+    },
+    {
+      "platform": "openai",
+      "model": "gpt-5-nano-2025-08-07",
+      "training_cutoff": "2024-05",
+      "cutoff_source": "community_dataset",
+      "articles_before_cutoff": 118,
+      "articles_after_cutoff": 882,
+      "pct_potentially_leaked": 11.8,
+      "risk_level": "low"
+    },
+    {
+      "platform": "openai",
+      "model": "gpt-5-mini-2025-08-07",
+      "training_cutoff": "2024-05",
+      "cutoff_source": "community_dataset",
+      "articles_before_cutoff": 118,
+      "articles_after_cutoff": 882,
+      "pct_potentially_leaked": 11.8,
+      "risk_level": "low"
+    },
+    {
+      "platform": "ollama",
+      "model": "granite3.3:2b",
+      "training_cutoff": "2024-04",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 103,
+      "articles_after_cutoff": 897,
+      "pct_potentially_leaked": 10.3,
+      "risk_level": "low"
+    },
+    {
+      "platform": "ollama",
+      "model": "granite3.3:8b",
+      "training_cutoff": "2024-04",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 103,
+      "articles_after_cutoff": 897,
+      "pct_potentially_leaked": 10.3,
+      "risk_level": "low"
+    },
+    {
+      "platform": "anthropic",
+      "model": "claude-3-5-haiku-20241022",
+      "training_cutoff": "2024-04",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 103,
+      "articles_after_cutoff": 897,
+      "pct_potentially_leaked": 10.3,
+      "risk_level": "low"
+    },
+    {
+      "platform": "huggingface:chat",
+      "model": "swiss-ai/Apertus-8B-Instruct-2509",
+      "training_cutoff": "2024-03",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 85,
+      "articles_after_cutoff": 915,
+      "pct_potentially_leaked": 8.5,
+      "risk_level": "low"
+    },
+    {
+      "platform": "huggingface:chat",
+      "model": "Uni-SMART/SciLitLLM1.5-7B",
+      "training_cutoff": "2024",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 66,
+      "articles_after_cutoff": 934,
+      "pct_potentially_leaked": 6.6,
+      "risk_level": "low"
+    },
+    {
+      "platform": "huggingface:chat",
+      "model": "Uni-SMART/SciLitLLM1.5-14B",
+      "training_cutoff": "2024",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 66,
+      "articles_after_cutoff": 934,
+      "pct_potentially_leaked": 6.6,
+      "risk_level": "low"
+    },
+    {
+      "platform": "huggingface",
+      "model": "facebook/bart-large-cnn",
+      "training_cutoff": "2019",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "huggingface",
+      "model": "facebook/bart-base",
+      "training_cutoff": "2019",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "huggingface",
+      "model": "google-t5/t5-base",
+      "training_cutoff": "2019-04",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "huggingface",
+      "model": "google-t5/t5-large",
+      "training_cutoff": "2019-04",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "huggingface",
+      "model": "csebuetnlp/mT5_multilingual_XLSum",
+      "training_cutoff": "2020",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "huggingface",
+      "model": "google/pegasus-xsum",
+      "training_cutoff": "2020",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "huggingface",
+      "model": "google/pegasus-large",
+      "training_cutoff": "2020",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "huggingface",
+      "model": "google/pegasus-cnn_dailymail",
+      "training_cutoff": "2020",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "huggingface",
+      "model": "AlgorithmicResearchGroup/led_large_16384_arxiv_summarization",
+      "training_cutoff": "2020",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "huggingface",
+      "model": "google/pegasus-pubmed",
+      "training_cutoff": "2020",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "huggingface",
+      "model": "google/bigbird-pegasus-large-pubmed",
+      "training_cutoff": "2020",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "huggingface:completion",
+      "model": "microsoft/biogpt",
+      "training_cutoff": "2021",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "huggingface:chat",
+      "model": "aaditya/OpenBioLLM-Llama3-8B",
+      "training_cutoff": "2023-03",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "huggingface:conversational",
+      "model": "BioMistral/BioMistral-7B",
+      "training_cutoff": "2023",
+      "cutoff_source": "estimated",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "ollama",
+      "model": "llama3.1:8b",
+      "training_cutoff": "2023-12",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "ollama",
+      "model": "llama3.2:1b",
+      "training_cutoff": "2023-12",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "ollama",
+      "model": "llama3.2:3b",
+      "training_cutoff": "2023-12",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "ollama",
+      "model": "medllama2:7b",
+      "training_cutoff": "2022-09",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "ollama",
+      "model": "phi3:3.8b",
+      "training_cutoff": "2023-10",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "openai",
+      "model": "gpt-3.5-turbo",
+      "training_cutoff": "2021-09",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "openai",
+      "model": "gpt-4o",
+      "training_cutoff": "2023-10",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "openai",
+      "model": "gpt-4o-mini",
+      "training_cutoff": "2023-10",
+      "cutoff_source": "confirmed",
+      "articles_before_cutoff": 50,
+      "articles_after_cutoff": 950,
+      "pct_potentially_leaked": 5.0,
+      "risk_level": "minimal"
+    },
+    {
+      "platform": "ollama",
+      "model": "mistral:7b",
+      "training_cutoff": null,
+      "cutoff_source": "unknown",
+      "articles_before_cutoff": null,
+      "articles_after_cutoff": null,
+      "pct_potentially_leaked": null,
+      "risk_level": "unknown (no cutoff date)"
+    },
+    {
+      "platform": "ollama",
+      "model": "mistral-nemo:12b",
+      "training_cutoff": null,
+      "cutoff_source": "unknown",
+      "articles_before_cutoff": null,
+      "articles_after_cutoff": null,
+      "pct_potentially_leaked": null,
+      "risk_level": "unknown (no cutoff date)"
+    },
+    {
+      "platform": "ollama",
+      "model": "mistral-small3.2:24b",
+      "training_cutoff": null,
+      "cutoff_source": "unknown",
+      "articles_before_cutoff": null,
+      "articles_after_cutoff": null,
+      "pct_potentially_leaked": null,
+      "risk_level": "unknown (no cutoff date)"
+    },
+    {
+      "platform": "ollama",
+      "model": "qwen3:4b",
+      "training_cutoff": null,
+      "cutoff_source": "unknown",
+      "articles_before_cutoff": null,
+      "articles_after_cutoff": null,
+      "pct_potentially_leaked": null,
+      "risk_level": "unknown (no cutoff date)"
+    },
+    {
+      "platform": "ollama",
+      "model": "qwen3:8b",
+      "training_cutoff": null,
+      "cutoff_source": "unknown",
+      "articles_before_cutoff": null,
+      "articles_after_cutoff": null,
+      "pct_potentially_leaked": null,
+      "risk_level": "unknown (no cutoff date)"
+    },
+    {
+      "platform": "ollama",
+      "model": "granite4:micro",
+      "training_cutoff": null,
+      "cutoff_source": "unknown",
+      "articles_before_cutoff": null,
+      "articles_after_cutoff": null,
+      "pct_potentially_leaked": null,
+      "risk_level": "unknown (no cutoff date)"
+    },
+    {
+      "platform": "ollama",
+      "model": "granite4:micro-h",
+      "training_cutoff": null,
+      "cutoff_source": "unknown",
+      "articles_before_cutoff": null,
+      "articles_after_cutoff": null,
+      "pct_potentially_leaked": null,
+      "risk_level": "unknown (no cutoff date)"
+    },
+    {
+      "platform": "ollama",
+      "model": "granite4:tiny-h",
+      "training_cutoff": null,
+      "cutoff_source": "unknown",
+      "articles_before_cutoff": null,
+      "articles_after_cutoff": null,
+      "pct_potentially_leaked": null,
+      "risk_level": "unknown (no cutoff date)"
+    },
+    {
+      "platform": "ollama",
+      "model": "granite4:small-h",
+      "training_cutoff": null,
+      "cutoff_source": "unknown",
+      "articles_before_cutoff": null,
+      "articles_after_cutoff": null,
+      "pct_potentially_leaked": null,
+      "risk_level": "unknown (no cutoff date)"
+    },
+    {
+      "platform": "mistral",
+      "model": "mistral-medium-2505",
+      "training_cutoff": null,
+      "cutoff_source": "unknown",
+      "articles_before_cutoff": null,
+      "articles_after_cutoff": null,
+      "pct_potentially_leaked": null,
+      "risk_level": "unknown (no cutoff date)"
+    },
+    {
+      "platform": "mistral",
+      "model": "magistral-medium-2509",
+      "training_cutoff": null,
+      "cutoff_source": "unknown",
+      "articles_before_cutoff": null,
+      "articles_after_cutoff": null,
+      "pct_potentially_leaked": null,
+      "risk_level": "unknown (no cutoff date)"
+    },
+    {
+      "platform": "mistral",
+      "model": "mistral-large-2411",
+      "training_cutoff": null,
+      "cutoff_source": "unknown",
+      "articles_before_cutoff": null,
+      "articles_after_cutoff": null,
+      "pct_potentially_leaked": null,
+      "risk_level": "unknown (no cutoff date)"
+    },
+    {
+      "platform": "mistral",
+      "model": "mistral-small-2506",
+      "training_cutoff": null,
+      "cutoff_source": "unknown",
+      "articles_before_cutoff": null,
+      "articles_after_cutoff": null,
+      "pct_potentially_leaked": null,
+      "risk_level": "unknown (no cutoff date)"
+    },
+    {
+      "platform": "mistral",
+      "model": "mistral-medium-2508",
+      "training_cutoff": null,
+      "cutoff_source": "unknown",
+      "articles_before_cutoff": null,
+      "articles_after_cutoff": null,
+      "pct_potentially_leaked": null,
+      "risk_level": "unknown (no cutoff date)"
+    }
+  ]
+}

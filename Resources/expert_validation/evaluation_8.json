@@ -1,0 +1,1290 @@
+{
+  "token": "r_768dd1d55435",
+  "name": "LF",
+  "created_at": "2026-04-02T07:31:58.782234+00:00",
+  "rating_mode": "detailed",
+  "assignments": [
+    {
+      "paper_index": 2,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 11,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 3,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 12,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 4,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 17,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 7,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 4,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 10,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 11,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 17,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 14,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 6,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 19,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 8,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 19,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 13,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 6,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 17,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 14,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 4,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 7,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 3,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 8,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 1,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 8,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 9,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 9,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 19,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 7,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 9,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 10,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 13,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 12,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 16,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 9,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 0,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 5,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 2,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 5,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 18,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 6,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 11,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 3,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 12,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 16,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 0,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 16,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 8,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 1,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 19,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 1,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 7,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 11,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 12,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 15,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 15,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 10,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 2,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 2,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 17,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 4,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 14,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 5,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 16,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 6,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 5,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 14,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 13,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 15,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 0,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 1,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 18,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 15,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 13,
+      "model": "ollama_mistral-small3.2:24b"
+    },
+    {
+      "paper_index": 18,
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum"
+    },
+    {
+      "paper_index": 18,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 10,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    },
+    {
+      "paper_index": 3,
+      "model": "mistral_mistral-small-2506"
+    },
+    {
+      "paper_index": 0,
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed"
+    }
+  ],
+  "assessments": [
+    {
+      "paper_id": "https://doi.org/10.1016/j.febslet.2015.09.023",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:14:48.246208+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115872",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:17:09.529928+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ygeno.2025.111018",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:21:26.353356+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.017",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 2,
+        "consistency": 2,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:23:13.923095+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.drudis.2025.104366",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:24:27.464346+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169236",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 5,
+        "consistency": 3,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:26:07.639992+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169184",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 4,
+        "consistency": 1,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:27:38.086353+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.drudis.2025.104366",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 1,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:29:47.973779+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.chembiol.2024.07.018",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 4,
+        "consistency": 2,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:32:34.748066+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115872",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 4,
+        "consistency": 1,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:33:27.501678+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169236",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 3,
+        "consistency": 2,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:36:16.826805+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115863",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 3,
+        "consistency": 2,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:38:30.162655+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.biocel.2023.106508",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 1,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:39:47.656402+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jprot.2025.105457",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 5,
+        "consistency": 2,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:43:48.047323+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115798",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:45:20.510907+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jprot.2025.105457",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 5,
+        "consistency": 3,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:46:59.670600+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.022",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 1,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:47:50.980927+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.biocel.2023.106508",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 4,
+        "consistency": 2,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:50:38.003653+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169236",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:51:27.162901+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115863",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:52:47.420248+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.drudis.2025.104366",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:54:01.858683+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169184",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 1,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:54:18.323638+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ygeno.2025.111018",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 1,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T08:54:43.802373+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115798",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 5,
+        "consistency": 2,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:03:04.647271+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.cyto.2025.156904",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 5,
+        "consistency": 3,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:04:49.029409+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115798",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 2,
+        "coherence": 3,
+        "consistency": 2,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:05:45.508718+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.023",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:08:14.428067+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.023",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 3,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:09:10.931762+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jprot.2025.105457",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 1,
+        "fluency": 2
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:09:41.514816+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169184",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:11:57.226575+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.023",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:12:29.449487+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.chembiol.2024.07.018",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 5,
+        "consistency": 3,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:15:10.256680+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.022",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:15:42.433540+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.017",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 4,
+        "consistency": 5,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:17:57.824169+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.003",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 2,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:18:59.174091+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.023",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:20:39.855731+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ccell.2023.11.008",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:24:26.698987+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149551",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 1,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:25:19.501064+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.febslet.2015.09.023",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 2
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:26:37.195466+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149551",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:28:12.618496+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.007",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 4,
+        "consistency": 3,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:30:40.969499+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.biocel.2023.106508",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 5,
+        "consistency": 3,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:32:09.735379+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115872",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 4,
+        "consistency": 3,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:33:08.541977+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ygeno.2025.111018",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 1,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:34:42.270605+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.017",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:35:44.941019+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.003",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 4,
+        "consistency": 4,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:37:46.027745+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ccell.2023.11.008",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:38:04.546779+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.003",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:38:15.284088+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115798",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 5,
+        "consistency": 4,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:38:51.267526+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.cyto.2025.156904",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:40:13.778412+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jprot.2025.105457",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 2,
+        "consistency": 1,
+        "fluency": 2
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:40:52.809302+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.cyto.2025.156904",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:41:05.610659+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169184",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 3,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:42:04.265092+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115872",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 2,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:42:42.016215+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.017",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 2,
+        "consistency": 1,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:43:11.079466+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149646",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 2,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:44:00.304205+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149646",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 2,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:45:12.415229+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.chembiol.2024.07.018",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:45:27.302059+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.febslet.2015.09.023",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 3,
+        "consistency": 3,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:46:33.302955+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.febslet.2015.09.023",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 2,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:46:55.181791+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jmb.2025.169236",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:47:09.556687+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.drudis.2025.104366",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 1,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:47:26.765749+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115863",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 5,
+        "consistency": 3,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:48:34.365314+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149551",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:49:22.204661+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.003",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 5,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:50:43.698781+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.biocel.2023.106508",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 1,
+        "fluency": 2
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:51:22.163865+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149551",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 4,
+        "consistency": 5,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:51:54.962769+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.celrep.2025.115863",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:52:10.731030+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.022",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 4,
+        "consistency": 4,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:53:11.147348+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149646",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:53:54.752526+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ccell.2023.11.008",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 3,
+        "consistency": 3,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:55:21.578511+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.cyto.2025.156904",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:55:58.521406+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.007",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 4,
+        "coherence": 5,
+        "consistency": 5,
+        "fluency": 5
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:56:53.343755+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.gene.2025.149646",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 4,
+        "consistency": 2,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:57:19.816362+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.04.022",
+      "model": "ollama_mistral-small3.2:24b",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 4,
+        "consistency": 3,
+        "fluency": 4
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:58:09.344136+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.007",
+      "model": "huggingface_csebuetnlp/mT5_multilingual_XLSum",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 3,
+        "consistency": 2,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:58:34.959737+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.jbiotec.2025.05.007",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:59:19.800176+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.chembiol.2024.07.018",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T09:59:59.366564+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ygeno.2025.111018",
+      "model": "mistral_mistral-small-2506",
+      "ratings": {
+        "relevance": 3,
+        "coherence": 3,
+        "consistency": 3,
+        "fluency": 3
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T10:01:21.141986+00:00"
+    },
+    {
+      "paper_id": "https://doi.org/10.1016/j.ccell.2023.11.008",
+      "model": "huggingface_google/bigbird-pegasus-large-pubmed",
+      "ratings": {
+        "relevance": 1,
+        "coherence": 1,
+        "consistency": 1,
+        "fluency": 1
+      },
+      "comment": "",
+      "submitted_at": "2026-04-02T10:01:36.173851+00:00"
+    }
+  ]
+}
