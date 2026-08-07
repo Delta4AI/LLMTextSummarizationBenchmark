@@ -1,0 +1,57 @@
+This repository contains both software and data, which are licensed separately.
+
+================================================================================
+SOFTWARE — MIT License (SPDX-License-Identifier: MIT)
+================================================================================
+
+Applies to all source code in this repository, including `src/`, `scripts/`,
+`pyproject.toml`, and any other file whose primary purpose is executable code.
+
+Copyright (c) 2026 Delta4 GmbH
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+================================================================================
+DATA — Creative Commons Attribution 4.0 International (SPDX-License-Identifier: CC-BY-4.0)
+================================================================================
+
+Applies to all data and derived results in this repository, including
+`Resources/`, `Output/`, and the gold-standard benchmarking dataset.
+
+Copyright (c) 2026 Delta4 GmbH
+
+This work is licensed under the Creative Commons Attribution 4.0 International
+License. You are free to share and adapt the material for any purpose, including
+commercially, provided you give appropriate credit, provide a link to the
+license, and indicate if changes were made.
+
+Full license text: https://creativecommons.org/licenses/by/4.0/legalcode
+Human-readable summary: https://creativecommons.org/licenses/by/4.0/
+
+Note on third-party content: the gold-standard dataset contains titles,
+abstracts, and author-written highlights sections from articles published by
+ScienceDirect (Elsevier) and Cell Press. Copyright in those excerpts remains
+with the original rights holders; the CC-BY 4.0 grant above covers this
+repository's compilation, annotations, and derived results only.
+
+================================================================================
+CITATION
+================================================================================
+
+Archived release: https://doi.org/10.5281/zenodo.21839981
