@@ -7,7 +7,7 @@ SOFTWARE — MIT License (SPDX-License-Identifier: MIT)
 Applies to all source code in this repository, including `src/`, `scripts/`,
 `pyproject.toml`, and any other file whose primary purpose is executable code.
 
-Copyright (c) 2026 Delta4 GmbH
+Copyright (c) 2026 Matthias Ley
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
