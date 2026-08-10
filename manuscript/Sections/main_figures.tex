@@ -1,58 +1,13 @@
-\section{Main Figures}
+\section{Main Figure Titles and Legends}
 
-\subsection{Figure 1}
-
-\begin{figure*}[H]
+%%% Figures are supplied as separate files per the iScience final file requirements.
+%%% The counters below keep \ref{fig:...} numbering aligned with the upload order.
 \refstepcounter{figure}\label{fig:workflow_graphic}
-\centering
-\includegraphics[width=0.9\textwidth]{Visualizations/workflow_graphic_9steps_polished.png}
-\end{figure*}
-
-\subsection{Figure 2}
-
-\begin{figure*}[H]
 \refstepcounter{figure}\label{fig:metric_correlation}
-\centering
-\includegraphics[width=0.85\textwidth]{Visualizations/metric_correlation.png}
-\end{figure*}
-
-\subsection{Figure 3}
-
-\begin{figure*}[H]
 \refstepcounter{figure}\label{fig:rank_heatmap}
-\centering
-\includegraphics[width=0.7\textwidth]{Visualizations/rank_heatmap.png}
-\end{figure*}
-
-\subsection{Figure 4}
-
-\begin{figure*}[H]
 \refstepcounter{figure}\label{fig:category_boxplots_and_gameshowell}
-\centering
-\includegraphics[width=0.85\textwidth]{Visualizations/category_boxplot.png}
-\vspace{8pt}
-\includegraphics[width=0.85\textwidth]{Visualizations/category_gameshowell.png}
-\end{figure*}
-
-\subsection{Figure 5}
-
-\begin{figure*}[H]
 \refstepcounter{figure}\label{fig:family_boxplots_and_gameshowell}
-\centering
-\includegraphics[width=0.85\textwidth]{Visualizations/family_boxplot.png}
-\vspace{8pt}
-\includegraphics[width=0.85\textwidth]{Visualizations/family_gameshowell.png}
-\end{figure*}
-
-\subsection{Figure 6}
-
-\begin{figure*}[H]
 \refstepcounter{figure}\label{fig:assessment_results}
-\centering
-\includegraphics[width=0.95\textwidth]{Visualizations/assessment_results.pdf}
-\end{figure*}
-
-\subsection{Figure Legends}
 
 \begin{itemize}
 	\item Figure 1: \textbf{Overview of the benchmarking workflow:} (1) Construction of a gold-standard dataset comprising 1,000 biomedical titles, abstracts, and author-provided highlight sections. (2) Suite of 62 diverse summarization models. (3) Uniform prompting of all models to generate summaries for each abstract. (4--5) Computation of summary quality metrics capturing lexical overlap, semantic similarity, and factual consistency. (6) Standardization of metric scores using z-score normalization to ensure comparability across evaluation dimensions. (7) Ranking of models based on overall performance scores. (8) Quality assessment of generated summaries across four quality dimensions (coherence, fluency, relevance, consistency), combining expert human evaluation on a subset of models with (9) \ac{LLM}-as-a-judge evaluation from three provider-independent judges run across all models.

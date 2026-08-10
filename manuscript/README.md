@@ -1,95 +1,86 @@
 # Manuscript
 
-LaTeX source for the publication:
+LaTeX source for the iScience submission (ISCIENCE-D-26-08490).
 
-> **A Systematic evaluation and benchmarking of text summarization methods for biomedical literature:
-> From word-frequency methods to language models**
+> Baumgärtel F, Bono E, Fillinger L, Galou L, Kęska-Izworska K, Walter S, Andorfer P,
+> Kratochwill K, Perco P, Ley M
 >
-> Baumgärtel F, Bono E, Fillinger L, Galou L, Kęska-Izworska K, Walter S, Andorfer P, Kratochwill K, Perco P, Ley M
-> bioRxiv 2026, [doi.org/10.64898/2026.01.09.697335](https://doi.org/10.64898/2026.01.09.697335)
+> Preprint: [doi.org/10.64898/2026.01.09.697335](https://doi.org/10.64898/2026.01.09.697335)
 
-## Manuscript versions
+## Documents
 
-| Entry point | Template | Usage |
-|-------------|----------|-------|
-| `publication-patterns.tex` | Patterns (Cell Press) | **Primary** — journal submission |
-| `publication-biorxiv.tex` | bioRxiv two-column preprint | Preprint server |
+| Entry point | Output | Purpose |
+|-------------|--------|---------|
+| `main.tex` | `main.pdf` | Main document — title through references |
+| `supplement.tex` | `supplement.pdf` | Supplemental information, uploaded separately |
 
-Both versions share the same `Sections/`, `Visualizations/`, `acronyms.tex`, and `refs.bib`.
+Both share `Sections/`, `acronyms.tex`, `refs.bib`, and `Visualizations/`.
+
+Per the iScience final file requirements, the main document carries **figure titles and
+legends only** — the figures themselves are uploaded as individual files, and the
+supplemental items live in `supplement.pdf`. `supplement.tex` deliberately omits the
+title, author list, affiliations, and page numbers; the journal adds a cover page.
 
 ## Prerequisites
 
 A TeX Live (or equivalent) installation with `pdflatex` and `bibtex`:
 
-- **Ubuntu / Debian:** `sudo apt install texlive-full`
 - **Fedora:** `sudo dnf install texlive-scheme-full`
+- **Ubuntu / Debian:** `sudo apt install texlive-full`
 - **macOS (Homebrew):** `brew install --cask mactex`
 - **Windows:** [MiKTeX](https://miktex.org/) or [TeX Live](https://tug.org/texlive/)
 
 ## Building
 
-### Patterns version (primary)
-
 ```bash
 cd manuscript
-latexmk -pdf publication-patterns.tex
+latexmk -pdf main.tex
+latexmk -pdf supplement.tex
 ```
 
-### bioRxiv version
+Each runs the full `pdflatex → bibtex → pdflatex → pdflatex` cycle automatically.
+
+A Word version of the main document, with resolved citations:
 
 ```bash
-cd manuscript
-latexmk -pdf publication-biorxiv.tex
+./build-docx.sh          # creates main.docx, requires Pandoc >= 3.0
 ```
 
-Both commands run the full `pdflatex → bibtex → pdflatex → pdflatex` cycle automatically.
+Clean intermediate files with `latexmk -C`.
 
-### Word (.docx) version
-
-A Word build with embedded figures, resolved citations, and a table of contents can be generated from the Patterns entry point:
-
-```bash
-cd manuscript
-./build-docx.sh
-```
-
-This creates `publication-patterns.docx`. Requires [Pandoc](https://pandoc.org/) ≥ 3.0.
-
-To clean up all intermediate files:
-```bash
-latexmk -C
-```
-
-## Project structure
+## Structure
 
 ```
 manuscript/
-├── publication-patterns.tex     # Entry point — Patterns / Cell Press
-├── publication-biorxiv.tex      # Entry point — bioRxiv preprint
-├── build-docx.sh               # Build Word (.docx) with figures
-├── 01_Article_MainText.tex      # Main text (used by biorxiv entry point)
-├── 02_Article_Supplementary.tex # Supplementary (used by biorxiv entry point)
+├── main.tex                     # Entry point — main document
+├── supplement.tex               # Entry point — supplemental information
+├── build-docx.sh                # Word build of the main document
 ├── acronyms.tex                 # Acronym definitions (shared)
 ├── refs.bib                     # BibTeX references (shared)
-├── bioRxiv.cls                  # bioRxiv document class
-├── bxv_abbrvnat.bst             # bioRxiv bibliography style
-├── bioRxiv_logo.png             # bioRxiv logo asset
-├── orcidlink.sty                # ORCID link support
-├── numbered.bst                 # Patterns bibliography style
-├── numcompress.sty              # Numeric citation compression
-├── Sections/                    # Content sections (shared)
+├── numbered.bst                 # Cell Press numbered bibliography style
+├── Sections/                    # Content, \input by main.tex in order
 │   ├── introduction.tex
-│   ├── materials_methods.tex
 │   ├── results.tex
 │   ├── discussion.tex
-│   └── conclusions.tex
-└── Visualizations/              # Figures (shared)
-    ├── category_boxplot.png
-    ├── category_gameshowell.png
-    ├── family_boxplot.png
-    ├── family_gameshowell.png
-    ├── metric_correlation.png
-    ├── rank_heatmap.png
-    ├── supplementary1.png
-    └── workflow_graphic.png
+│   ├── resource_availability.tex
+│   ├── limitations.tex
+│   ├── acknowledgements.tex
+│   ├── author_contributions.tex
+│   ├── declaration_of_interests.tex
+│   ├── declaration_AI.tex
+│   ├── main_figures.tex         # Figure titles and legends (no images)
+│   ├── main_tables.tex
+│   ├── materials_methods.tex    # STAR Methods (incl. key resources table)
+│   └── supplemental_information.tex   # Titles and legends only
+├── final-files/                 # Submission deliverables (see its own notes)
+└── Visualizations/              # Figure sources
 ```
+
+## Submission deliverables
+
+`final-files/` holds the items uploaded alongside the manuscript:
+
+- `Key_Resources_Table.docx` — mandatory STAR Methods table, uploaded separately
+- `Highlights.docx` — 3–4 bullets, 85 characters each
+- `Editorial_Checklist_Response.md` — point-by-point reply to the editor
+- `STAR_revision_steps.md` — record of what was changed, declined, and why

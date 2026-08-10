@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────────────────────
-#  Build a Word (.docx) version of the Patterns manuscript
+#  Build a Word (.docx) version of the iScience manuscript
 #  with all figures, tables, and resolved citations.
 #
 #  Usage:   ./build-docx.sh
@@ -10,8 +10,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-TEX_FILE="publication-patterns.tex"
-OUT_FILE="publication-patterns.docx"
+TEX_FILE="main.tex"
+OUT_FILE="main.docx"
 
 echo "Building ${OUT_FILE} from ${TEX_FILE} …"
 
