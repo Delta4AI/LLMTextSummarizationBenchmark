@@ -152,13 +152,7 @@ p_fluency     <- plot_dimension(ratings_long, summary_stats, "fluency")
 p_relevance   <- plot_dimension(ratings_long, summary_stats, "relevance")
 p_consistency <- plot_dimension(ratings_long, summary_stats, "consistency")
 
-combined <- (p_coherence | p_fluency) / (p_relevance | p_consistency) +
-  plot_annotation(
-    title = "Human Evaluation Ratings by Model",
-    theme = theme(
-      plot.title = element_text(face = "bold", size = 16, hjust = 0.5)
-    )
-  )
+combined <- (p_coherence | p_fluency) / (p_relevance | p_consistency)
 
 ggsave(
   filename = file.path(Outcome, "human_evaluation_violin.pdf"),
