@@ -24,7 +24,7 @@
 \renewenvironment{table*}{\begin{table}}{\end{table}}
 \pagestyle{empty}          % no page numbers
 
-\graphicspath{{./}}
+\graphicspath{{Visualizations/src/}}
 
 \begin{document}
 
@@ -33,14 +33,14 @@
 
 \begin{figure}[H]
     \centering
-    \includegraphics[height=0.75\textheight,keepaspectratio]{Visualizations/length_compliance.png}
+    \includegraphics[height=0.75\textheight,keepaspectratio]{length_compliance.pdf}
     \caption{\textbf{Summary length compliance per method:} Proportion of generated summaries that fell within the target length of 15--100 words, were too short, or were too long, shown for each of the 62 evaluated methods. Methods are ordered by decreasing share of within-bounds summaries, with the within-bounds percentage annotated at the right of each bar.}
     \label{fig:length_compliance}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.80\textwidth]{Visualizations/supplementary1.png}
+    \includegraphics[width=0.80\textwidth]{supplementary1.pdf}
     \caption{\textbf{Model performance across metrics:} Overview of the performance of all evaluated models across all metrics.}
     \label{fig:supplementary_overview}
 \end{figure}

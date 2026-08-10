@@ -11,15 +11,10 @@ LaTeX source for the iScience submission (ISCIENCE-D-26-08490).
 
 | Entry point | Output | Purpose |
 |-------------|--------|---------|
-| `main.tex` | `main.pdf` | Main document — title through references |
-| `supplement.tex` | `supplement.pdf` | Supplemental information, uploaded separately |
+| `main.tex` | `main.pdf` | Main document |
+| `supplement.tex` | `supplement.pdf` | Supplemental information |
 
 Both share `Sections/`, `acronyms.tex`, `refs.bib`, and `Visualizations/`.
-
-Per the iScience final file requirements, the main document carries **figure titles and
-legends only** — the figures themselves are uploaded as individual files, and the
-supplemental items live in `supplement.pdf`. `supplement.tex` deliberately omits the
-title, author list, affiliations, and page numbers; the journal adds a cover page.
 
 ## Prerequisites
 
@@ -39,12 +34,6 @@ latexmk -pdf supplement.tex
 ```
 
 Each runs the full `pdflatex → bibtex → pdflatex → pdflatex` cycle automatically.
-
-A Word version of the main document, with resolved citations:
-
-```bash
-./build-docx.sh          # creates main.docx, requires Pandoc >= 3.0
-```
 
 Clean intermediate files with `latexmk -C`.
 
@@ -75,12 +64,3 @@ manuscript/
 ├── final-files/                 # Submission deliverables (see its own notes)
 └── Visualizations/              # Figure sources
 ```
-
-## Submission deliverables
-
-`final-files/` holds the items uploaded alongside the manuscript:
-
-- `Key_Resources_Table.docx` — mandatory STAR Methods table, uploaded separately
-- `Highlights.docx` — 3–4 bullets, 85 characters each
-- `Editorial_Checklist_Response.md` — point-by-point reply to the editor
-- `STAR_revision_steps.md` — record of what was changed, declined, and why
