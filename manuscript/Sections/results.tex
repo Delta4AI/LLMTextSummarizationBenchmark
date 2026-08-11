@@ -4,7 +4,7 @@ Our benchmark results offer a comparative view of summarization performance acro
 
 Figure~\ref{fig:workflow_graphic} provides an overview of the complete benchmarking workflow of this study from dataset construction and model inference to metric computation, score aggregation, and statistical analysis.
 
-\subsection{Metric Correlations}
+\subsection{Metric correlations}
 
 Pairwise Spearman correlations were computed to analyze the relationships between the different evaluation metrics (Figure~\ref{fig:metric_correlation}). Strong positive correlations were observed among most lexical-based metrics (\ac{ROUGE}-1/2/L, \ac{METEOR}, and \ac{BLEU}), with the correlation between \ac{METEOR} and \ac{BLEU} marking an exception ($\rho = 0.23$). \ac{ROUGE} variants showed almost identical behavior ($\rho \geq 0.88$), while \ac{BLEU} and \ac{METEOR} demonstrated slightly weaker but still substantial alignment with \ac{ROUGE} measures ($\rho = 0.51 - 0.82$).
 
@@ -14,7 +14,7 @@ Concerning factual consistency metrics, AlignScore and the two MiniCheck variant
 
 Overall, these relationships demonstrate that the various metrics are broadly consistent while providing complementary perspectives. This supports the use of an aggregated ``Overall Performance Score'' as a balanced indicator of overall summarization performance.
 
-\subsection{Overall Model Performance}
+\subsection{Overall model performance}
 
 Based on overall performance ranks, referred to as ``Performance Rank" and derived from our multi-metric evaluation framework (see ``Overall Performance Score'' in STAR Methods), models from the Mistral family were top-ranked across the three evaluated metric dimensions, as depicted in Figure~\ref{fig:rank_heatmap}. 
 
@@ -26,7 +26,7 @@ Considering each metric dimension separately, several Mistral models ranked high
 
 Models could also decline to summarize by returning the INSUFFICIENT\_FINDINGS token. This was rare overall, occurring in 736 of 62,000 generated summaries (1.2\%) and exclusively among prompt-based models. Usage was concentrated in the two domain-specific biomedical models OpenBioLLM-Llama3-8B (20.0\%) and medllama2 (9.7\%), while all other models returned it in fewer than 6\% of cases.
 
-\subsection{Category Comparisons}
+\subsection{Category comparisons}
 
 To compare model performance across categories, we displayed the distribution of overall performance scores within each category, along with the best- and worst-performing individual models (Figure~\ref{fig:category_boxplots_and_gameshowell}a). Results of the Games-Howell post-hoc comparisons between individual groups are given in Figure~\ref{fig:category_boxplots_and_gameshowell}b.
 
@@ -34,7 +34,7 @@ All general-purpose \acp{LLM} achieved high overall scores, thus forming the top
 
 Domain-specific \acp{EDM}, domain-specific \acp{SLM}, traditional models, and general-purpose \acp{EDM} performed significantly worse as compared to general-purpose \acp{LM}. Domain-specific \acp{EDM} and domain-specific \acp{SLM} displayed the widest spread of performance (Figure~\ref{fig:category_boxplots_and_gameshowell}a).
 
-\subsection{Family Comparisons}
+\subsection{Family comparisons}
 
 To complement the category-level findings, we examined performance across model families, since models within the same family often share architectural features or training strategies that may cause consistent performance trends. Figure~\ref{fig:family_boxplots_and_gameshowell}a shows the distribution of overall performance scores across all model families. Similar to the category-level analysis, there were clear performance differences between architectural lineages. The Mistral family achieved the strongest overall results, with several members ranking among the top performers in the benchmark. Families dominated by modern \ac{LLM} or \ac{SLM} architectures, such as Granite, Claude, and Gemma, consistently outperformed more traditional extractive approaches and families built on encoder-decoder architectures such as \ac{LED}, \ac{BART}, \ac{T5} and \ac{PEGASUS}.
 
@@ -42,15 +42,15 @@ In particular, the \ac{GPT} and \ac{Llama} families showed lower performance sco
 
 Regarding the Games-Howell post-hoc matrix in the family comparison (Figure~\ref{fig:family_boxplots_and_gameshowell}b), a combination of significant and non-significant differences between families was observed, reflecting the greater heterogeneity within some lineages. While many high-performing families differed significantly from traditional and encoder-decoder dominated families, several comparisons among modern \acp{SLM} and \acp{LLM} dominated families did not reach statistical significance.
 
-\subsection{Data Leakage Assessment}
+\subsection{Data leakage assessment}
 
-\subsubsection{Cutoff Overlap Results}
+\subsubsection{Cutoff overlap results}
 
 Across the evaluated models, potential overlap ranged from minimal levels of 5\% for earlier models with training cutoffs prior to 2024, up to 40.2\% for more recent \acp{LLM} with reported cutoff dates in early 2025. Most models showed low overlap ($\leq 20\%$), indicating that the majority of benchmark articles were published after their respective training cutoff dates. A subset of eight models, including recent versions of Claude, Deepseek, and one \ac{GPT} model, exhibited moderate levels of potential overlap ($24 - 40.2\%$) and were further analyzed via an abstract completion probe in the next step.
 
 A complete overview of training cutoff dates and corresponding potential overlap values for all models is provided in Supplementary Table~\ref{tab:training_cutoff_overlap}.
 
-\subsubsection{Abstract Completion Probe}
+\subsubsection{Abstract completion probe}
 
 To assess whether high potential overlap translated into memorization effects, we conducted an abstract completion probe for the eight models showing moderate levels of potential overlap. For each model \ac{ROUGE}-L scores between generated completions and the original abstracts were compared for articles published before and after the respective training cutoff dates.
 
@@ -58,7 +58,7 @@ Average \ac{ROUGE}-L scores were nearly identical for pre-cutoff and post-cutoff
 
 If memorization effects had occurred, substantially higher similarity scores would be expected for abstracts from pre-cutoff articles. As this was not the case, we concluded that the models were not reproducing memorized content from their training data.
 
-\subsection{Expert Assessment Results}
+\subsection{Expert assessment results}
 
 The results of the expert assessment are summarized in Figure~\ref{fig:assessment_results} and Table~\ref{tab:human_eval}. Values are reported as mean $\pm$ \ac{SEM}. The two Mistral-based models (mistral-small3.2:24b and mistral-small-2506) consistently outperformed the two \acp{EDM} (bigbird-pegasus-large-pubmed and mT5\_multilingual\_XLSum) across all four evaluation dimensions.
 
@@ -68,7 +68,7 @@ Differences were even more pronounced for relevance and consistency. The Mistral
 
 Inter-rater agreement was strong on both measures. Gwet's AC2 indicated substantial absolute agreement across all dimensions, ranging from 0.713 (relevance) to 0.794 (fluency), with an overall value of AC2 = 0.725. Mean pairwise Spearman correlations were likewise strong across all dimensions, ranging from $\rho = 0.707$ (coherence) to $\rho = 0.801$ (consistency), with an overall mean of $\rho = 0.765$ (all $p < 0.001$). These results show that evaluators consistently agreed both on the absolute quality of the summaries and on the relative ranking between models.
 
-\subsection{LLM-as-a-Judge Evaluation}
+\subsection{LLM-as-a-judge evaluation}
 The LLM-as-a-judge panel agreed closely with expert assessments on every dimension (Table~\ref{tab:judge-expert}). To benchmark against human reliability, we computed a leave-one-out ceiling on the same target the judges were scored against: each expert's ratings were correlated against the mean of the remaining experts. The judge's mean agreement ($\rho=0.87$) exceeded this ceiling ($\rho=0.82$), leading to the assumption that it tracked the expert consensus at least as closely as a typical individual expert.
 
 

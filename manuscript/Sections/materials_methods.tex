@@ -1,14 +1,12 @@
-\section{STAR Methods}
-
-\subsection{Key resources table}
+\section{STAR★Methods}
 
 \subsection{Method details}
 
-\subsubsection{Study Design}
+\subsubsection{Study design}
 
 This study was designed as a systematic evaluation and comparative benchmark of \ac{ATS} methods for biomedical literature and is reported in accordance with the \ac{TRIPOD}-\ac{LLM} reporting guideline \cite{7c5a06320cd743b7b87b80447ac0f055}. Summarization quality was assessed quantitatively using a suite of lexical, semantic, and factual metrics, normalized and aggregated into an Overall Performance Score for ranking, and complemented by a blinded expert assessment of a subset of models. Differences across model categories and families were then compared statistically. The evaluation metrics and statistical tests were chosen during the analysis rather than pre-specified in a study protocol.
 
-\subsubsection{Gold-Standard Dataset}
+\subsubsection{Gold-standard dataset}
 
 We generated a gold-standard benchmarking dataset comprising 1,000 biomedical peer-reviewed articles from \textit{ScienceDirect} and \textit{Cell Press}, as these publishers provide standardized highlights sections - concise bullet points capturing an article's main findings \cite{ElsevierHighlights, CellPressHighlights}. The concatenated highlights served as reference summaries in our evaluation, while the corresponding titles and abstracts were used as input texts for the summarization task. While summarization is inherently subjective, author-generated highlights represent the most credible and standardized source, ensuring the captured content reflects the study's intended key messages.
 
@@ -16,13 +14,13 @@ Articles were collected systematically across a variety of journals from the two
 
 This setup provided standardized pairs of abstracts and reference summaries subsequently used in our systematic evaluation and benchmarking of \ac{ATS} methods.
 
-\subsubsection{Summarization Methods}
+\subsubsection{Summarization methods}
 
 We evaluated 62 models for text summarization, ranging from simple frequency-based algorithms to \acp{SLM} and \acp{LLM}. These models were classified into five categories, as listed in Table~\ref{tab:models}. We obtained the pre-trained \acp{EDM} through the Hugging Face library, selecting architectures widely used for abstractive summarization to ensure established neural approaches are covered in our benchmark. Additionally, we evaluated a range of \acp{SLM} and \acp{LLM}, defining \acp{SLM} as models with fewer than 10 billion parameters \cite{belcak2025smalllanguagemodelsfuture}. Both \acp{SLM} and \acp{LLM} with advanced reasoning capabilities were categorized as ``reasoning-oriented" to investigate how multi-step problem solving affects summarization performance. Similarly, models fine-tuned on scientific/biomedical data or specifically tailored for text summarization were classified as ``domain-specific" to assess the impact of domain adaptation. Overall, this selection covers various model sizes and release dates, ensuring a representative mix of both, widely adopted and recent, architectures.
 
 Exceptionally large models, such as LLaMA 3.1 405B, were excluded to keep the benchmark reproducible on single-GPU setups typical of biomedical research groups. Each of the 62 models was tasked with generating summaries for the 1,000 abstracts in the dataset, resulting in a total of 62,000 generated summaries for evaluation.
 
-\subsubsection{Prompt Design}
+\subsubsection{Prompt design}
 
 We used an identical prompt across all prompt-based models to ensure compatibility, asking for concise summaries focused on the main findings of each publication while excluding unnecessary background or methodological details. The prompt was developed iteratively on a small number of sample abstracts and then frozen. Each model received the publication title and abstract as an input and was asked to produce an output of 15--100 words. A post-hoc check confirmed that models adhered well to this length constraint, with the large majority of summaries falling within the target range across methods. A full per-method breakdown is provided in Supplementary Figure~\ref{fig:length_compliance}. If the abstract did not contain any substantive results or conclusions, the model was instructed to return the predefined token INSUFFICIENT\_FINDINGS. This gave models an explicit exit path for cases where an abstract contained no actual findings to summarize, preventing them from fabricating content simply to fill the response. The token was scored identically to any other generated summary: no metric treats it as a special case, so a model invoking this option is evaluated against the reference summary and source abstract like any other output, rather than being excluded from scoring or penalized separately.
 
@@ -46,15 +44,15 @@ If no substantial findings exist, respond: 'INSUFFICIENT_FINDINGS'
 \end{Verbatim}
 \end{nolinenumbers}
 
-\subsubsection{Evaluation Metrics}
+\subsubsection{Evaluation metrics}
 
 As there is no single metric that can fully reflect summary quality, especially in the biomedical field where both coverage of key information and factual correctness are critical, we employed both surface-level metrics based on lexical overlap, referred to as lexical-based metrics, and embedding-level metrics. The latter includes metrics based on semantic similarity, denoted as semantic-based metrics, as well as metrics that evaluate factual consistency.
 
-\paragraph{Surface-level Metrics}
+\paragraph{Surface-level metrics}
 
 Surface-level metrics compare the generated summaries with the reference summaries mainly at the word or phrase level. While they do not capture meaning beyond surface overlap, they remain common metrics in summarization research and provide a straightforward foundation for evaluation. We used three \ac{ROUGE} variants (ROUGE-1, ROUGE-2, ROUGE-L) \cite{lin-2004-rouge}, \ac{BLEU} \cite{papineni-etal-2002-bleu}, and \ac{METEOR} \cite{banerjee-lavie-2005-meteor}. ROUGE-1 and ROUGE-2 measure how many unigrams (single words) or bigrams (word pairs) from the reference appear in the generated output, while ROUGE-L identifies the longest sequence of words shared between the two. \ac{BLEU} calculates how many n-grams in the output also occur in the reference, emphasizing precision over recall and applying a brevity penalty to counteract the tendency toward overly short summaries. \ac{METEOR} extends n-gram matching by considering word stems and synonyms, making it more robust to wording variations. Together, these metrics offer a simple but transparent point of reference.
 
-\paragraph{Embedding-based Metrics}
+\paragraph{Embedding-based metrics}
 
 To capture similarity beyond surface-level word overlap, we included a set of embedding-based metrics built on pre-trained transformer models. These methods generate vector representations of text, allowing them to capture semantic similarity rather than just word overlap. We measured semantic similarity using BERT-score \cite{zhang2020bertscoreevaluatingtextgeneration}, which compares two texts by matching their contextual token embeddings and averaging the resulting cosine similarities. Because BERT-score needs a pre-trained encoder to produce these embeddings, we ran it with two well-established choices: \ac{RoBERTa} (\texttt{roberta-large}) \cite{liu2019robertarobustlyoptimizedbert} and \ac{DeBERTa} (\texttt{microsoft/deberta-xlarge-mnli}) \cite{he2021debertadecodingenhancedbertdisentangled}. This lets the metrics recognize when two summaries express the same content even if the wording differs.
 
@@ -62,7 +60,7 @@ We further included all-mpnet-base-v2 \cite{song2020mpnetmaskedpermutedpretraini
 
 Finally, to evaluate factual consistency, we included metrics designed to assess whether statements in a generated summary are supported by the source text. These included AlignScore (\texttt{AlignScore-large} checkpoint) \cite{zha2023alignscoreevaluatingfactualconsistency}, SummaC (\texttt{tals/albert-xlarge-vitaminc-mnli}) \cite{laban2021summacrevisitingnlibasedmodels}, and two variants of MiniCheck (\texttt{lytang/MiniCheck-Flan-T5-Large} and \texttt{Bespoke-MiniCheck-7B}) \cite{tang2024minicheckefficientfactcheckingllms}. In contrast to the other metrics, these approaches compare the generated output directly to the source text itself (i.e., the publication title and abstract) rather than the reference summary (i.e., the highlights section), as factual accuracy can only be assessed relative to the original input text. This addition ensures that our evaluation captures hallucinations and unsupported statements that might otherwise be overlooked.
 
-\subsubsection{Data Leakage Analysis}
+\subsubsection{Data leakage analysis}
 
 To assess whether benchmark articles were part of the models' pretraining data, we conducted a data leakage analysis by comparing their publication dates against reported model training cutoff dates. If an article was published before a model’s training cutoff date, it may have been included in the model’s internal knowledge, potentially giving the model access to information beyond the input provided (title and abstract).
 
@@ -72,7 +70,7 @@ To further investigate models with high potential overlap, we performed an abstr
 
 This two-stage analysis provides a practical estimation of whether benchmark articles have influenced model outputs through previous exposure during pretraining.
 
-\subsubsection{Expert Assessment}
+\subsubsection{Expert assessment}
 
 To assess whether automatic evaluation metrics align with human judgments, we conducted an expert evaluation of the generated summaries. Eight evaluators with professional backgrounds in biomedical research and drug discovery participated. A web-based questionnaire was developed and evaluators were asked to rate generated summaries using the four quality dimensions defined in the SummEval framework \cite{fabbri2021summevalreevaluatingsummarizationevaluation}, a widely adopted standard for summarization evaluation that has also been used in recent \ac{LLM}-based evaluation frameworks such as G-Eval \cite{liu2023gevalnlgevaluationusing}. The evaluated dimensions were: coherence (logical structure and organization of the summary), fluency (grammatical correctness and readability), relevance (coverage of important information), and consistency (factual alignment with the reference). Each dimension was rated on a five-point Likert scale ranging from 1 to 5.
 
@@ -84,10 +82,10 @@ In the second step, evaluators were shown the title and abstract of the original
 
 Inter-rater agreement was quantified using Gwet's AC2 coefficient \cite{bookgwet} with quadratic weights, chosen for its robustness to skewed score distributions and capturing absolute agreement, together with the mean pairwise Spearman's $\rho$, capturing agreement in relative ranking. Pairwise differences in ratings between models were tested using Mann-Whitney U tests with Bonferroni correction for multiple comparisons. 
 
-\subsubsection{LLM-as-a-Judge Evaluation}
+\subsubsection{LLM-as-a-judge evaluation}
 We complement the evaluation metrics with an LLM-as-a-judge approach \citep{zheng2023LLMAsAJudge} using three models from distinct providers (Anthropic's \texttt{claude-sonnet-4-6}, OpenAI's \texttt{gpt-5.4-2026-03-05} and Mistral's \texttt{mistral-medium-2604}) in a panel-of-evaluators design \citep{vergaReplacingJudgesJuries2024} to reduce intra-model bias relative to any single judge. We deliberately used mid-tier models while limiting reasoning efforts, rather than using each provider's flagship model, to prevent overthinking. Each judge emitted a brief rationale before scoring (explain-then-rate, which aids alignment with human ratings \citep{liuGEvalNLGEvaluation2023}), rating each of the four rubric dimensions on a 1 to 5 scale via forced structured outputs and receiving the same evidence as the human experts (title, abstract, reference highlights, and the summary). The panel score for each summary-dimension is the median across the three judges. This test was introduced as a bias-control and robustness measure rather than as a source of additional independent signal (see Limitations). We validated the judge panel against the 80 expert assessments using summary-level Spearman correlation and then applied it to all 62 models on the same 20 publications (one per journal), rather than the full 1,000-document benchmark. All correlations use \texttt{scipy.stats.spearmanr}.
 
-\subsubsection{Benchmarking Framework}
+\subsubsection{Benchmarking framework}
 
 The benchmark framework, including all downstream statistical tests and supplementary analyses, was implemented in Python 3.12. Gold standard data were retrieved from open-access articles published by \textit{ScienceDirect} and \textit{Cell Press} through manual extraction of titles, abstracts, and highlights sections, along with metadata including publication URLs, identifiers, section types, and article types where available. Extraction followed an identical procedure for both publishers, and each record was checked for completeness of the required fields. All data were stored in machine-readable JSON format.
 
@@ -99,7 +97,7 @@ All LLMs were configured with a temperature parameter of 0.2 to optimize reprodu
 
 \subsection{Quantification and statistical analysis}
 
-\subsubsection{Overall Performance Score}
+\subsubsection{Overall performance score}
 
 To comprehensively assess the performance of each model on the summarization task, we employed a multi-metric framework covering three dimensions: lexical (n=5), semantic (n=3), and factual (n=4). To prevent the impact of dimension imbalance, we computed an average score for each dimension as follows: 
 
@@ -180,6 +178,6 @@ Z_{\text{lex}} + Z_{\text{sem}} + Z_{\text{fact}}
 
 We finally ranked models by overall performance, resulting in the performance rank, with lower ranks indicating better performance. To examine which model performed best in each dimension (lexical, semantic, factual), we additionally computed per-dimension ranks, reported alongside the overall rank.
 
-\subsubsection{Statistical Analysis}
+\subsubsection{Statistical analysis}
 
 Differences in overall performance between model categories and families were assessed using Welch’s \ac{ANOVA}, followed by pairwise post-hoc comparisons with Games-Howell tests. This procedure is well suited for groups with unequal sample sizes and heterogeneous variances, conditions that apply to our benchmark due to the heterogeneity of models within each category and family. Adjusted $p$-values were used to determine the statistical significance of between-group differences.
