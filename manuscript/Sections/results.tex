@@ -6,6 +6,8 @@ Figure~\ref{fig:workflow_graphic} provides an overview of the complete benchmark
 
 \subsection{Metric correlations}
 
+Summary quality was quantified with twelve automatic metrics spanning three dimensions - lexical overlap, semantic similarity, and factual consistency (see ``Evaluation metrics'' in STAR Methods).
+
 Pairwise Spearman correlations were computed to analyze the relationships between the different evaluation metrics (Figure~\ref{fig:metric_correlation}). Strong positive correlations were observed among most lexical-based metrics (\ac{ROUGE}-1/2/L, \ac{METEOR}, and \ac{BLEU}), with the correlation between \ac{METEOR} and \ac{BLEU} marking an exception ($\rho = 0.23$). \ac{ROUGE} variants showed almost identical behavior ($\rho \geq 0.88$), while \ac{BLEU} and \ac{METEOR} demonstrated slightly weaker but still substantial alignment with \ac{ROUGE} measures ($\rho = 0.51 - 0.82$).
 
 Most semantic-based metrics (\ac{RoBERTa}, \ac{DeBERTa}, and all-mpnet-base-v2) showed high internal consistency ($\rho > 0.5$), reflecting their shared focus on semantic similarity. When compared with lexical-based metrics, correlations were moderate to strong in most cases, indicating that both categories capture related but not identical dimensions of summary quality. 
@@ -44,6 +46,8 @@ Regarding the Games-Howell post-hoc matrix in the family comparison (Figure~\ref
 
 \subsection{Data leakage assessment}
 
+To rule out that benchmark articles were present in the models' training data, we applied a two-step assessment: first quantifying each model's potential overlap, defined as the share of benchmark articles published on or before its training cutoff date, and then probing the models with high overlap for actual memorization (see ``Data leakage analysis'' in STAR Methods).
+
 \subsubsection{Cutoff overlap results}
 
 Across the evaluated models, potential overlap ranged from minimal levels of 5\% for earlier models with training cutoffs prior to 2024, up to 40.2\% for more recent \acp{LLM} with reported cutoff dates in early 2025. Most models showed low overlap ($\leq 20\%$), indicating that the majority of benchmark articles were published after their respective training cutoff dates. A subset of eight models, including recent versions of Claude, Deepseek, and one \ac{GPT} model, exhibited moderate levels of potential overlap ($24 - 40.2\%$) and were further analyzed via an abstract completion probe in the next step.
@@ -60,6 +64,8 @@ If memorization effects had occurred, substantially higher similarity scores wou
 
 \subsection{Expert assessment results}
 
+Eight blinded domain experts rated summaries from four models along coherence, fluency, relevance, and consistency on a 1–5 scale (see ``Expert assessment'' in STAR Methods).
+
 The results of the expert assessment are summarized in Figure~\ref{fig:assessment_results} and Table~\ref{tab:human_eval}. Values are reported as mean $\pm$ \ac{SEM}. The two Mistral-based models (mistral-small3.2:24b and mistral-small-2506) consistently outperformed the two \acp{EDM} (bigbird-pegasus-large-pubmed and mT5\_multilingual\_XLSum) across all four evaluation dimensions.
 
 For coherence and fluency, both Mistral models scored substantially higher than the \acp{EDM}. In coherence, they reached scores of 4.83 $\pm$ 0.03 and 4.82 $\pm$ 0.04, compared with 3.20 $\pm$ 0.10 for mT5 and 2.08 $\pm$ 0.08 for bigbird-pegasus. The same pattern was observed for fluency, where the Mistral models achieved scores of 4.86 $\pm$ 0.03 and 4.90 $\pm$ 0.03, clearly exceeding mT5 (3.67 $\pm$ 0.09) and bigbird-pegasus (2.23 $\pm$ 0.07). All pairwise comparisons between Mistral models and \acp{EDM} were statistically significant (all $p < 0.001$ after Bonferroni correction). The two \acp{EDM} also differed significantly from each other in both dimensions, while no significant differences were found between the two Mistral models.
@@ -69,6 +75,9 @@ Differences were even more pronounced for relevance and consistency. The Mistral
 Inter-rater agreement was strong on both measures. Gwet's AC2 indicated substantial absolute agreement across all dimensions, ranging from 0.713 (relevance) to 0.794 (fluency), with an overall value of AC2 = 0.725. Mean pairwise Spearman correlations were likewise strong across all dimensions, ranging from $\rho = 0.707$ (coherence) to $\rho = 0.801$ (consistency), with an overall mean of $\rho = 0.765$ (all $p < 0.001$). These results show that evaluators consistently agreed both on the absolute quality of the summaries and on the relative ranking between models.
 
 \subsection{LLM-as-a-judge evaluation}
+
+A panel of three provider-independent judge models scored the same four dimensions, with the median across judges taken as the panel score (see ``LLM-as-a-judge evaluation'' in STAR Methods).
+
 The LLM-as-a-judge panel agreed closely with expert assessments on every dimension (Table~\ref{tab:judge-expert}). To benchmark against human reliability, we computed a leave-one-out ceiling on the same target the judges were scored against: each expert's ratings were correlated against the mean of the remaining experts. The judge's mean agreement ($\rho=0.87$) exceeded this ceiling ($\rho=0.82$), leading to the assumption that it tracked the expert consensus at least as closely as a typical individual expert.
 
 
