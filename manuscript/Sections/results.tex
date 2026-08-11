@@ -2,6 +2,8 @@
 
 Our benchmark results offer a comparative view of summarization performance across all evaluated models. We first examined the correlations among the chosen evaluation metrics and, based on the findings, identified the best-performing model across lexical, semantic, and factual dimensions. Next, we compared model performance across categories and families to identify significant differences. We additionally performed a data leakage analysis to ensure that inclusion of benchmarking data in training data had no impact on the results. We then analyzed how well automatic metrics aligned with human judgment based on expert level result assessment, and finally assessed whether an \ac{LLM}-as-a-judge panel could reproduce these rankings.
 
+Figure~\ref{fig:workflow_graphic} provides an overview of the complete benchmarking workflow of this study from dataset construction and model inference to metric computation, score aggregation, and statistical analysis.
+
 \subsection{Metric Correlations}
 
 Pairwise Spearman correlations were computed to analyze the relationships between the different evaluation metrics (Figure~\ref{fig:metric_correlation}). Strong positive correlations were observed among most lexical-based metrics (\ac{ROUGE}-1/2/L, \ac{METEOR}, and \ac{BLEU}), with the correlation between \ac{METEOR} and \ac{BLEU} marking an exception ($\rho = 0.23$). \ac{ROUGE} variants showed almost identical behavior ($\rho \geq 0.88$), while \ac{BLEU} and \ac{METEOR} demonstrated slightly weaker but still substantial alignment with \ac{ROUGE} measures ($\rho = 0.51 - 0.82$).

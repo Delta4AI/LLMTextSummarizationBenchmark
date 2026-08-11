@@ -8,8 +8,6 @@
 
 This study was designed as a systematic evaluation and comparative benchmark of \ac{ATS} methods for biomedical literature and is reported in accordance with the \ac{TRIPOD}-\ac{LLM} reporting guideline \cite{7c5a06320cd743b7b87b80447ac0f055}. Summarization quality was assessed quantitatively using a suite of lexical, semantic, and factual metrics, normalized and aggregated into an Overall Performance Score for ranking, and complemented by a blinded expert assessment of a subset of models. Differences across model categories and families were then compared statistically. The evaluation metrics and statistical tests were chosen during the analysis rather than pre-specified in a study protocol.
 
-Figure~\ref{fig:workflow_graphic} provides an overview of the complete benchmarking workflow of this study from dataset construction and model inference to metric computation, score aggregation, and statistical analysis.
-
 \subsubsection{Gold-Standard Dataset}
 
 We generated a gold-standard benchmarking dataset comprising 1,000 biomedical peer-reviewed articles from \textit{ScienceDirect} and \textit{Cell Press}, as these publishers provide standardized highlights sections - concise bullet points capturing an article's main findings \cite{ElsevierHighlights, CellPressHighlights}. The concatenated highlights served as reference summaries in our evaluation, while the corresponding titles and abstracts were used as input texts for the summarization task. While summarization is inherently subjective, author-generated highlights represent the most credible and standardized source, ensuring the captured content reflects the study's intended key messages.
