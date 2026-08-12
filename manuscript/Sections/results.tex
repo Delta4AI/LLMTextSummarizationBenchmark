@@ -6,7 +6,7 @@ Figure~\ref{fig:workflow_graphic} provides an overview of the complete benchmark
 
 \subsection{Metric correlations}
 
-Summary quality was quantified with twelve automatic metrics spanning three dimensions - lexical overlap, semantic similarity, and factual consistency (see ``Evaluation metrics'' in STAR Methods).
+Summary quality was quantified with twelve automatic metrics spanning three dimensions: lexical overlap, semantic similarity, and factual consistency (see ``Evaluation metrics'' in STAR Methods).
 
 Pairwise Spearman correlations were computed to analyze the relationships between the different evaluation metrics (Figure~\ref{fig:metric_correlation}). Strong positive correlations were observed among most lexical-based metrics (\ac{ROUGE}-1/2/L, \ac{METEOR}, and \ac{BLEU}), with the correlation between \ac{METEOR} and \ac{BLEU} marking an exception ($\rho = 0.23$). \ac{ROUGE} variants showed almost identical behavior ($\rho \geq 0.88$), while \ac{BLEU} and \ac{METEOR} demonstrated slightly weaker but still substantial alignment with \ac{ROUGE} measures ($\rho = 0.51 - 0.82$).
 
@@ -26,7 +26,7 @@ Among the ten top-ranked models, six were general-purpose \acp{LLM} and four wer
 
 Considering each metric dimension separately, several Mistral models ranked high in the lexical dimension, with GPT-5-nano, a reasoning-oriented \ac{LLM} from the \ac{GPT} family, ranking third. In the semantic dimension, Mistral models achieved high ranks, but the highest positions were occupied by the Phi4:14b general-purpose \ac{LLM} and several Granite models, including granite4:tiny-h and granite3.3:2b. Finally, the highest ranks based on the factual dimension were covered by traditional models and some \acp{EDM}. Detailed performance indications for each model across all individual ranked metrics are provided in Supplementary Figure~\ref{fig:supplementary_overview}.
 
-Models could also decline to summarize by returning the INSUFFICIENT\_FINDINGS token. This was rare overall, occurring in 736 of 62,000 generated summaries (1.2\%) and exclusively among prompt-based models. Usage was concentrated in the two domain-specific biomedical models OpenBioLLM-Llama3-8B (20.0\%) and medllama2 (9.7\%), while all other models returned it in fewer than 6\% of cases.
+Models could also decline to summarize by returning the INSUFFICIENT\_FINDINGS token (see ``Prompt Design'' in STAR Methods). This was rare overall, occurring in 736 of 62,000 generated summaries (1.2\%) and exclusively among prompt-based models. Usage was concentrated in the two domain-specific biomedical models OpenBioLLM-Llama3-8B (20.0\%) and medllama2 (9.7\%), while all other models returned it in fewer than 6\% of cases.
 
 \subsection{Category comparisons}
 
@@ -83,7 +83,7 @@ The LLM-as-a-judge panel agreed closely with expert assessments on every dimensi
 
 The judge panel did not separate the four dimensions well. Its agreement with the matching expert dimension (diagonal $\rho=0.87$) was barely higher than its agreement with the other dimensions (off-diagonal $\rho=0.85$), a gap of only $0.02$. In effect the judge measured a single overall-quality signal rather than four independent constructs, so its per-dimension scores should not be over-interpreted.
 
-We questioned whether the LLM-as-a-judge panel was capable of ranking the 62 models in a comparable manner to the evaluation metrics (Table~\ref{tab:concordance}). The judge ranking agreed strongly with the lexical, semantic, and composite performance ranks ($\rho=0.75$-$0.83$). The factual metrics were an exception ($\rho=0.09$, n.s.), as they reward verbatim copying, so extractive systems (TextRank, frequency, T5, PEGASUS) ranked highly on factuality but performed poorly under the judge - a construct difference rather than a judge failure.
+We questioned whether the LLM-as-a-judge panel was capable of ranking the 62 models in a comparable manner to the evaluation metrics (Table~\ref{tab:concordance}). The judge ranking agreed strongly with the lexical, semantic, and composite performance ranks ($\rho=0.75$-$0.83$). The factual metrics were an exception ($\rho=0.09$, n.s.), as they reward verbatim copying, so extractive systems (TextRank, frequency, T5, PEGASUS) ranked highly on factuality but performed poorly under the judge, reflecting a construct difference rather than a judge failure.
 
 To analyze the tendency of judges to favor their own model family, we computed, for each judge, how far its score sat above or below the mean of the other two judges, and contrasted its own-family models with all others (Table~\ref{tab:selfpref}). Anthropic exhibited a clear self-preference effect ($+0.30$ on the 1-5 scale), whereas OpenAI and Mistral showed no detectable differential effect ($\leq 0.08$ in magnitude). The direction is consistent with self-preference reported for rubric-based judging \citep{panicksseryLLMEvaluatorsRecognize2024,pombalSelfPreferenceBiasRubricBased2026}. Taking the median across the three judges damped this bias in the final scores.
 
