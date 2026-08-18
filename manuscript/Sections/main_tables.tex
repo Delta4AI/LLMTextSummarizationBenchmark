@@ -2,7 +2,7 @@
 
 \begin{table*}[H]
 \centering
-\caption{\textbf{Overview of journals included in the gold-standard dataset:} Each journal contributed 50 articles, resulting in 500 articles from \textit{ScienceDirect} and 500 articles from \textit{Cell Press}.}\label{tab:goldstandard}
+\caption{\textbf{Overview of journals included in the gold-standard dataset.} Each journal contributed 50 articles, resulting in 500 articles from \textit{ScienceDirect} and 500 articles from \textit{Cell Press}.}\label{tab:goldstandard}
 \begin{tabularx}{\linewidth}{lX}
 \toprule
 \textbf{Publisher} & \textbf{Journals} \\
@@ -22,7 +22,7 @@ Cell Reports Medicine; Cell Stem Cell; Cell Systems \\
 
 \begin{table*}[H]
 \centering
-\caption{\textbf{Overview of summarization methods evaluated in this study:} Models organized by category.}\label{tab:models}
+\caption{\textbf{Overview of summarization methods evaluated in this study.} Models organized by category.}\label{tab:models}
 \begin{tabularx}{\linewidth}{lX}
 \toprule
 \textbf{Category} & \textbf{Methods/Models} \\
@@ -50,7 +50,7 @@ Domain-specific \acp{LLM} & chat\_Uni-SMART/SciLitLLM1.5-14B \\
 
 \begin{table*}[H]
 \centering
-\caption{\textbf{Abstract completion probe:} \ac{ROUGE}-L scores for completions of abstracts published before (pre-cutoff) and after (post-cutoff) the respective training cutoff dates. $\Delta$ denotes the difference between both groups. Statistical significance was assessed using a one-sided Mann-Whitney U test.}\label{tab:completion_probe}
+\caption{\textbf{Abstract completion probe.} \ac{ROUGE}-L scores for completions of abstracts published before (pre-cutoff) and after (post-cutoff) the respective training cutoff dates. $\Delta$ denotes the difference between both groups. Statistical significance was assessed using a one-sided Mann-Whitney U test.}\label{tab:completion_probe}
 \scriptsize
 \begin{tabularx}{\linewidth}{X l r r r r r r}
 \toprule
@@ -70,7 +70,7 @@ gpt-5-2025-08-07 (closed-source) & 2024-10 & 13.7 & 13.5 & +0.2 & [-0.2, +0.7] &
 
 \begin{table*}[H]
 \centering
-\caption{\textbf{Expert assessment results (mean $\pm$ SEM, $n$=160 per model):} Gwet's AC2 (quadratic weights) and mean pairwise Spearman's $\rho$ measure inter-rater agreement. Overall AC2 $= 0.725$, overall $\rho = 0.765$.}\label{tab:human_eval}
+\caption{\textbf{Expert assessment results across four quality dimensions.} Values are mean $\pm$ SEM ($n$=160 per model). Gwet's AC2 (quadratic weights) and mean pairwise Spearman's $\rho$ measure inter-rater agreement. Overall AC2 $= 0.725$, overall $\rho = 0.765$.}\label{tab:human_eval}
 \begin{tabular}{lcccc}
 \toprule
 Model & Coherence & Fluency & Relevance & Consistency \\
@@ -88,7 +88,7 @@ Spearman's $\rho$ (mean) & $0.707$ & $0.722$ & $0.799$ & $0.801$ \\
 
 \begin{table}[H]
 \centering
-\caption{\textbf{Judge-expert agreement against the human ceiling:} LLM-as-a-judge panel vs. expert assessments (Spearman's $\rho$, $n=80$ summaries). \emph{Judge $\rho$}: judge panel vs.\ experts, same dimension. \emph{Leave-one-out ceiling}: each expert vs.\ the mean of the others (fair, same-target human upper bound). \emph{Pairwise}: raw inter-rater agreement between two individual experts.}\label{tab:judge-expert}
+\caption{\textbf{Judge-expert agreement against the human ceiling.} LLM-as-a-judge panel vs. expert assessments (Spearman's $\rho$, $n=80$ summaries). \emph{Judge $\rho$}: judge panel vs.\ experts, same dimension. \emph{Leave-one-out ceiling}: each expert vs.\ the mean of the others (fair, same-target human upper bound). \emph{Pairwise}: raw inter-rater agreement between two individual experts.}\label{tab:judge-expert}
 \begin{tabular}{lccc}
 \toprule
 Dimension & Judge $\rho$ & Leave-one-out ceiling & Pairwise \\
@@ -105,7 +105,7 @@ Mean        & \textbf{0.87} & 0.82 & 0.76 \\
 
 \begin{table}[H]
 \centering
-\caption{\textbf{Rank concordance of judge and metric rankings:} System-level rank concordance between the LLM-as-a-judge ranks and each evaluation metric category across all $n=62$ models. Judge ranks derive from the 20-publication subset, metric ranks use the full benchmark. This measures agreement between two automatic methods, not human validation.}\label{tab:concordance}
+\caption{\textbf{Rank concordance of judge and metric rankings.} System-level rank concordance between the LLM-as-a-judge ranks and each evaluation metric category across all $n=62$ models. Judge ranks derive from the 20-publication subset, metric ranks use the full benchmark. This measures agreement between two automatic methods, not human validation.}\label{tab:concordance}
 \begin{tabular}{lccc}
 \toprule
 Metric family & $\rho$ & $\tau$ & $p$ \\
@@ -120,7 +120,7 @@ Factual     & 0.09 & 0.06 & $0.48$ (n.s.) \\
 
 \begin{table}[H]
 \centering
-\caption{\textbf{LLM-as-a-judge self-preference:} A judge's mean score for its own model family minus its score for other systems, each measured relative to the other two judges (1-5 scale). Positive values indicate inflation of the judge's own family.}\label{tab:selfpref}
+\caption{\textbf{LLM-as-a-judge self-preference.} A judge's mean score for its own model family minus its score for other systems, each measured relative to the other two judges (1-5 scale). Positive values indicate inflation of the judge's own family.}\label{tab:selfpref}
 \begin{tabular}{lc}
 \toprule
 Judge provider & Self-preference effect \\

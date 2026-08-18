@@ -1,12 +1,3 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%  Supplemental information — iScience
-%%%  Build:  latexmk -pdf supplement.tex
-%%%
-%%%  Per the iScience final file requirements this PDF carries no article
-%%%  title, author list, affiliations, or page numbers; a cover page is added
-%%%  by the journal. Titles and legends also appear in the main document.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 \documentclass[12pt,letterpaper]{article}
 \usepackage[a4paper, total={7in, 10in}]{geometry}
 \usepackage[T1]{fontenc}
@@ -19,6 +10,7 @@
 \usepackage{caption}
 \captionsetup[table]{justification=raggedright,singlelinecheck=false}
 \captionsetup[figure]{justification=raggedright,singlelinecheck=false}
+\captionsetup{labelsep=period}
 
 \setcounter{secnumdepth}{0}
 \renewenvironment{table*}{\begin{table}}{\end{table}}
@@ -34,21 +26,21 @@
 \begin{figure}[H]
     \centering
     \includegraphics[height=0.75\textheight,keepaspectratio]{length_compliance.pdf}
-    \caption{\textbf{Summary length compliance per method:} Proportion of generated summaries that fell within the target length of 15--100 words, were too short, or were too long, shown for each of the 62 evaluated methods. Methods are ordered by decreasing share of within-bounds summaries, with the within-bounds percentage annotated at the right of each bar.}
+    \caption{\textbf{Summary length compliance per method.} Proportion of generated summaries that fell within the target length of 15--100 words, were too short, or were too long, shown for each of the 62 evaluated methods. Methods are ordered by decreasing share of within-bounds summaries, with the within-bounds percentage annotated at the right of each bar.}
     \label{fig:length_compliance}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.80\textwidth]{supplementary1.pdf}
-    \caption{\textbf{Model performance across metrics:} Overview of the performance of all evaluated models across all metrics.}
+    \caption{\textbf{Model performance across metrics.} Overview of the performance of all evaluated models across all metrics.}
     \label{fig:supplementary_overview}
 \end{figure}
 
 \begin{table*}[!htbp]
 \centering
 \scriptsize
-\caption{\textbf{Training cutoff dates and potential overlap for all evaluated models:} 
+\caption{\textbf{Training cutoff dates and potential overlap for all evaluated models.} 
 The training cutoff indicates the latest point in time up to which a model may have been trained; the source of this information is given in a separate column (confirmed, community, estimated, or unknown). Potential overlap describes the percentage of benchmark articles published on or before the respective cutoff date and therefore represents the theoretical maximum share of articles that could have been present in the model's training data. Closed-source models are marked accordingly. Models are ordered by decreasing potential overlap.\label{tab:training_cutoff_overlap}}
 \begin{tabularx}{\linewidth}{X l l r}
 \toprule
